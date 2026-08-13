@@ -1,0 +1,40 @@
+<Page
+    x:Class="Anchor.Pages.SpotlightPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:svc="using:Anchor.Services">
+
+    <Grid Padding="32,24" MaxWidth="960">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Style="{StaticResource PageTitle}" Text="Tech Spotlight" />
+            <TextBlock Style="{StaticResource CardCaption}" Margin="0,-12,0,12"
+                       Text="Latest tech news via public RSS feeds — CNET, WindowsLatest, Windows Central, TechCrunch, The Verge, and the Windows Blog. Filter by source; newest first." />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,0,0,12">
+            <ComboBox x:Name="SourceFilter" SelectionChanged="Filter_Changed" MinWidth="200" />
+            <Button Content="Refresh" Click="Refresh_Click" />
+            <ProgressRing x:Name="Progress" IsActive="True" Width="24" Height="24" />
+        </StackPanel>
+
+        <ListView Grid.Row="2" x:Name="NewsList" SelectionMode="None" IsItemClickEnabled="True" ItemClick="Item_Click">
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="svc:NewsItem">
+                    <Border Style="{StaticResource CardBorder}" Margin="0,4">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{x:Bind Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock Style="{StaticResource CardCaption}" Text="{x:Bind Summary}" />
+                            <TextBlock Style="{StaticResource CardCaption}" FontWeight="SemiBold" Text="{x:Bind Source}" />
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+    </Grid>
+</Page>

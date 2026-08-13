@@ -1,0 +1,50 @@
+<Page
+    x:Class="Anchor.Pages.AccountPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ScrollViewer Padding="32,24">
+        <StackPanel MaxWidth="900">
+            <TextBlock x:Name="GreetingText" Style="{StaticResource PageTitle}" Text="Account" />
+
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel Spacing="8">
+                    <TextBlock Style="{StaticResource CardHeader}" Text="Your profile" />
+                    <TextBlock Style="{StaticResource CardCaption}"
+                               Text="Anchor uses your name for greetings and your email for optional update mails. This stays in a local file on this PC (%LOCALAPPDATA%\Anchor\profile.json) — nothing is uploaded." />
+                    <TextBox x:Name="NameBox" Header="Name" PlaceholderText="How should Anchor greet you?" />
+                    <TextBox x:Name="EmailBox" Header="Email" PlaceholderText="you@example.com" />
+                    <Button Content="Save profile" Click="Save_Click" Style="{StaticResource AccentButtonStyle}" />
+                    <TextBlock x:Name="SaveText" Style="{StaticResource CardCaption}" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel Spacing="8">
+                    <TextBlock Style="{StaticResource CardHeader}" Text="Sign in with a provider" />
+                    <TextBlock Style="{StaticResource CardCaption}"
+                               Text="Sign in to auto-fill your name and email. These buttons need developer API keys to work — this open-source build ships without keys (see docs/OAUTH_SETUP.md to add yours). The local profile above works without any sign-in." />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Google" Click="OAuth_Click" Tag="Google" />
+                        <Button Content="Apple" Click="OAuth_Click" Tag="Apple" />
+                        <Button Content="GitHub" Click="OAuth_Click" Tag="GitHub" />
+                        <Button Content="Facebook" Click="OAuth_Click" Tag="Facebook" />
+                    </StackPanel>
+                    <TextBlock x:Name="OAuthText" Style="{StaticResource CardCaption}" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel Spacing="8">
+                    <TextBlock Style="{StaticResource CardHeader}" Text="Email updates" />
+                    <TextBlock Style="{StaticResource CardCaption}"
+                               Text="Choose what Anchor may email you about. (Requires a configured mail backend — preferences are stored now, mails start once the project's mail service is live.)" />
+                    <ToggleSwitch x:Name="MailUpdates" Header="Windows update stability alerts" />
+                    <ToggleSwitch x:Name="MailHealth" Header="System health analysis feedback" />
+                    <ToggleSwitch x:Name="MailNews" Header="Tech news digest" />
+                    <ToggleSwitch x:Name="MailAnchor" Header="Exclusive Anchor updates" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

@@ -1,0 +1,42 @@
+<Page
+    x:Class="Anchor.Pages.BoostPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ScrollViewer Padding="32,24">
+        <StackPanel MaxWidth="900">
+            <TextBlock Style="{StaticResource PageTitle}" Text="Boost &amp; Health Check" />
+
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel Spacing="12">
+                    <TextBlock Style="{StaticResource CardHeader}" Text="What Boost does (and doesn't)" />
+                    <TextBlock Style="{StaticResource CardCaption}"
+                               Text="Boost trims the memory working set of background processes. Processes with an open window (anything on your taskbar) and critical system processes are always skipped. Trimming never kills a process — Windows simply reloads memory pages if the app needs them again." />
+                    <CheckBox x:Name="TempCheck" Content="Also clear temporary files (%TEMP% and Windows\Temp)" IsChecked="True" />
+                    <CheckBox x:Name="RecycleCheck" Content="Also empty the Recycle Bin" />
+                    <CheckBox x:Name="RestoreCheck" Content="Create a System Restore point first (recommended)" IsChecked="True" />
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button x:Name="RunButton" Style="{StaticResource AccentButtonStyle}" Content="Run Boost" Click="Run_Click" />
+                        <ProgressRing x:Name="Progress" IsActive="False" Width="24" Height="24" />
+                    </StackPanel>
+                    <TextBlock x:Name="ResultText" Style="{StaticResource CardCaption}" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel Spacing="8">
+                    <TextBlock Style="{StaticResource CardHeader}" Text="Skipped processes (transparency log)" />
+                    <TextBlock Style="{StaticResource CardCaption}"
+                               Text="After a boost, everything that was deliberately left alone is listed here so you can verify nothing important was touched." />
+                    <ItemsControl x:Name="SkippedList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" Style="{StaticResource CardCaption}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

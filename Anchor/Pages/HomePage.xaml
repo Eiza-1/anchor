@@ -1,0 +1,60 @@
+<Page
+    x:Class="Anchor.Pages.HomePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ScrollViewer Padding="32,24">
+        <StackPanel MaxWidth="900" HorizontalAlignment="Stretch">
+            <TextBlock x:Name="GreetingText" Style="{StaticResource PageTitle}" Text="Welcome to Anchor" />
+            <TextBlock Style="{StaticResource CardCaption}" Margin="0,-12,0,16"
+                       Text="Open-source Windows optimization. Every change is explained, reversible, and protected by a restore point." />
+
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel Spacing="12">
+                    <TextBlock Style="{StaticResource CardHeader}" Text="One-click Boost" />
+                    <TextBlock Style="{StaticResource CardCaption}"
+                               Text="Creates a System Restore point, trims RAM used by background apps (never your open windows or taskbar apps), and clears temporary files." />
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button x:Name="BoostButton" Style="{StaticResource AccentButtonStyle}" Click="Boost_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE945;" />
+                                <TextBlock Text="Boost now" />
+                            </StackPanel>
+                        </Button>
+                        <ProgressRing x:Name="BoostProgress" IsActive="False" Width="24" Height="24" />
+                    </StackPanel>
+                    <TextBlock x:Name="BoostResultText" Style="{StaticResource CardCaption}" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel Spacing="12">
+                    <TextBlock Style="{StaticResource CardHeader}" Text="Health Check" />
+                    <TextBlock Style="{StaticResource CardCaption}"
+                               Text="Checks Windows Update status, drive health warnings, disk space, and current CPU/memory pressure — read-only, changes nothing." />
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button x:Name="HealthButton" Click="Health_Click" Content="Run Health Check" />
+                        <ProgressRing x:Name="HealthProgress" IsActive="False" Width="24" Height="24" />
+                    </StackPanel>
+                    <ItemsControl x:Name="HealthResults">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,2" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel Spacing="8">
+                    <TextBlock Style="{StaticResource CardHeader}" Text="Safety &amp; transparency" />
+                    <TextBlock Style="{StaticResource CardCaption}"
+                               Text="• A System Restore point is created before any change, so everything can be rolled back.&#x0a;• Anchor is open source — the code behind every button is publicly viewable. No black boxes.&#x0a;• Nothing here phones home: news comes from public RSS feeds and your profile stays on this PC." />
+                    <Button Content="Create restore point manually" Click="RestorePoint_Click" />
+                    <TextBlock x:Name="RestoreResultText" Style="{StaticResource CardCaption}" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

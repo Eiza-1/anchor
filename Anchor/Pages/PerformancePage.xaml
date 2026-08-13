@@ -1,0 +1,56 @@
+<Page
+    x:Class="Anchor.Pages.PerformancePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ScrollViewer Padding="32,24">
+        <StackPanel MaxWidth="900">
+            <TextBlock Style="{StaticResource PageTitle}" Text="Performance" />
+            <TextBlock Style="{StaticResource CardCaption}" Margin="0,-12,0,16"
+                       Text="Live look at CPU, memory, and disk with plain-language bottleneck suggestions." />
+
+            <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,12">
+                <Button Content="Sample now" Click="Sample_Click" Style="{StaticResource AccentButtonStyle}" />
+                <ProgressRing x:Name="Progress" IsActive="False" Width="24" Height="24" />
+            </StackPanel>
+
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel Spacing="8">
+                    <TextBlock Style="{StaticResource CardHeader}" Text="Current load" />
+                    <TextBlock x:Name="CpuText" />
+                    <ProgressBar x:Name="CpuBar" Maximum="100" />
+                    <TextBlock x:Name="MemText" />
+                    <ProgressBar x:Name="MemBar" Maximum="100" />
+                    <TextBlock x:Name="DiskText" />
+                    <ProgressBar x:Name="DiskBar" Maximum="100" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel Spacing="8">
+                    <TextBlock Style="{StaticResource CardHeader}" Text="Suggestions" />
+                    <ItemsControl x:Name="TipsList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,2" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel Spacing="8">
+                    <TextBlock Style="{StaticResource CardHeader}" Text="Top memory users" />
+                    <ItemsControl x:Name="TopProcs">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" Margin="0,2" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>
