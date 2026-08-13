@@ -6,7 +6,9 @@
 #define Arch "x64"
 #endif
 #define MyAppName "Anchor"
-#define MyAppVersion "0.1.0"
+; Version is read automatically from the built exe (which gets it from
+; <Version> in Anchor.csproj) - bump it there and only there.
+#define MyAppVersion RemoveFileExt(GetVersionNumbersString(AddBackslash(SourcePath) + "dist\" + Arch + "\Anchor.exe"))
 #define MyAppPublisher "Anchor (open source)"
 #define MyAppURL "https://github.com/Eiza-1/anchor"
 

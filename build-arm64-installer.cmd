@@ -17,4 +17,4 @@ where ISCC.exe >nul 2>nul || set "ISCC=C:\Program Files (x86)\Inno Setup 6\ISCC.
 if errorlevel 1 exit /b 1
 
 echo.
-echo Done: dist\installers\AnchorSetup-0.1.0-arm64.exe
+echo Done: see dist\installers for the AnchorSetup arm64 exe

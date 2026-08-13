@@ -44,7 +44,8 @@ public static class AppUpdateService
             string releaseUrl = root.GetProperty("html_url").GetString() ?? "";
             string notes = root.TryGetProperty("body", out var b) ? b.GetString() ?? "" : "";
 
-            if (!Version.TryParse(tag.TrimStart('v', 'V'), out var latest)) return null;
+            // Tolerant of tag styles: v0.1.0, V0.1.0, v.0.1.0, 0.1.0
+            if (!Version.TryParse(tag.TrimStart('v', 'V').TrimStart('.'), out var latest)) return null;
             var current = Version.Parse(CurrentVersion);
             if (latest <= current)
                 return new AppUpdateInfo(false, latest.ToString(), releaseUrl, null, "");

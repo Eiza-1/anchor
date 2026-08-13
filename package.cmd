@@ -36,6 +36,5 @@ echo.
 echo Done. Upload these to your website / GitHub Releases:
 echo   dist\Anchor-portable-x64.zip
 echo   dist\Anchor-portable-arm64.zip
-echo   dist\installers\AnchorSetup-0.1.0-x64.exe
-echo   dist\installers\AnchorSetup-0.1.0-arm64.exe
+echo   plus the AnchorSetup-*.exe files in dist\installers
 pause

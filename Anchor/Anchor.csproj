@@ -14,7 +14,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyTitle>Anchor</AssemblyTitle>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <ApplicationIcon Condition="Exists('Assets\anchor.ico')">Assets\anchor.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
