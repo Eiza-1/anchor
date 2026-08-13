@@ -27,11 +27,17 @@ public static class BoostService
         "conhost", "dllhost", "WmiPrvSE", "Anchor"
     };
 
-    /// <summary>Trims the working set of every safe background process (no visible window).</summary>
+    /// <summary>Trims the working set of every safe background process (no visible window).
+    /// Accuracy notes: per-process readings come live from the OS (GetProcessMemoryInfo),
+    /// not .NET's cached snapshot, and the headline "RAM freed" figure is measured
+    /// system-wide (available memory before vs. after) — the same source Task Manager
+    /// uses — so it never double-counts shared DLL pages across processes.</summary>
     public static BoostResult ClearRamCache()
     {
-        int trimmed = 0; long freed = 0; var skipped = new List<string>();
+        int trimmed = 0; var skipped = new List<string>();
         int myPid = Environment.ProcessId;
+
+        var (_, availBefore, _) = NativeMemory.SystemMemory();
 
         foreach (var p in Process.GetProcesses())
         {
@@ -41,17 +47,19 @@ public static class BoostService
                 if (Critical.Contains(p.ProcessName)) { skipped.Add(p.ProcessName + " (system)"); continue; }
                 if (p.MainWindowHandle != IntPtr.Zero) { skipped.Add(p.ProcessName + " (open window)"); continue; }
 
-                long before = p.WorkingSet64;
-                if (EmptyWorkingSet(p.Handle))
-                {
-                    p.Refresh();
-                    freed += Math.Max(0, before - p.WorkingSet64);
+                long before = NativeMemory.WorkingSet(p.Handle);
+                if (before > 0 && EmptyWorkingSet(p.Handle))
                     trimmed++;
-                }
             }
             catch { /* access denied on some processes is normal — skip silently */ }
             finally { p.Dispose(); }
         }
+
+        // Let the memory manager settle before measuring, so the number is honest.
+        Thread.Sleep(600);
+        var (_, availAfter, _) = NativeMemory.SystemMemory();
+        long freed = Math.Max(0, availAfter - availBefore);
+
         return new BoostResult(trimmed, freed, 0, 0, skipped);
     }
 

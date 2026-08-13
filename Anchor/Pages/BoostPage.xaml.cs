@@ -26,7 +26,7 @@ public sealed partial class BoostPage : Page
             includeRecycleBin: RecycleCheck.IsChecked == true);
 
         ResultText.Text =
-            $"Boost complete. {r.ProcessesTrimmed} background processes trimmed, ≈{BoostService.FormatBytes(r.RamFreedBytes)} RAM freed, " +
+            $"Boost complete. {r.ProcessesTrimmed} background processes trimmed, {BoostService.FormatBytes(r.RamFreedBytes)} RAM freed (measured system-wide), " +
             $"{r.TempFilesDeleted} temp files removed ({BoostService.FormatBytes(r.TempBytesDeleted)}).";
         SkippedList.ItemsSource = r.Skipped.Distinct().OrderBy(s => s).ToList();
 

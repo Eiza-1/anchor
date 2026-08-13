@@ -23,7 +23,7 @@ public sealed partial class HomePage : Page
 
         var r = await BoostService.RunFullBoostAsync(includeTemp: true, includeRecycleBin: false);
         BoostResultText.Text =
-            $"Done. Trimmed {r.ProcessesTrimmed} background processes (≈{BoostService.FormatBytes(r.RamFreedBytes)} RAM freed) " +
+            $"Done. Trimmed {r.ProcessesTrimmed} background processes ({BoostService.FormatBytes(r.RamFreedBytes)} RAM freed, measured system-wide) " +
             $"and deleted {r.TempFilesDeleted} temp files ({BoostService.FormatBytes(r.TempBytesDeleted)}). " +
             "Open apps and taskbar apps were not touched.";
 
