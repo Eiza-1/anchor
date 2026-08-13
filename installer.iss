@@ -8,7 +8,7 @@
 #define MyAppName "Anchor"
 #define MyAppVersion "0.1.0"
 #define MyAppPublisher "Anchor (open source)"
-#define MyAppURL "https://github.com/YOUR_USERNAME/anchor"
+#define MyAppURL "https://github.com/Eiza-1/anchor"
 
 [Setup]
 AppId={{7A3C5E10-9B2D-4F60-A1E1-3C9D8F5B2A71}

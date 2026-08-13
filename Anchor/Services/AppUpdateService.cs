@@ -13,7 +13,7 @@ public record AppUpdateInfo(bool Available, string LatestVersion, string Release
 public static class AppUpdateService
 {
     // TODO: set these once the repo is created.
-    public const string RepoOwner = "YOUR_GITHUB_USERNAME";
+    public const string RepoOwner = "Eiza-1";
     public const string RepoName = "anchor";
 
     public static bool IsConfigured => !RepoOwner.StartsWith("YOUR_");
