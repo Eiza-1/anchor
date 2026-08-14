@@ -5,7 +5,7 @@
     xmlns:svc="using:Anchor.Services"
     xmlns:local="using:Anchor.Pages">
 
-    <Grid Padding="32,24" MaxWidth="1000">
+    <Grid Padding="32,24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -29,7 +29,8 @@
         </StackPanel>
 
         <!-- Articles: thumbnail left, text right -->
-        <ListView Grid.Row="2" x:Name="ArticlesList" SelectionMode="None" IsItemClickEnabled="True" ItemClick="Item_Click">
+        <ListView Grid.Row="2" x:Name="ArticlesList" MaxWidth="1000" HorizontalAlignment="Left"
+                  SelectionMode="None" IsItemClickEnabled="True" ItemClick="Item_Click">
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="svc:NewsItem">
                     <Border Style="{StaticResource CardBorder}" Margin="0,4">
@@ -39,9 +40,9 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <Border Grid.Column="0" Width="132" Height="84" CornerRadius="6"
-                                    VerticalAlignment="Top" Visibility="{x:Bind HasImage}"
+                                    VerticalAlignment="Top" Visibility="{x:Bind HasImage, Mode=OneWay}"
                                     Background="{ThemeResource ControlFillColorSecondaryBrush}">
-                                <Image Source="{x:Bind local:SpotlightPage.ToImage(ImageUrl)}"
+                                <Image Source="{x:Bind local:SpotlightPage.ToImage(ImageUrl), Mode=OneWay}"
                                        Stretch="UniformToFill" />
                             </Border>
                             <StackPanel Grid.Column="1" Spacing="4">
@@ -60,10 +61,10 @@
                   ItemClick="Item_Click" Visibility="Collapsed">
             <GridView.ItemTemplate>
                 <DataTemplate x:DataType="svc:NewsItem">
-                    <Border Style="{StaticResource CardBorder}" Width="300" Margin="0,4,8,4" Padding="0">
+                    <Border Style="{StaticResource CardBorder}" Width="320" Margin="0,4,8,4" Padding="0">
                         <StackPanel>
                             <Grid>
-                                <Border Height="168" CornerRadius="8,8,0,0"
+                                <Border Height="180" CornerRadius="8,8,0,0"
                                         Background="{ThemeResource ControlFillColorSecondaryBrush}">
                                     <Image Source="{x:Bind local:SpotlightPage.ToImage(ImageUrl)}"
                                            Stretch="UniformToFill" />
