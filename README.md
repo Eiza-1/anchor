@@ -1,62 +1,65 @@
 # ⚓ Anchor
 
-Open-source Windows optimization, built to be trusted. Anchor matches the look of the Windows 11 Settings app (WinUI 3), explains every change it makes, and creates a System Restore point before touching anything — no black boxes.
+Open-source Windows optimization, built to be trusted. Anchor explains every change it makes, creates a System Restore point before touching anything, and keeps all its system code in one auditable place — no black boxes.
 
 ## Features
 
 **Safety & transparency**
-- System Restore point before any change (Boost, bloatware removal, privacy tweaks) — one click to roll back
-- 100% open source; every system action goes through `Services/PowerShellRunner.cs` or documented Windows APIs, so the code behind every button is auditable
-- Local-first: your profile stays in `%LOCALAPPDATA%\Anchor\profile.json`; news comes from public RSS feeds; nothing phones home
+- System Restore point before any change — one click to roll back
+- Every system command goes through `app/main/services/` — audit that folder and you've audited the app
+- Local-first: your profile stays on your PC, news comes from public RSS feeds, nothing phones home
 
 **Boost & Health Check**
-- One-click Boost: trims RAM working sets of background processes — never your open windows, taskbar apps, or critical system processes — and clears temp files
-- Transparency log shows exactly which processes were skipped and why
-- Read-only Health Check: Windows Update status, drive health, disk space, CPU/memory/disk pressure
+- One-click Boost: trims RAM from background processes (never your open windows or taskbar apps) and clears temp files, with a transparency log of everything it skipped
+- RAM freed is measured system-wide, the same way Task Manager measures it — not estimated
+- Health Check runs every test in parallel: Windows build, pending updates, drive health, disk space, hardware faults (Device Manager problem codes), and live CPU/memory/disk pressure
 
-**Windows Update**
-- Checks whether you're on a recent stable build (cumulative / security / feature updates) via the built-in Windows Update Agent API
-- "Recent" news tab with article previews from WindowsLatest, the Windows Blog, and Windows Central
-
-**Tech Spotlight**
-- Latest tech news panel from CNET, WindowsLatest, Windows Central, TechCrunch, and The Verge, filterable by source, newest first
+**Game & App Boost**
+- Reversible performance tweaks, each naming the exact registry value it changes: Game Mode, background Game DVR, fullscreen optimizations, windowed-game optimizations, variable refresh rate, GPU scheduling, background apps, animations
+- Power plan switching, hidden Ultimate Performance plan, PCIe link power management
+- GPU list with driver-age warnings, shader cache cleaning, per-game GPU preference
 
 **System management**
-- Startup app management (same mechanism as Task Manager, fully reversible)
-- Bloatware removal in batches, with a curated safe-list and blocked essentials
-- Privacy & telemetry toggles — each one shows the exact registry value it changes
-- Drive health early warnings (S.M.A.R.T. + storage reliability counters): wear, temperature, failure prediction
-- Performance monitoring with plain-language bottleneck suggestions
-- Direct access to built-in tools: Disk Cleanup, Storage Sense, Task Scheduler, System Restore, Resource Monitor, Optimize Drives
-- Autounattend.xml generator for replicating a tuned setup across multiple PCs
+- Startup app management, batch bloatware removal, privacy & telemetry toggles
+- Drive health early warnings via S.M.A.R.T. — wear, temperature, failure prediction
+- Performance monitoring with plain-language bottleneck advice
+- Built-in Windows tool shortcuts and an Autounattend.xml generator
 
-**Personalization**
-- Greeting by name and time of day
-- Local profile (name/email) with mail-preference toggles: Windows update stability, system health feedback, tech news, Anchor updates
-- OAuth sign-in buttons (Google, Apple, GitHub, Facebook) wired but shipped without keys — see `docs/OAUTH_SETUP.md`
+**Accounts & updates**
+- Sign in with Google, GitHub, Microsoft, Discord, or a one-time email code (Supabase Auth, always in your default browser — Anchor never sees your password)
+- In-app updates with a "What's new" changelog; no manual downloading
+
+## Repository layout
+
+```
+app/            The application (Electron + React + shadcn/ui)
+├── main/       Main process — ALL system access lives here
+│   └── services/   ps, boost, system, perftweaks, news, profile, auth, updater
+├── src/        React UI (sandboxed renderer, no Node access)
+└── build/      Icon and logo used when packaging
+docs/           Setup guides (Supabase auth) and email templates
+landing/        Download page
+```
 
 ## Building
 
-1. Install **Visual Studio 2022** (free Community edition) with the **.NET Desktop Development** workload and **Windows App SDK** components (check ".NET 8" and "Windows 11 SDK").
-2. Open `Anchor.sln`, set configuration to `Debug | x64`, press **F5**.
-3. Anchor asks for administrator rights on launch (required for restore points, HKLM tweaks, and S.M.A.R.T. data).
+Requires **Node.js 20+**. No Visual Studio, no .NET, no WebView2.
 
-## Project layout
-
-```
-Anchor/
-├── App.xaml(.cs)          App entry + shared Windows-11-style styles
-├── MainWindow.xaml(.cs)   NavigationView shell
-├── Pages/                 One page per feature area
-└── Services/              All system logic — audit starts here
+```powershell
+cd app
+npm install
+npm run dev          # hot-reloading dev window
+npm run build        # x64 installer + zip  → app/release
+npm run build:arm64  # ARM64 installer + zip
 ```
 
-## Philosophy
+Anchor requests administrator rights on launch — restore points, HKLM tweaks, and S.M.A.R.T. data all need them.
 
-- Simple by default: one Boost button; power tools tucked into Advanced Tools.
-- Every toggle has a plain-language explanation of what it enables or disables.
-- Prefer Windows' own mechanisms (Restore points, Remove-AppxPackage, StartupApproved, WUA API, S.M.A.R.T.) over hacks.
-- Like Microsoft's PowerToys, experimental features should be tested openly with the community before landing in the core app.
+## Security model
+
+- The renderer runs with `contextIsolation: true` and `nodeIntegration: false`; it can only call the functions listed in `app/main/preload.js`
+- Every external link — news, videos, sign-in, updates — opens in your default browser; Anchor embeds no browser view
+- The Supabase anon key in the source is public by design (the same key any Supabase-powered web page ships); no secrets are stored in the app
 
 ## License
 

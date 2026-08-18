@@ -1,0 +1,7 @@
+node_modules/
+dist/
+release/
+.vite/
+
+# local project settings (Supabase URL + anon key) — never pushed
+main/config.js
