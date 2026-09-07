@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Badge, Button, Card, CardContent, Checkbox, Dialog, Skeleton } from "@/components/ui";
+import { ensureRestorePoint } from "@/lib/store";
 
 type App = { name: string; packageFullName: string; safe: boolean };
 
@@ -34,9 +35,9 @@ export default function BloatwarePage() {
   async function remove() {
     setConfirm(false);
     setRemoving(true);
-    setResult("Creating restore point…");
-    await window.anchor.createRestorePoint("Anchor bloatware removal");
-    setResult("Removing…");
+    setResult("Checking restore point…");
+    const rp = await ensureRestorePoint("Anchor bloatware removal");
+    setResult(rp.skipped ? `${rp.message} Removing…` : "Restore point created. Removing…");
     const results = await window.anchor.bloatwareRemove(chosen);
     const ok = results.filter((r) => r.ok).length;
     setResult(

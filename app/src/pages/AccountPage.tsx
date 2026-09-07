@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
-import { LogIn, LogOut, Mail, UserRound } from "lucide-react";
+import { LogIn, LogOut, Mail, Pencil, UserRound } from "lucide-react";
 import {
   Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label, Switch,
 } from "@/components/ui";
+import { Palette } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { applyTheme, THEMES } from "@/lib/store";
+import { displayNameOf, greetingFor } from "@/lib/utils";
 import type { Profile } from "@/types";
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -20,6 +24,10 @@ export default function AccountPage() {
   const [authMsg, setAuthMsg] = useState("");
   const [signingIn, setSigningIn] = useState<string | null>(null);
 
+  const [nameDraft, setNameDraft] = useState("");
+  const [nameMsg, setNameMsg] = useState("");
+  const [mailMsg, setMailMsg] = useState("");
+
   // email one-time code
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -27,7 +35,10 @@ export default function AccountPage() {
   const [busyEmail, setBusyEmail] = useState(false);
 
   useEffect(() => {
-    window.anchor.loadProfile().then(setP);
+    window.anchor.loadProfile().then((prof) => {
+      setP(prof);
+      setNameDraft(prof.displayName ?? "");
+    });
     window.anchor.authProviders().then(setProviders);
   }, []);
 
@@ -35,11 +46,7 @@ export default function AccountPage() {
 
   const signedIn = p.provider !== "Local" && !!p.email;
 
-  const greeting = (() => {
-    const h = new Date().getHours();
-    const time = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
-    return p.name ? `${time}, ${p.name}!` : "Account";
-  })();
+  const greeting = displayNameOf(p) ? greetingFor(p) : "Account";
 
   async function persist(patch: Partial<Profile>) {
     const saved = await window.anchor.saveProfile({ ...p!, ...patch });
@@ -47,12 +54,33 @@ export default function AccountPage() {
     return saved;
   }
 
+  /** Saves locally and pushes to the mailing list, so the two never drift apart. */
+  async function saveMailPref(patch: Partial<Profile>) {
+    const saved = await persist(patch);
+    setMailMsg("Saving…");
+    const r = await window.anchor.saveSubscription(saved);
+    setMailMsg(
+      r.ok
+        ? "Preferences saved."
+        : "Saved on this PC, but couldn't reach the mail service — it'll sync next time you sign in."
+    );
+  }
+
+  async function saveName() {
+    const chosen = nameDraft.trim();
+    await persist({ displayName: chosen });
+    setNameMsg(chosen ? `Anchor will call you ${chosen}.` : "Using the name from your account.");
+  }
+
   async function signInWith(provider: string) {
     setSigningIn(provider);
     setAuthMsg("Waiting for you to finish signing in in your browser…");
     const r = await window.anchor.signIn(provider);
     if (r.ok && r.user) {
-      await persist({ name: r.user.name, email: r.user.email, provider });
+      await persist({
+        name: r.user.name, email: r.user.email, provider,
+        userId: r.user.userId, accessToken: r.user.accessToken,
+      });
       setAuthMsg("");
     } else {
       setAuthMsg(r.error ?? "Sign-in failed.");
@@ -77,7 +105,10 @@ export default function AccountPage() {
     setBusyEmail(true);
     const r = await window.anchor.verifyEmailCode(email.trim(), code);
     if (r.ok && r.user) {
-      await persist({ name: r.user.name, email: r.user.email, provider: "email" });
+      await persist({
+        name: r.user.name, email: r.user.email, provider: "email",
+        userId: r.user.userId, accessToken: r.user.accessToken,
+      });
       setAuthMsg("");
       setCode("");
       setCodeSent(false);
@@ -88,7 +119,8 @@ export default function AccountPage() {
   }
 
   async function signOut() {
-    await persist({ provider: "Local", name: "", email: "" });
+    await window.anchor.deleteSubscription().catch(() => {});
+    await persist({ provider: "Local", name: "", email: "", userId: "", accessToken: "" });
     setAuthMsg("Signed out.");
     setCodeSent(false);
     setEmail("");
@@ -99,30 +131,73 @@ export default function AccountPage() {
       <h1 className="text-3xl font-semibold tracking-tight">{greeting}</h1>
 
       {signedIn ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <UserRound className="size-4 text-sky-500" /> Signed in
-            </CardTitle>
-            <CardDescription>
-              Your name and email are stored only on this PC and used for greetings and the mail
-              preferences below.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1 text-sm">
-              {p.name && <p className="font-medium">{p.name}</p>}
-              <p className="text-muted-foreground">{p.email}</p>
-              <p className="text-xs text-muted-foreground">
-                via {PROVIDER_LABELS[p.provider] ?? p.provider}
-              </p>
-            </div>
-            <Button variant="outline" onClick={signOut}>
-              <LogOut /> Sign out
-            </Button>
-            {authMsg && <p className="text-sm text-muted-foreground">{authMsg}</p>}
-          </CardContent>
-        </Card>
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserRound className="size-4 text-sky-500" /> Signed in
+              </CardTitle>
+              <CardDescription>
+                Your details are stored only on this PC and used for greetings and the mail preferences below.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1 text-sm">
+                <p className="text-muted-foreground">{p.email}</p>
+                <p className="text-xs text-muted-foreground">
+                  via {PROVIDER_LABELS[p.provider] ?? p.provider}
+                </p>
+              </div>
+              <Button variant="outline" onClick={signOut}>
+                <LogOut /> Sign out
+              </Button>
+              {authMsg && <p className="text-sm text-muted-foreground">{authMsg}</p>}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Pencil className="size-4 text-sky-500" /> What should Anchor call you?
+              </CardTitle>
+              <CardDescription>
+                {p.displayName
+                  ? "Change this any time — it's only used to greet you."
+                  : `We're using "${p.name}" from your ${PROVIDER_LABELS[p.provider] ?? p.provider} account. Pick something else if you'd rather.`}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="min-w-[240px] flex-1 space-y-1.5">
+                  <Label>Display name</Label>
+                  <Input
+                    value={nameDraft}
+                    maxLength={40}
+                    placeholder={p.name || "Your name"}
+                    onChange={(e) => setNameDraft(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") saveName(); }}
+                  />
+                </div>
+                <Button onClick={saveName} disabled={nameDraft.trim() === (p.displayName ?? "")}>
+                  Save
+                </Button>
+                {p.displayName && (
+                  <Button
+                    variant="ghost"
+                    onClick={async () => {
+                      const saved = await persist({ displayName: "" });
+                      setNameDraft("");
+                      setNameMsg(`Back to "${saved.name}" from your account.`);
+                    }}
+                  >
+                    Use account name
+                  </Button>
+                )}
+              </div>
+              {nameMsg && <p className="text-sm text-muted-foreground">{nameMsg}</p>}
+            </CardContent>
+          </Card>
+        </>
       ) : (
         <>
           <Card>
@@ -207,33 +282,81 @@ export default function AccountPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Email updates</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Palette className="size-4 text-sky-500" /> Appearance
+          </CardTitle>
+          <CardDescription>Dark is the default. Pick whichever is easiest on your eyes.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {THEMES.map((t) => (
+              <button
+                key={t.id}
+                onClick={async () => {
+                  applyTheme(t.id);
+                  await persist({ theme: t.id });
+                }}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-accent",
+                  (p.theme ?? "dark") === t.id && "border-primary ring-1 ring-primary"
+                )}
+              >
+                <span className="flex shrink-0 overflow-hidden rounded-md border">
+                  {t.swatch.map((c) => (
+                    <span key={c} className="size-4" style={{ background: c }} />
+                  ))}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium">{t.name}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{t.hint}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="size-4 text-sky-500" /> Email updates
+          </CardTitle>
           <CardDescription>
-            Choose what Anchor may email you about. (Requires a configured mail backend —
-            preferences are stored now, mails start once the project's mail service is live.)
+            {signedIn
+              ? `Sent to ${p.email}. Change these any time — unticking everything stops all mail, and signing out removes you from the lists entirely.`
+              : "Sign in above to subscribe. Anchor needs a confirmed email address before it can send you anything."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Toggle
             label="Windows update stability alerts"
+            hint="When a Windows update is causing widespread problems, or a fix arrives"
+            disabled={!signedIn}
             checked={p.mailWindowsUpdates}
-            onChange={(v) => persist({ mailWindowsUpdates: v })}
+            onChange={(v) => saveMailPref({ mailWindowsUpdates: v })}
           />
           <Toggle
-            label="System health analysis feedback"
+            label="System health reminders"
+            hint="Occasional nudges to check drive health and run a health check"
+            disabled={!signedIn}
             checked={p.mailSystemHealth}
-            onChange={(v) => persist({ mailSystemHealth: v })}
+            onChange={(v) => saveMailPref({ mailSystemHealth: v })}
           />
           <Toggle
             label="Tech news digest"
+            hint="A weekly roundup from the sources in Tech Spotlight"
+            disabled={!signedIn}
             checked={p.mailTechNews}
-            onChange={(v) => persist({ mailTechNews: v })}
+            onChange={(v) => saveMailPref({ mailTechNews: v })}
           />
           <Toggle
-            label="Exclusive Anchor updates"
+            label="Anchor releases"
+            hint="What's new in each version, and what's coming"
+            disabled={!signedIn}
             checked={p.mailAnchorUpdates}
-            onChange={(v) => persist({ mailAnchorUpdates: v })}
+            onChange={(v) => saveMailPref({ mailAnchorUpdates: v })}
           />
+          {mailMsg && <p className="text-sm text-muted-foreground">{mailMsg}</p>}
         </CardContent>
       </Card>
     </div>
@@ -241,12 +364,18 @@ export default function AccountPage() {
 }
 
 function Toggle({
-  label, checked, onChange,
-}: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  label, hint, checked, onChange, disabled,
+}: {
+  label: string; hint?: string; checked: boolean;
+  onChange: (v: boolean) => void; disabled?: boolean;
+}) {
   return (
-    <div className="flex items-center justify-between">
-      <Label>{label}</Label>
-      <Switch checked={checked} onCheckedChange={onChange} />
+    <div className={cn("flex items-start justify-between gap-4", disabled && "opacity-50")}>
+      <div className="min-w-0">
+        <Label>{label}</Label>
+        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+      </div>
+      <Switch checked={checked} onCheckedChange={onChange} disabled={disabled} />
     </div>
   );
 }

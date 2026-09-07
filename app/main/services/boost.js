@@ -66,6 +66,44 @@ async function emptyRecycleBin() {
   await runPS("Clear-RecycleBin -Force -ErrorAction SilentlyContinue");
 }
 
+/** How long ago the most recent restore point was made, in days. */
+async function lastRestorePointAgeDays() {
+  const r = await runPSJson(`
+$ErrorActionPreference='SilentlyContinue'
+$p = Get-ComputerRestorePoint | Sort-Object CreationTime -Descending | Select-Object -First 1
+if ($p) {
+  $d = [Management.ManagementDateTimeConverter]::ToDateTime($p.CreationTime)
+  [PSCustomObject]@{ days = ((Get-Date) - $d).TotalDays; description = $p.Description } | ConvertTo-Json -Compress
+} else {
+  [PSCustomObject]@{ days = 99999; description = $null } | ConvertTo-Json -Compress
+}
+`);
+  return { days: r?.days ?? 99999, description: r?.description ?? null };
+}
+
+/**
+ * Creates a restore point only if one doesn't already cover this period.
+ * Restore points cost disk space and Windows deletes the oldest to make room,
+ * so making one on every action would push older, more useful ones out.
+ * minIntervalDays: 7 (weekly), 30 (monthly), or 0 to always create one.
+ */
+async function ensureRestorePoint(description, minIntervalDays = 7) {
+  if (minIntervalDays > 0) {
+    const last = await lastRestorePointAgeDays();
+    if (last.days < minIntervalDays) {
+      const ago = last.days < 1
+        ? "earlier today"
+        : `${Math.round(last.days)} day${Math.round(last.days) === 1 ? "" : "s"} ago`;
+      return {
+        ok: true,
+        skipped: true,
+        message: `Using the existing restore point from ${ago} — no need for another.`,
+      };
+    }
+  }
+  return createRestorePoint(description);
+}
+
 async function createRestorePoint(description) {
   const { code, err } = await runPS(`
 Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\SystemRestore' -Name SystemRestorePointCreationFrequency -Value 0 -Type DWord -Force
@@ -85,4 +123,4 @@ async function runFullBoost({ includeTemp, includeRecycleBin }) {
   return { ...ram, tempBytes: temp.bytes, tempFiles: temp.files };
 }
 
-module.exports = { runFullBoost, createRestorePoint };
+module.exports = { runFullBoost, createRestorePoint, ensureRestorePoint, lastRestorePointAgeDays };

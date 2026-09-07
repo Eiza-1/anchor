@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, HardDrive, HardDriveDownload, RefreshCw, Save } from "lucide-react";
-import { Alert, Badge, Button, Card, CardContent, CardHeader, CardTitle, Progress, Skeleton } from "@/components/ui";
-import { formatBytes } from "@/lib/utils";
+import {
+  AlertTriangle, HardDrive, HardDriveDownload, MemoryStick, Play, RefreshCw, Save, Timer,
+} from "lucide-react";
+import {
+  Alert, Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle,
+  Progress, Select, Skeleton,
+} from "@/components/ui";
+import { cn, formatBytes } from "@/lib/utils";
 import { cached, invalidate, peek } from "@/lib/store";
 
 type Drive = { name: string; media: string; health: string; size: number; wear?: number; temp?: number; predictFailure?: boolean };
@@ -13,6 +18,24 @@ export default function DrivesPage() {
   const [drives, setDrives] = useState<Drive[] | null>(peek<Drive[]>("drives") ?? null);
   const [vols, setVols] = useState<Volume[]>(peek<Volume[]>("volumes") ?? []);
   const [loading, setLoading] = useState(false);
+
+  const [benchDrive, setBenchDrive] = useState("C:");
+  const [benchSize, setBenchSize] = useState(256);
+  const [bench, setBench] = useState<Awaited<ReturnType<typeof window.anchor.benchRun>> | null>(
+    peek("bench:last") ?? null
+  );
+  const [benching, setBenching] = useState(false);
+  const [memTest, setMemTest] = useState<Awaited<ReturnType<typeof window.anchor.memoryTestResults>> | null>(null);
+
+  useEffect(() => { window.anchor.memoryTestResults().then(setMemTest); }, []);
+
+  async function runBench() {
+    setBenching(true);
+    setBench(null);
+    const r = await window.anchor.benchRun(benchDrive, benchSize);
+    setBench(r);
+    setBenching(false);
+  }
 
   async function scan(force = false) {
     setLoading(true);
@@ -99,10 +122,15 @@ export default function DrivesPage() {
       <Card>
         <CardHeader>
           <CardTitle>Disk space</CardTitle>
+          <CardDescription>
+            SSDs need free space to shuffle data around — below about 10% they slow down measurably and wear faster.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {vols.map((v) => {
             const freePct = (v.FreeSpace / v.Size) * 100;
+            const critical = freePct < 5;
+            const low = freePct < 10;
             return (
               <div key={v.DeviceID} className="space-y-1.5">
                 <div className="flex items-center justify-between text-sm">
@@ -110,16 +138,135 @@ export default function DrivesPage() {
                     <Save className="size-3.5 text-muted-foreground" />
                     {v.DeviceID}
                   </span>
-                  <span className={freePct < 10 ? "text-amber-400" : "text-muted-foreground"}>
+                  <span className={critical ? "text-red-400" : low ? "text-amber-400" : "text-muted-foreground"}>
                     {formatBytes(v.FreeSpace)} free of {formatBytes(v.Size)} ({Math.round(freePct)}%)
                   </span>
                 </div>
                 <Progress value={100 - freePct} />
+                {low && (
+                  <p className={cn("text-xs", critical ? "text-red-400" : "text-amber-400")}>
+                    {critical
+                      ? `Critically low. Windows needs room for updates and the page file — free up at least ${formatBytes(v.Size * 0.1 - v.FreeSpace)} to get back to 10%.`
+                      : `Getting low. Aim for ${formatBytes(v.Size * 0.1)} free (10%) to keep performance and drive life healthy.`}
+                  </p>
+                )}
               </div>
             );
           })}
         </CardContent>
       </Card>
+
+      {/* speed benchmark */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Timer className="size-4 text-sky-500" /> Speed test
+          </CardTitle>
+          <CardDescription>
+            The same measurements CrystalDiskMark takes — sequential and random 4K, read and write — using unbuffered
+            I/O so you're timing the drive rather than Windows' cache.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Select className="w-28" value={benchDrive} onChange={(e) => setBenchDrive(e.target.value)}>
+              {vols.map((v) => <option key={v.DeviceID}>{v.DeviceID}</option>)}
+            </Select>
+            <Select className="w-40" value={String(benchSize)} onChange={(e) => setBenchSize(Number(e.target.value))}>
+              <option value="128">Quick (128 MB)</option>
+              <option value="256">Standard (256 MB)</option>
+              <option value="1024">Thorough (1 GB)</option>
+            </Select>
+            <Button onClick={runBench} loading={benching}>
+              {!benching && <Play />} Run speed test
+            </Button>
+          </div>
+
+          {benching && (
+            <p className="text-xs text-muted-foreground">
+              Writing and reading test data… this takes up to a minute and briefly loads the drive.
+            </p>
+          )}
+
+          {bench?.error && <Alert variant="warning">{bench.error}</Alert>}
+
+          {bench && !bench.error && (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <BenchStat label="Sequential read" value={`${bench.seqReadMB} MB/s`} />
+                <BenchStat label="Sequential write" value={`${bench.seqWriteMB} MB/s`} />
+                <BenchStat label="Random 4K read" value={`${bench.rndReadMB} MB/s`} sub={`${bench.rndReadIOPS?.toLocaleString()} IOPS`} />
+                <BenchStat label="Random 4K write" value={`${bench.rndWriteMB} MB/s`} sub={`${bench.rndWriteIOPS?.toLocaleString()} IOPS`} />
+              </div>
+              <Alert variant={verdict(bench).tone}>{verdict(bench).text}</Alert>
+              {bench.unbuffered === false && (
+                <p className="text-xs text-muted-foreground">
+                  This drive wouldn't allow unbuffered access, so read figures include Windows' cache and are higher
+                  than the drive's real speed.
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Rough guide: NVMe SSDs read 1,500–7,000 MB/s, SATA SSDs 400–550, hard drives 80–160. Random 4K matters
+                far more for everyday responsiveness than the big sequential numbers.
+              </p>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* RAM test */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MemoryStick className="size-4 text-sky-500" /> Memory (RAM) test
+          </CardTitle>
+          <CardDescription>
+            Faulty RAM causes random crashes, corrupted files and blue screens that look like software problems.
+            Windows' own memory test runs before Windows loads, which is the only way to test memory properly.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {memTest?.found ? (
+            <Alert variant={memTest.passed ? "success" : "destructive"}>
+              Last test {memTest.time?.slice(0, 16)}: {memTest.passed
+                ? "no memory errors found."
+                : `problems were reported — ${memTest.message}`}
+            </Alert>
+          ) : (
+            <p className="text-sm text-muted-foreground">No previous memory test found on this PC.</p>
+          )}
+          <Button variant="outline" onClick={() => window.anchor.scheduleMemoryTest()}>
+            Open Windows Memory Diagnostic
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Choosing "Restart now" runs the test immediately; it takes several minutes and your PC is unusable during
+            it. Results appear here afterwards.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
+}
+
+function BenchStat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="rounded-md border p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-lg font-semibold">{value}</p>
+      {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+    </div>
+  );
+}
+
+/** Plain-language reading of the numbers. */
+function verdict(b: { seqReadMB?: number; rndReadMB?: number }): { tone: "success" | "warning" | "destructive"; text: string } {
+  const seq = b.seqReadMB ?? 0;
+  const rnd = b.rndReadMB ?? 0;
+  if (seq > 1200)
+    return { tone: "success", text: `NVMe-class speed. Random 4K read of ${rnd} MB/s means apps and files open essentially instantly.` };
+  if (seq > 300)
+    return { tone: "success", text: `SATA SSD speed — healthy. Random 4K read of ${rnd} MB/s is fine for everyday use.` };
+  if (seq > 120)
+    return { tone: "warning", text: "These are hard-drive speeds. If this is meant to be an SSD, check the cable or port; if it's a mechanical drive, moving Windows to an SSD is the single biggest upgrade available." };
+  return { tone: "destructive", text: "Unusually slow — slower than a healthy hard drive. Check drive health above, close anything heavy, and re-test; a failing drive or a full disk both look like this." };
 }

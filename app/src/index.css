@@ -2,9 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-/* shadcn/ui zinc theme (dark) */
+/* Themes. Dark (zinc) is the default; the rest are opt-in via data-theme. */
 @layer base {
-  :root {
+  :root,
+  [data-theme="dark"] {
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
     --card: 240 10% 5.5%;
@@ -23,6 +24,154 @@
     --input: 240 3.7% 15.9%;
     --ring: 240 4.9% 83.9%;
     --radius: 0.5rem;
+  }
+
+  /* Soft light — a warm grey page rather than pure white, and text that stops
+     short of black, so it doesn't glare in a dark room. */
+  [data-theme="light"] {
+    --background: 240 14% 94%;
+    --foreground: 240 12% 18%;
+    --card: 240 20% 97.5%;
+    --card-foreground: 240 12% 18%;
+    --primary: 240 12% 24%;
+    --primary-foreground: 240 20% 97%;
+    --secondary: 240 12% 89%;
+    --secondary-foreground: 240 12% 22%;
+    --muted: 240 12% 89%;
+    --muted-foreground: 240 8% 42%;
+    --accent: 240 14% 87%;
+    --accent-foreground: 240 12% 20%;
+    --destructive: 0 62% 46%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 12% 84%;
+    --input: 240 12% 84%;
+    --ring: 240 10% 58%;
+  }
+
+  /* Deep navy — easier on the eyes at night than pure black */
+  [data-theme="midnight"] {
+    --background: 222 47% 7%;
+    --foreground: 213 31% 95%;
+    --card: 222 44% 10%;
+    --card-foreground: 213 31% 95%;
+    --primary: 213 94% 68%;
+    --primary-foreground: 222 47% 8%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 213 31% 95%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 20%;
+    --accent-foreground: 213 31% 95%;
+    --destructive: 0 63% 40%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 217 33% 18%;
+    --input: 217 33% 18%;
+    --ring: 213 94% 68%;
+  }
+
+  /* Warm grey with amber accents — low blue light */
+  [data-theme="ember"] {
+    --background: 20 14% 6%;
+    --foreground: 30 20% 96%;
+    --card: 20 14% 9%;
+    --card-foreground: 30 20% 96%;
+    --primary: 25 95% 60%;
+    --primary-foreground: 20 14% 8%;
+    --secondary: 20 10% 17%;
+    --secondary-foreground: 30 20% 96%;
+    --muted: 20 10% 17%;
+    --muted-foreground: 25 8% 65%;
+    --accent: 20 10% 20%;
+    --accent-foreground: 30 20% 96%;
+    --destructive: 0 63% 42%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 20 10% 18%;
+    --input: 20 10% 18%;
+    --ring: 25 95% 60%;
+  }
+
+  /* Muted blue-green, lower contrast for long sessions */
+  [data-theme="tide"] {
+    --background: 195 30% 8%;
+    --foreground: 180 20% 95%;
+    --card: 195 28% 11%;
+    --card-foreground: 180 20% 95%;
+    --primary: 174 72% 56%;
+    --primary-foreground: 195 30% 8%;
+    --secondary: 195 22% 18%;
+    --secondary-foreground: 180 20% 95%;
+    --muted: 195 22% 18%;
+    --muted-foreground: 190 12% 65%;
+    --accent: 195 22% 21%;
+    --accent-foreground: 180 20% 95%;
+    --destructive: 0 60% 42%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 195 22% 19%;
+    --input: 195 22% 19%;
+    --ring: 174 72% 56%;
+  }
+
+  /* Crimson — near-black with a red undertone, red and rose accents */
+  [data-theme="crimson"] {
+    --background: 0 20% 5%;
+    --foreground: 0 8% 96%;
+    --card: 0 22% 8%;
+    --card-foreground: 0 8% 96%;
+    --primary: 0 72% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 18% 15%;
+    --secondary-foreground: 0 8% 96%;
+    --muted: 0 18% 15%;
+    --muted-foreground: 0 8% 66%;
+    --accent: 350 30% 20%;
+    --accent-foreground: 0 8% 96%;
+    --destructive: 0 75% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 18% 17%;
+    --input: 0 18% 17%;
+    --ring: 0 72% 55%;
+  }
+
+  /* Amethyst — deep purple with indigo edges */
+  [data-theme="amethyst"] {
+    --background: 265 35% 6%;
+    --foreground: 270 15% 96%;
+    --card: 265 32% 10%;
+    --card-foreground: 270 15% 96%;
+    --primary: 265 85% 68%;
+    --primary-foreground: 265 40% 8%;
+    --secondary: 265 25% 18%;
+    --secondary-foreground: 270 15% 96%;
+    --muted: 265 25% 18%;
+    --muted-foreground: 268 12% 70%;
+    --accent: 275 30% 24%;
+    --accent-foreground: 270 15% 96%;
+    --destructive: 0 65% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 265 25% 20%;
+    --input: 265 25% 20%;
+    --ring: 265 85% 68%;
+  }
+
+  /* Vault — deep red bleeding into violet */
+  [data-theme="vault"] {
+    --background: 280 25% 6%;
+    --foreground: 300 12% 96%;
+    --card: 285 26% 9%;
+    --card-foreground: 300 12% 96%;
+    --primary: 342 80% 58%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 285 20% 17%;
+    --secondary-foreground: 300 12% 96%;
+    --muted: 285 20% 17%;
+    --muted-foreground: 295 10% 68%;
+    --accent: 320 30% 22%;
+    --accent-foreground: 300 12% 96%;
+    --destructive: 0 70% 47%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 285 20% 19%;
+    --input: 285 20% 19%;
+    --ring: 342 80% 58%;
   }
 
   * {

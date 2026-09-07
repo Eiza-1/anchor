@@ -101,6 +101,130 @@ export function invalidate(...keys: string[]) {
   keys.forEach((k) => cache.delete(k));
 }
 
+/* ------------------------------ Live monitor ------------------------------ *
+ * Samples stream in from a PowerShell monitor in the main process. Kept here so
+ * history survives page switches — the pairing verdict needs a minute of load,
+ * which the user will usually spend inside a game, not staring at Anchor.       */
+import type { Sample } from "@/lib/bottleneck";
+
+const MAX_SAMPLES = 240; // ~4 minutes at ~1s
+
+let samples: Sample[] = [];
+let monitorOn = false;
+let stopFn: (() => void) | null = null;
+const sampleListeners = new Set<() => void>();
+const subscribeSamples = (l: () => void) => {
+  sampleListeners.add(l);
+  return () => void sampleListeners.delete(l);
+};
+export const getSamples = () => samples;
+export function useSamples(): Sample[] {
+  return useSyncExternalStore(subscribeSamples, getSamples, getSamples);
+}
+
+export function startMonitor() {
+  if (monitorOn) return;
+  monitorOn = true;
+  stopFn = window.anchor.onMonitorSample((s: Sample) => {
+    samples = [...samples, s].slice(-MAX_SAMPLES);
+    sampleListeners.forEach((l) => l());
+  });
+  window.anchor.monitorStart();
+}
+
+export function stopMonitor() {
+  if (!monitorOn) return;
+  monitorOn = false;
+  stopFn?.();
+  stopFn = null;
+  window.anchor.monitorStop();
+}
+
+export const isMonitoring = () => monitorOn;
+export function clearSamples() {
+  samples = [];
+  sampleListeners.forEach((l) => l());
+}
+
+/* --------------------------- Leak history sampling ------------------------- *
+ * Leak detection needs observations over time, so sampling runs in the store —
+ * it keeps going while the user is on other pages, and the history is waiting
+ * when they come back.                                                          */
+import type { ProcSample } from "@/lib/diagnose";
+
+let procHistory: { t: number; procs: ProcSample[] }[] = [];
+let leakTimer: ReturnType<typeof setInterval> | null = null;
+const leakListeners = new Set<() => void>();
+const subscribeLeaks = (l: () => void) => {
+  leakListeners.add(l);
+  return () => void leakListeners.delete(l);
+};
+export const getProcHistory = () => procHistory;
+export function useProcHistory() {
+  return useSyncExternalStore(subscribeLeaks, getProcHistory, getProcHistory);
+}
+
+async function sampleProcesses() {
+  try {
+    const procs = await window.anchor.diagProcesses();
+    procHistory = [...procHistory, { t: Date.now(), procs }].slice(-120); // ~2h at 60s
+    leakListeners.forEach((l) => l());
+  } catch { /* ignore a failed sample */ }
+}
+
+export function startLeakWatch(intervalMs = 60_000) {
+  if (leakTimer) return;
+  sampleProcesses();
+  leakTimer = setInterval(sampleProcesses, intervalMs);
+}
+export function stopLeakWatch() {
+  if (leakTimer) clearInterval(leakTimer);
+  leakTimer = null;
+}
+export const isLeakWatching = () => leakTimer !== null;
+export function clearLeakHistory() {
+  procHistory = [];
+  leakListeners.forEach((l) => l());
+}
+
+/* --------------------------- Restore point policy -------------------------- *
+ * Restore points are only worth making before changes that are genuinely hard
+ * to undo (removing apps, registry tweaks). They take disk space, and Windows
+ * deletes the oldest ones to make room — so spamming them destroys the very
+ * history you'd want to roll back to.                                          */
+export const RESTORE_INTERVALS: Record<string, number> = {
+  always: 0,
+  weekly: 7,
+  monthly: 30,
+};
+
+/** Call before any change that modifies the system in a non-trivial way. */
+export async function ensureRestorePoint(description: string) {
+  const profile = await window.anchor.loadProfile();
+  const days = RESTORE_INTERVALS[profile.restorePolicy ?? "weekly"] ?? 7;
+  return window.anchor.ensureRestorePoint(description, days);
+}
+
+/* --------------------------------- Themes --------------------------------- */
+export const THEMES = [
+  { id: "dark", name: "Dark", hint: "Default — neutral charcoal", swatch: ["#09090b", "#27272a", "#fafafa"] },
+  { id: "light", name: "Light", hint: "Soft grey — kinder than pure white", swatch: ["#eeeef2", "#f7f7fa", "#2b2b33"] },
+  { id: "midnight", name: "Midnight", hint: "Deep navy, softer than black", swatch: ["#0b1220", "#1e293b", "#60a5fa"] },
+  { id: "ember", name: "Ember", hint: "Warm greys, low blue light", swatch: ["#12100e", "#2a2422", "#f97316"] },
+  { id: "tide", name: "Tide", hint: "Cool blue-green, easy on the eyes", swatch: ["#0d1a1f", "#22383f", "#2dd4bf"] },
+  { id: "crimson", name: "Crimson", hint: "Near-black with red accents", swatch: ["#0f0a0a", "#2d1f1f", "#dc4444"] },
+  { id: "vault", name: "Vault", hint: "Deep red into violet", swatch: ["#0d0912", "#2a1f33", "#e8437a"] },
+  { id: "amethyst", name: "Amethyst", hint: "Deep purple with indigo edges", swatch: ["#0b0713", "#291f3a", "#a878ff"] },
+] as const;
+
+export function applyTheme(id: string) {
+  const known = THEMES.some((t) => t.id === id) ? id : "dark";
+  document.documentElement.dataset.theme = known;
+  // keep the native title-bar buttons readable on light themes
+  const light = known === "light";
+  document.documentElement.classList.toggle("dark", !light);
+}
+
 /* ------------------------------ App updates ------------------------------- */
 export type UpdateStatus =
   | "idle" | "checking" | "current" | "available" | "downloading" | "downloaded" | "error";
@@ -266,19 +390,11 @@ export async function runHealthCheck() {
 }
 
 /* --------------------------------- Boost --------------------------------- */
-export async function runBoost(opts: {
-  includeTemp: boolean;
-  includeRecycleBin: boolean;
-  restorePoint: boolean;
-}) {
+/** Boost only frees memory and deletes temp files — nothing that needs rolling
+ *  back — so it deliberately does NOT create a restore point. */
+export async function runBoost(opts: { includeTemp: boolean; includeRecycleBin: boolean }) {
   if (state.boost.running) return;
-  setBoost(() => ({ running: true, message: "", skipped: [], finishedAt: null }));
-
-  if (opts.restorePoint) {
-    setBoost((b) => ({ ...b, message: "Creating restore point…" }));
-    const rp = await window.anchor.createRestorePoint("Anchor Boost");
-    setBoost((b) => ({ ...b, message: rp.ok ? "Restore point created. Boosting…" : `${rp.message} Continuing boost…` }));
-  }
+  setBoost(() => ({ running: true, message: "Boosting…", skipped: [], finishedAt: null }));
 
   const r = await window.anchor.runBoost({
     includeTemp: opts.includeTemp,

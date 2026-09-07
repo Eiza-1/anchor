@@ -1,83 +1,177 @@
 import { useEffect, useState } from "react";
-import { Activity, Lightbulb } from "lucide-react";
-import { Button, Card, CardContent, CardHeader, CardTitle, Progress } from "@/components/ui";
-import { formatBytes } from "@/lib/utils";
+import {
+  Activity, Cpu, Gauge, Lightbulb, MemoryStick, MonitorPlay, Pause, Play, RotateCcw, Scale,
+} from "lucide-react";
+import {
+  Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Progress,
+} from "@/components/ui";
+import { formatBytes, cn } from "@/lib/utils";
+import { assessPairing, liveVerdict, underLoad, type Sample } from "@/lib/bottleneck";
+import {
+  cached, clearSamples, isMonitoring, startMonitor, stopMonitor, useSamples,
+} from "@/lib/store";
 
-type Perf = { cpu: number; disk: number; memTotal: number; memUsed: number };
 type Proc = { name: string; count: number; bytes: number };
 
 export default function PerformancePage() {
-  const [perf, setPerf] = useState<Perf | null>(null);
+  const samples = useSamples();
+  const [running, setRunning] = useState(isMonitoring());
   const [procs, setProcs] = useState<Proc[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [cpuName, setCpuName] = useState("");
+  const [gpuName, setGpuName] = useState("");
 
-  async function sample() {
-    setLoading(true);
-    const [p, t] = await Promise.all([window.anchor.perfSample(), window.anchor.topProcesses()]);
-    setPerf(p);
-    setProcs(t);
-    setLoading(false);
-  }
-  useEffect(() => { sample(); }, []);
+  useEffect(() => {
+    startMonitor();
+    setRunning(true);
+    cached("cpu:info", Infinity, () => window.anchor.cpuInfo()).then((c) => {
+      if (c) setCpuName(`${c.name} (${c.cores}C/${c.threads}T)`);
+    });
+    cached("perf:gpuInfo", 300_000, () => window.anchor.gpuInfo()).then((g) => {
+      const main = g.find((x) => !x.errorCode) ?? g[0];
+      if (main) setGpuName(main.name);
+    });
+    window.anchor.topProcesses().then(setProcs);
+    // keep monitoring when navigating away; only the page's own timer stops
+    return () => {};
+  }, []);
 
-  const memPct = perf ? Math.round((perf.memUsed / perf.memTotal) * 100) : 0;
-  const tips: string[] = [];
-  if (perf) {
-    if (perf.cpu > 85) tips.push("CPU is a bottleneck right now. Check the top processes below — closing or updating the heaviest app usually helps most.");
-    if (memPct > 85) tips.push(`Memory pressure is high (${memPct}%). Run Boost to trim background apps, or disable startup apps you don't need.`);
-    if (perf.memTotal < 8 * 1024 ** 3) tips.push("This PC has less than 8 GB of RAM — a RAM upgrade is the single most effective hardware fix for sluggishness.");
-    if (perf.disk > 80) tips.push("Disk is very busy. If this is an HDD, upgrading to an SSD is transformative. Also check Storage Sense and Windows Search indexing.");
-    if (tips.length === 0) tips.push("No bottlenecks detected right now — CPU, memory, and disk all have headroom.");
-  }
+  const last: Sample | undefined = samples[samples.length - 1];
+  const verdict = liveVerdict(samples);
+  const pairing = assessPairing(samples, cpuName, gpuName);
+  const loadSamples = underLoad(samples).length;
+
+  const memPct = last?.memUsed && last?.memTotal ? (last.memUsed / last.memTotal) * 100 : 0;
+
+  const TONE: Record<string, string> = {
+    cpu: "border-amber-500/40 bg-amber-500/10",
+    gpu: "border-sky-500/40 bg-sky-500/10",
+    disk: "border-amber-500/40 bg-amber-500/10",
+    memory: "border-red-500/40 bg-red-500/10",
+    balanced: "border-emerald-500/40 bg-emerald-500/10",
+    idle: "border-border bg-card",
+  };
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-6">
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">Performance</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Live look at CPU, memory, and disk with plain-language bottleneck suggestions.
+          Live readings, updated every second. Anchor watches which component saturates first — that's what's actually
+          limiting your PC. Measuring continues while you're in a game; come back afterwards for the verdict.
         </p>
       </div>
 
-      <Button onClick={sample} loading={loading}>
-        {!loading && <Activity />} Sample now
-      </Button>
+      {/* live bottleneck verdict */}
+      <div className={cn("rounded-lg border p-4", TONE[verdict.culprit])}>
+        <div className="flex items-start gap-3">
+          <Activity className="mt-0.5 size-5 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">{verdict.headline}</p>
+            {verdict.detail && <p className="mt-1 text-sm text-muted-foreground">{verdict.detail}</p>}
+          </div>
+        </div>
+      </div>
 
+      {/* live meters */}
       <Card>
-        <CardHeader><CardTitle>Current load</CardTitle></CardHeader>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
+          <CardTitle>Right now</CardTitle>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                if (running) { stopMonitor(); setRunning(false); }
+                else { startMonitor(); setRunning(true); }
+              }}
+            >
+              {running ? <><Pause /> Pause</> : <><Play /> Resume</>}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={clearSamples}><RotateCcw /> Reset</Button>
+          </div>
+        </CardHeader>
         <CardContent className="space-y-4">
-          <Metric label="CPU" value={perf?.cpu ?? 0} text={`${perf?.cpu ?? 0}%`} />
-          <Metric
+          <Meter icon={Cpu} label="CPU" value={last?.cpu ?? 0} sub={cpuName} />
+          <Meter
+            icon={MonitorPlay}
+            label="GPU"
+            value={last?.gpu ?? 0}
+            sub={gpuName || (last?.gpu === null ? "No GPU counters available" : "")}
+          />
+          <Meter
+            icon={MemoryStick}
             label="Memory"
             value={memPct}
-            text={perf ? `${memPct}% — ${formatBytes(perf.memUsed)} of ${formatBytes(perf.memTotal)}` : "—"}
+            sub={last?.memUsed && last?.memTotal ? `${formatBytes(last.memUsed)} of ${formatBytes(last.memTotal)}` : ""}
           />
-          <Metric label="Disk activity" value={perf?.disk ?? 0} text={`${perf?.disk ?? 0}%`} />
+          <Meter icon={Gauge} label="Disk activity" value={last?.disk ?? 0} />
+          <Sparkline samples={samples} />
         </CardContent>
       </Card>
 
+      {/* CPU / GPU pairing */}
       <Card>
-        <CardHeader><CardTitle>Suggestions</CardTitle></CardHeader>
-        <CardContent>
-          <ul className="space-y-2.5 text-sm text-muted-foreground">
-            {tips.map((t, i) => (
-              <li key={i} className="flex items-start gap-2.5">
-                <Lightbulb className="mt-0.5 size-4 shrink-0 text-violet-400" />
-                <span>{t}</span>
-              </li>
-            ))}
-          </ul>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Scale className="size-4 text-sky-500" /> Are your CPU and GPU a good match?
+          </CardTitle>
+          <CardDescription>
+            Judged from what your hardware actually does under load, not from model names. Needs about a minute of real
+            work — a game, a render, a compile.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge
+              variant={
+                pairing.status === "balanced" ? "success"
+                : pairing.status === "unknown" ? "secondary"
+                : "warning"
+              }
+            >
+              {pairing.headline}
+            </Badge>
+            <span className="text-xs text-muted-foreground">
+              {loadSamples} samples under load
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground">{pairing.detail}</p>
+          {pairing.advice && (
+            <p className="flex items-start gap-2.5 text-sm text-muted-foreground">
+              <Lightbulb className="mt-0.5 size-4 shrink-0 text-violet-400" />
+              <span>{pairing.advice}</span>
+            </p>
+          )}
+          {pairing.status !== "unknown" && (
+            <div className="grid gap-3 pt-1 sm:grid-cols-2">
+              <div className="rounded-md border p-3">
+                <p className="text-xs text-muted-foreground">CPU average under load</p>
+                <p className="text-lg font-semibold">{Math.round(pairing.cpuAvg)}%</p>
+              </div>
+              <div className="rounded-md border p-3">
+                <p className="text-xs text-muted-foreground">GPU average under load</p>
+                <p className="text-lg font-semibold">{Math.round(pairing.gpuAvg)}%</p>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
           <CardTitle>Top memory users</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Private memory — memory only that app is using, excluding shared system libraries.
-          </p>
+          <CardDescription>
+            Private memory — what each app uses on its own, excluding shared system libraries.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => window.anchor.topProcesses().then(setProcs)}
+          >
+            Refresh
+          </Button>
           {procs.map((p) => (
             <div key={p.name} className="flex items-center justify-between text-sm">
               <span>{p.name}{p.count > 1 ? ` (${p.count} processes)` : ""}</span>
@@ -90,14 +184,51 @@ export default function PerformancePage() {
   );
 }
 
-function Metric({ label, value, text }: { label: string; value: number; text: string }) {
+function Meter({
+  icon: Icon, label, value, sub,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string; value: number; sub?: string;
+}) {
   return (
     <div className="space-y-1.5">
-      <div className="flex justify-between text-sm">
-        <span className="font-medium">{label}</span>
-        <span className="text-muted-foreground">{text}</span>
+      <div className="flex items-center justify-between text-sm">
+        <span className="flex items-center gap-2 font-medium">
+          <Icon className="size-3.5 text-muted-foreground" /> {label}
+        </span>
+        <span className="text-muted-foreground">{Math.round(value)}%</span>
       </div>
       <Progress value={value} />
+      {sub && <p className="truncate text-xs text-muted-foreground">{sub}</p>}
+    </div>
+  );
+}
+
+/** Tiny CPU-vs-GPU history strip — shows at a glance which one leads. */
+function Sparkline({ samples }: { samples: Sample[] }) {
+  const recent = samples.slice(-60);
+  if (recent.length < 2) return null;
+  return (
+    <div>
+      <div className="mb-1 flex gap-3 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-amber-400" /> CPU</span>
+        <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-sky-400" /> GPU</span>
+        <span className="ml-auto">last {recent.length}s</span>
+      </div>
+      <div className="flex h-14 items-end gap-px">
+        {recent.map((s, i) => (
+          <div key={i} className="relative flex-1" style={{ height: "100%" }}>
+            <div
+              className="absolute bottom-0 w-full rounded-sm bg-amber-400/70"
+              style={{ height: `${s.cpu ?? 0}%` }}
+            />
+            <div
+              className="absolute bottom-0 w-full rounded-sm bg-sky-400/60"
+              style={{ height: `${s.gpu ?? 0}%` }}
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

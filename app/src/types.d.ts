@@ -14,9 +14,17 @@ export interface AnchorApi {
   appVersion(): Promise<string>;
 
   createRestorePoint(desc: string): Promise<{ ok: boolean; message: string }>;
+  ensureRestorePoint(desc: string, minDays: number): Promise<{ ok: boolean; skipped?: boolean; message: string }>;
+  lastRestorePoint(): Promise<{ days: number; description: string | null }>;
   runBoost(opts: { includeTemp: boolean; includeRecycleBin: boolean }): Promise<{
     trimmed: number; freedBytes: number; skipped: string[]; tempBytes: number; tempFiles: number;
   }>;
+
+  cleanupScan(): Promise<Array<{
+    id: string; name: string; detail: string;
+    default: boolean; oneWay: boolean; bytes: number;
+  }>>;
+  cleanupRun(ids: string[]): Promise<{ freed: number; cleaned: string[] }>;
 
   buildInfo(): Promise<{ ProductName: string; DisplayVersion: string; CurrentBuild: string; UBR: number } | null>;
   checkUpdates(): Promise<{ pending?: number; titles?: string[]; last?: string | null; error?: string }>;
@@ -31,6 +39,13 @@ export interface AnchorApi {
     meaning: string; advice: string; severity: "bad" | "info";
   }>>;
   perfSample(): Promise<{ cpu: number; disk: number; memTotal: number; memUsed: number } | null>;
+  cpuInfo(): Promise<{ name: string; cores: number; threads: number; maxClockMHz: number } | null>;
+  monitorStart(): Promise<void>;
+  monitorStop(): Promise<void>;
+  onMonitorSample(cb: (s: {
+    t: number; cpu: number | null; gpu: number | null; disk: number | null;
+    memUsed: number | null; memTotal: number | null; vram: number | null;
+  }) => void): () => void;
   topProcesses(): Promise<Array<{ name: string; count: number; bytes: number }>>;
 
   startupList(): Promise<Array<{ name: string; command: string; scope: string; enabled: boolean }>>;
@@ -51,11 +66,21 @@ export interface AnchorApi {
 
   loadProfile(): Promise<Profile>;
   saveProfile(p: Partial<Profile>): Promise<Profile>;
-  signIn(provider: string): Promise<{ ok: boolean; user?: { name: string; email: string }; error?: string }>;
+  signIn(provider: string): Promise<{
+    ok: boolean;
+    user?: { name: string; email: string; userId: string; accessToken: string };
+    error?: string;
+  }>;
+  saveSubscription(prefs: Partial<Profile>): Promise<{ ok: boolean; error?: string }>;
+  deleteSubscription(): Promise<{ ok: boolean; error?: string }>;
   authConfigured(): Promise<boolean>;
   authProviders(): Promise<string[]>;
   sendEmailCode(email: string): Promise<{ ok: boolean; error?: string }>;
-  verifyEmailCode(email: string, code: string): Promise<{ ok: boolean; user?: { name: string; email: string }; error?: string }>;
+  verifyEmailCode(email: string, code: string): Promise<{
+    ok: boolean;
+    user?: { name: string; email: string; userId: string; accessToken: string };
+    error?: string;
+  }>;
 
   perfList(): Promise<Array<{
     id: string; name: string; desc: string; category: string;
@@ -77,6 +102,33 @@ export interface AnchorApi {
   setPcie(on: boolean): Promise<{ ok: boolean; error: string }>;
   clearShaderCaches(): Promise<{ bytes: number; cleared: string[] }>;
 
+  benchRun(drive: string, sizeMB: number): Promise<{
+    drive?: string; sizeMB?: number; unbuffered?: boolean;
+    seqReadMB?: number; seqWriteMB?: number;
+    rndReadMB?: number; rndWriteMB?: number;
+    rndReadIOPS?: number; rndWriteIOPS?: number;
+    error?: string;
+  }>;
+  memoryTestResults(): Promise<{ found: boolean; time?: string; passed?: boolean; message?: string }>;
+  scheduleMemoryTest(): Promise<{ ok: boolean; error: string }>;
+
+  diagState(): Promise<import("@/lib/diagnose").SystemState>;
+  diagProcesses(): Promise<import("@/lib/diagnose").ProcSample[]>;
+  diagErrors(days?: number): Promise<{
+    total: number;
+    groups: { source: string; count: number; latest: string; sample: string }[];
+  }>;
+  diagRepairs(): Promise<{ id: string; name: string; detail: string; minutes: string }[]>;
+  diagRunRepair(id: string): Promise<{ ok: boolean; output: string; error: string }>;
+  diagTrim(pid: number): Promise<{ ok: boolean; error: string }>;
+  diagRestartService(name: string): Promise<{ ok: boolean; error: string }>;
+
+  bootScan(): Promise<BootFinding[]>;
+  bootDisable(id: string): Promise<{ ok: boolean; error: string }>;
+  bootSetEnabled(on: boolean): Promise<{ ok: boolean }>;
+  bootStatus(): Promise<{ enabled: boolean; openAtLogin: boolean }>;
+  onBootProcess(cb: (ev: BootProcessEvent) => void): () => void;
+
   checkAppUpdate(): Promise<{
     available: boolean; latestVersion?: string; currentVersion?: string;
     releaseUrl?: string; installerUrl?: string | null; notes?: string;
@@ -84,14 +136,50 @@ export interface AnchorApi {
   openExternal(url: string): Promise<void>;
 }
 
+export interface BootFinding {
+  id: string;
+  source: string;
+  name: string;
+  location: string;
+  command: string;
+  path: string;
+  runAs: string | null;
+  author: string | null;
+  trigger: string | null;
+  enabled: boolean;
+  lastRun: string | null;
+  score: number;
+  level: "high" | "medium" | "low";
+  reasons: string[];
+}
+
+export interface BootProcessEvent {
+  time: number;
+  name: string;
+  pid: number;
+  parent: string;
+  parentPid: number;
+  command: string;
+  path: string;
+  score: number;
+  level: "high" | "medium" | "low";
+  reasons: string[];
+}
+
 export interface Profile {
   name: string;
+  displayName: string;
   email: string;
   provider: string;
   mailWindowsUpdates: boolean;
   mailSystemHealth: boolean;
   mailTechNews: boolean;
   mailAnchorUpdates: boolean;
+  restorePolicy: "weekly" | "monthly" | "always";
+  bootWatch: boolean;
+  theme: string;
+  userId: string;
+  accessToken: string;
 }
 
 declare global {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button, Card, CardContent, Skeleton, Switch } from "@/components/ui";
+import { ensureRestorePoint } from "@/lib/store";
 
 type Tweak = { id: string; name: string; desc: string; applied: boolean };
 
@@ -11,6 +12,10 @@ export default function PrivacyPage() {
 
   async function apply(t: Tweak, on: boolean) {
     setTweaks((prev) => prev?.map((x) => (x.id === t.id ? { ...x, applied: on } : x)) ?? null);
+    // registry change — worth a restore point, but at most once a week
+    ensureRestorePoint("Anchor privacy changes").then((rp) => {
+      if (!rp.skipped && rp.ok) setRestoreMsg("Restore point created before this change.");
+    });
     const r = await window.anchor.privacyApply(t.id, on);
     if (!r.ok) setTweaks((prev) => prev?.map((x) => (x.id === t.id ? { ...x, applied: !on } : x)) ?? null);
   }

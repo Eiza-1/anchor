@@ -95,7 +95,50 @@ async function signIn(provider = "google") {
   const meta = json.user?.user_metadata ?? {};
   const name =
     meta.full_name || meta.name || meta.user_name || meta.preferred_username || json.user?.email || "";
-  return { name, email: json.user?.email ?? "" };
+  return {
+    name,
+    email: json.user?.email ?? "",
+    userId: json.user?.id ?? "",
+    accessToken: json.access_token ?? "",
+  };
+}
+
+/* ------------------------- newsletter subscription ------------------------ *
+ * Preferences live in a Supabase table so the mail service can read them.
+ * Row-level security ties each row to the signed-in user, so the token below
+ * only ever grants access to that user's own row.                            */
+async function saveSubscription({ accessToken, userId, email, prefs }) {
+  if (!isConfigured() || !accessToken || !userId) return { ok: false, error: "Not signed in." };
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?on_conflict=user_id`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${accessToken}`,
+      Prefer: "resolution=merge-duplicates,return=minimal",
+    },
+    body: JSON.stringify({
+      user_id: userId,
+      email,
+      windows_updates: !!prefs.mailWindowsUpdates,
+      system_health: !!prefs.mailSystemHealth,
+      tech_news: !!prefs.mailTechNews,
+      anchor_updates: !!prefs.mailAnchorUpdates,
+      updated_at: new Date().toISOString(),
+    }),
+  });
+  if (!res.ok) return { ok: false, error: `${res.status} ${await res.text()}` };
+  return { ok: true };
+}
+
+/** Removes the user from every mailing list. */
+async function deleteSubscription({ accessToken, userId }) {
+  if (!accessToken || !userId) return { ok: false, error: "Not signed in." };
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${userId}`, {
+    method: "DELETE",
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${accessToken}` },
+  });
+  return { ok: res.ok, error: res.ok ? "" : String(res.status) };
 }
 
 // ---- Email one-time code (no social account needed) ----------------------
@@ -139,7 +182,15 @@ async function verifyEmailCode(email, token) {
     throw new Error(json.error_description ?? json.msg ?? "That code wasn't accepted. Try again.");
   const meta = json.user?.user_metadata ?? {};
   const name = meta.full_name || meta.name || (json.user?.email ?? "").split("@")[0] || "";
-  return { name, email: json.user?.email ?? email };
+  return {
+    name,
+    email: json.user?.email ?? email,
+    userId: json.user?.id ?? "",
+    accessToken: json.access_token ?? "",
+  };
 }
 
-module.exports = { signIn, isConfigured, PROVIDERS, sendEmailCode, verifyEmailCode };
+module.exports = {
+  signIn, isConfigured, PROVIDERS, sendEmailCode, verifyEmailCode,
+  saveSubscription, deleteSubscription,
+};

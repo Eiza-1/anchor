@@ -1,16 +1,19 @@
 import { useEffect, useState } from "react";
 import {
   Home, Zap, RefreshCw, Newspaper, Rocket, Trash2, Lock, HardDrive,
-  Activity, Wrench, User, Anchor as AnchorIcon, Download, X, Gamepad2, Sparkles,
+  Activity, Wrench, User, Anchor as AnchorIcon, Download, X, Gamepad2, Sparkles, ShieldAlert,
+  Stethoscope,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui";
 import { WhatsNew } from "@/components/WhatsNew";
-import { initUpdates, useUpdateState } from "@/lib/store";
+import { applyTheme, initUpdates, useUpdateState } from "@/lib/store";
 
 import HomePage from "@/pages/HomePage";
 import BoostPage from "@/pages/BoostPage";
 import GameBoostPage from "@/pages/GameBoostPage";
+import BootWatchPage from "@/pages/BootWatchPage";
+import DiagnosticsPage from "@/pages/DiagnosticsPage";
 import UpdatesPage from "@/pages/UpdatesPage";
 import SpotlightPage from "@/pages/SpotlightPage";
 import StartupPage from "@/pages/StartupPage";
@@ -23,17 +26,19 @@ import AccountPage from "@/pages/AccountPage";
 
 const NAV = [
   { id: "home", label: "Home", icon: Home, page: HomePage },
-  { id: "boost", label: "Boost & Health Check", icon: Zap, page: BoostPage },
+  { id: "boost", label: "Boost & Cleanup", icon: Zap, page: BoostPage },
   { id: "gameboost", label: "Game & App Boost", icon: Gamepad2, page: GameBoostPage },
   { id: "updates", label: "Windows Update", icon: RefreshCw, page: UpdatesPage },
   { id: "spotlight", label: "Tech Spotlight", icon: Newspaper, page: SpotlightPage },
   { separator: true, id: "s1" },
+  { id: "bootwatch", label: "Boot Watch", icon: ShieldAlert, page: BootWatchPage },
   { id: "startup", label: "Startup Apps", icon: Rocket, page: StartupPage },
   { id: "bloatware", label: "Bloatware Removal", icon: Trash2, page: BloatwarePage },
   { id: "privacy", label: "Privacy & Telemetry", icon: Lock, page: PrivacyPage },
   { separator: true, id: "s2" },
   { id: "drives", label: "Drive Health", icon: HardDrive, page: DrivesPage },
   { id: "performance", label: "Performance", icon: Activity, page: PerformancePage },
+  { id: "diagnostics", label: "Diagnostics", icon: Stethoscope, page: DiagnosticsPage },
   { id: "tools", label: "Advanced Tools", icon: Wrench, page: ToolsPage },
 ] as const;
 
@@ -46,6 +51,7 @@ export default function App() {
 
   useEffect(() => {
     window.anchor.appVersion().then(setVersion);
+    window.anchor.loadProfile().then((p) => applyTheme(p.theme ?? "dark"));
     initUpdates();
   }, []);
 

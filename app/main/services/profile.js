@@ -7,13 +7,23 @@ const { app } = require("electron");
 const file = () => path.join(app.getPath("userData"), "profile.json");
 
 const DEFAULTS = {
-  name: "",
+  name: "",          // as supplied by the sign-in provider
+  displayName: "",   // what the user chose to be called — takes precedence
   email: "",
   provider: "Local",
   mailWindowsUpdates: true,
   mailSystemHealth: true,
   mailTechNews: false,
   mailAnchorUpdates: true,
+  // How often Anchor may create a System Restore point before a real system
+  // change: "weekly" (default), "monthly", or "always".
+  restorePolicy: "weekly",
+  // Start with Windows and watch what else starts (see services/bootwatch.js)
+  bootWatch: false,
+  theme: "dark",
+  // Supabase session, kept so mail preferences can be saved to your account.
+  userId: "",
+  accessToken: "",
 };
 
 function loadProfile() {

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, dialog, Tray, Menu, Notification } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
@@ -11,8 +11,16 @@ const appUpdate = require("./services/appUpdate");
 const perf = require("./services/perftweaks");
 const updater = require("./services/updater");
 const { warmUp, shutdown } = require("./services/ps");
+const monitor = require("./services/monitor");
+const bootwatch = require("./services/bootwatch");
+const diagnostics = require("./services/diagnostics");
+const diskbench = require("./services/diskbench");
+const cleanup = require("./services/cleanup");
 
 let win;
+let tray = null;
+// Launched by Windows at login (see setLoginItemSettings) — start in the tray.
+const startedHidden = process.argv.includes("--startup");
 
 function createWindow() {
   win = new BrowserWindow({
@@ -34,7 +42,12 @@ function createWindow() {
     },
   });
 
-  win.once("ready-to-show", () => win.show());
+  win.once("ready-to-show", () => { if (!startedHidden) win.show(); });
+
+  // Closing to the tray keeps Boot Watch running; Quit from the tray exits.
+  win.on("close", (e) => {
+    if (!app.isQuitting && tray) { e.preventDefault(); win.hide(); }
+  });
   // Safety net: never leave the user staring at nothing if the page is slow or fails.
   setTimeout(() => { if (!win.isDestroyed() && !win.isVisible()) win.show(); }, 4000);
 
@@ -59,17 +72,57 @@ function createWindow() {
   else win.loadFile(path.join(__dirname, "..", "dist", "index.html"));
 }
 
-app.whenReady().then(() => {
+function createTray() {
+  const icon = path.join(__dirname, "..", "build", "icon.ico");
+  try { tray = new Tray(icon); } catch { return; }
+  tray.setToolTip("Anchor — watching startup activity");
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: "Open Anchor", click: () => { win?.show(); win?.focus(); } },
+      { type: "separator" },
+      { label: "Quit", click: () => { app.isQuitting = true; app.quit(); } },
+    ])
+  );
+  tray.on("double-click", () => { win?.show(); win?.focus(); });
+}
+
+app.whenReady().then(async () => {
   createWindow();
+  createTray();
   warmUp();                       // start the PowerShell host before it's needed
   updater.init(win.webContents);
+
+  // Boot Watch: if the user enabled it, watch process starts and, when launched
+  // at login, scan persistence and notify about anything suspicious.
+  const prof = profile.loadProfile();
+  if (prof.bootWatch) {
+    bootwatch.watchProcesses(win.webContents);
+    if (startedHidden) {
+      const findings = await bootwatch.scanPersistence();
+      const risky = findings.filter((f) => f.level === "high");
+      if (risky.length && Notification.isSupported()) {
+        const n = new Notification({
+          title: `Anchor found ${risky.length} suspicious startup item${risky.length === 1 ? "" : "s"}`,
+          body: risky.slice(0, 2).map((f) => f.name).join(", ") + " — click to review.",
+          icon: path.join(__dirname, "..", "build", "icon.ico"),
+        });
+        n.on("click", () => { win?.show(); win?.focus(); });
+        n.show();
+      }
+    }
+  }
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
-app.on("window-all-closed", () => app.quit());
-app.on("before-quit", shutdown);
+app.on("window-all-closed", () => { if (!tray) app.quit(); });
+app.on("before-quit", () => {
+  app.isQuitting = true;
+  shutdown();
+  monitor.stop();
+  bootwatch.stopWatching();
+});
 
 // ---------------- IPC ----------------
 const handle = (channel, fn) => ipcMain.handle(channel, (_e, ...args) => fn(...args));
@@ -80,13 +133,22 @@ handle("win:close", () => win?.close());
 handle("app:version", () => app.getVersion());
 
 handle("boost:restorePoint", (desc) => boost.createRestorePoint(desc ?? "Anchor"));
+handle("boost:ensureRestorePoint", (desc, minDays) =>
+  boost.ensureRestorePoint(desc ?? "Anchor", minDays ?? 7)
+);
+handle("boost:lastRestorePoint", () => boost.lastRestorePointAgeDays());
 handle("boost:run", (opts) => boost.runFullBoost(opts ?? {}));
+handle("cleanup:scan", () => cleanup.scan());
+handle("cleanup:run", (ids) => cleanup.clean(ids ?? []));
 
 handle("sys:buildInfo", () => sys.buildInfo());
 handle("sys:checkUpdates", () => sys.checkUpdates());
 handle("sys:driveHealth", () => sys.driveHealth());
 handle("sys:volumes", () => sys.volumes());
 handle("sys:deviceHealth", () => sys.deviceHealth());
+handle("sys:cpuInfo", () => sys.cpuInfo());
+handle("monitor:start", () => monitor.start(win.webContents));
+handle("monitor:stop", () => monitor.stop());
 handle("sys:perfSample", () => sys.perfSample());
 handle("sys:topProcesses", () => sys.topProcesses());
 handle("sys:startupList", () => sys.startupList());
@@ -127,6 +189,16 @@ handle("auth:signIn", async (provider) => {
 });
 handle("auth:configured", () => auth.isConfigured());
 handle("auth:providers", () => auth.PROVIDERS);
+handle("auth:saveSubscription", async (prefs) => {
+  const p = profile.loadProfile();
+  return auth.saveSubscription({
+    accessToken: p.accessToken, userId: p.userId, email: p.email, prefs,
+  });
+});
+handle("auth:deleteSubscription", async () => {
+  const p = profile.loadProfile();
+  return auth.deleteSubscription({ accessToken: p.accessToken, userId: p.userId });
+});
 handle("auth:sendEmailCode", async (email) => {
   try {
     await auth.sendEmailCode(email);
@@ -169,6 +241,39 @@ handle("perf:pickExe", async () => {
   });
   return canceled ? null : filePaths[0];
 });
+
+// Disk benchmark + RAM test
+handle("bench:run", (drive, sizeMB) => diskbench.benchmark(drive, sizeMB));
+handle("bench:memoryResults", () => diskbench.memoryTestResults());
+handle("bench:scheduleMemoryTest", () => diskbench.scheduleMemoryTest());
+
+// Diagnostics
+handle("diag:state", () => diagnostics.systemState());
+handle("diag:processes", () => diagnostics.processSnapshot());
+handle("diag:errors", (days) => diagnostics.errorHistory(days ?? 7));
+handle("diag:repairs", () => diagnostics.listRepairs());
+handle("diag:runRepair", (id) => diagnostics.runRepair(id));
+handle("diag:trim", (pid) => diagnostics.trimProcess(pid));
+handle("diag:restartService", (name) => diagnostics.restartService(name));
+
+// Boot Watch
+handle("bootwatch:scan", () => bootwatch.scanPersistence());
+handle("bootwatch:disable", (id) => bootwatch.disableEntry(id));
+handle("bootwatch:setEnabled", (on) => {
+  profile.saveProfile({ bootWatch: !!on });
+  app.setLoginItemSettings({
+    openAtLogin: !!on,
+    path: process.execPath,
+    args: ["--startup"],
+  });
+  if (on) bootwatch.watchProcesses(win.webContents);
+  else bootwatch.stopWatching();
+  return { ok: true };
+});
+handle("bootwatch:status", () => ({
+  enabled: !!profile.loadProfile().bootWatch,
+  openAtLogin: app.getLoginItemSettings({ path: process.execPath, args: ["--startup"] }).openAtLogin,
+}));
 
 handle("app:checkUpdate", () => appUpdate.checkForUpdate());
 handle("update:check", () => updater.check());

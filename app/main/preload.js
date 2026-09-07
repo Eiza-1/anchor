@@ -13,7 +13,11 @@ contextBridge.exposeInMainWorld("anchor", {
 
   // safety + boost
   createRestorePoint: (desc) => call("boost:restorePoint", desc),
+  ensureRestorePoint: (desc, minDays) => call("boost:ensureRestorePoint", desc, minDays),
+  lastRestorePoint: () => call("boost:lastRestorePoint"),
   runBoost: (opts) => call("boost:run", opts),
+  cleanupScan: () => call("cleanup:scan"),
+  cleanupRun: (ids) => call("cleanup:run", ids),
 
   // windows update
   buildInfo: () => call("sys:buildInfo"),
@@ -23,6 +27,14 @@ contextBridge.exposeInMainWorld("anchor", {
   driveHealth: () => call("sys:driveHealth"),
   volumes: () => call("sys:volumes"),
   deviceHealth: () => call("sys:deviceHealth"),
+  cpuInfo: () => call("sys:cpuInfo"),
+  monitorStart: () => call("monitor:start"),
+  monitorStop: () => call("monitor:stop"),
+  onMonitorSample: (cb) => {
+    const handler = (_e, sample) => cb(sample);
+    ipcRenderer.on("monitor:sample", handler);
+    return () => ipcRenderer.removeListener("monitor:sample", handler);
+  },
   perfSample: () => call("sys:perfSample"),
   topProcesses: () => call("sys:topProcesses"),
 
@@ -51,6 +63,8 @@ contextBridge.exposeInMainWorld("anchor", {
   signIn: (provider) => call("auth:signIn", provider),
   authConfigured: () => call("auth:configured"),
   authProviders: () => call("auth:providers"),
+  saveSubscription: (prefs) => call("auth:saveSubscription", prefs),
+  deleteSubscription: () => call("auth:deleteSubscription"),
   sendEmailCode: (email) => call("auth:sendEmailCode", email),
   verifyEmailCode: (email, code) => call("auth:verifyEmailCode", email, code),
 
@@ -71,6 +85,31 @@ contextBridge.exposeInMainWorld("anchor", {
 
   // app updates + links
   checkAppUpdate: () => call("app:checkUpdate"),
+
+  // disk benchmark + RAM test
+  benchRun: (drive, sizeMB) => call("bench:run", drive, sizeMB),
+  memoryTestResults: () => call("bench:memoryResults"),
+  scheduleMemoryTest: () => call("bench:scheduleMemoryTest"),
+
+  // diagnostics
+  diagState: () => call("diag:state"),
+  diagProcesses: () => call("diag:processes"),
+  diagErrors: (days) => call("diag:errors", days),
+  diagRepairs: () => call("diag:repairs"),
+  diagRunRepair: (id) => call("diag:runRepair", id),
+  diagTrim: (pid) => call("diag:trim", pid),
+  diagRestartService: (name) => call("diag:restartService", name),
+
+  // boot watch
+  bootScan: () => call("bootwatch:scan"),
+  bootDisable: (id) => call("bootwatch:disable", id),
+  bootSetEnabled: (on) => call("bootwatch:setEnabled", on),
+  bootStatus: () => call("bootwatch:status"),
+  onBootProcess: (cb) => {
+    const handler = (_e, ev) => cb(ev);
+    ipcRenderer.on("bootwatch:process", handler);
+    return () => ipcRenderer.removeListener("bootwatch:process", handler);
+  },
 
   // in-app updates
   updateCheck: () => call("update:check"),

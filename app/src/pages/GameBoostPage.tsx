@@ -5,7 +5,7 @@ import {
   Select, Skeleton, Switch,
 } from "@/components/ui";
 import { formatBytes } from "@/lib/utils";
-import { cached, invalidate, peek } from "@/lib/store";
+import { cached, ensureRestorePoint, invalidate, peek } from "@/lib/store";
 
 type Tweak = {
   id: string; name: string; desc: string; category: string;
@@ -51,9 +51,9 @@ export default function GameBoostPage() {
 
   async function applyRecommended() {
     setBusy(true);
-    setMsg("Creating restore point…");
-    await window.anchor.createRestorePoint("Anchor performance tweaks");
-    setMsg("Applying recommended tweaks…");
+    setMsg("Checking restore point…");
+    const rp = await ensureRestorePoint("Anchor performance tweaks");
+    setMsg(rp.skipped ? `${rp.message} Applying tweaks…` : "Restore point created. Applying tweaks…");
     await window.anchor.perfApplyRecommended();
     await load(true);
     setMsg("Recommended tweaks applied. Every one can be switched back off below.");

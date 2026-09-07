@@ -149,6 +149,19 @@ $total=$os.TotalVisibleMemorySize*1024; $free=$os.FreePhysicalMemory*1024
 `);
 }
 
+/** Static CPU details, for the pairing assessment. */
+async function cpuInfo() {
+  return await runPSJson(`
+$c = Get-CimInstance Win32_Processor | Select-Object -First 1
+[PSCustomObject]@{
+  name = $c.Name.Trim()
+  cores = [int]$c.NumberOfCores
+  threads = [int]$c.NumberOfLogicalProcessors
+  maxClockMHz = [int]$c.MaxClockSpeed
+} | ConvertTo-Json -Compress
+`);
+}
+
 async function topProcesses() {
   const r = await runPSJson(`
 Get-Process | Group-Object ProcessName | ForEach-Object {
@@ -358,7 +371,7 @@ function generateAutounattend(o) {
 }
 
 module.exports = {
-  buildInfo, checkUpdates, driveHealth, volumes, perfSample, topProcesses, deviceHealth,
+  buildInfo, checkUpdates, driveHealth, volumes, perfSample, topProcesses, deviceHealth, cpuInfo,
   startupList, startupToggle, bloatwareList, bloatwareRemove,
   privacyList, privacyApply, openTool, generateAutounattend,
 };
