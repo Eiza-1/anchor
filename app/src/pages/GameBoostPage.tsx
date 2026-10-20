@@ -7,6 +7,9 @@ import {
 import { formatBytes } from "@/lib/utils";
 import { ensureRestorePoint, invalidate, peek, remember } from "@/lib/store";
 import { Q } from "@/lib/queries";
+import { runTask, useBlockedBy, useTask } from "@/lib/tasks";
+
+const PERF_WHERE = { section: "performance", tab: "boost" };
 
 type Tweak = {
   id: string; name: string; desc: string; category: string;
@@ -25,9 +28,16 @@ export default function GameBoostPage() {
   const [gpu, setGpu] = useState<GpuPref[]>(peek<GpuPref[]>("perf:gpuPrefs") ?? []);
   const [gpus, setGpus] = useState<Gpu[]>(peek<Gpu[]>("perf:gpuInfo") ?? []);
   const [pcieSaving, setPcieSaving] = useState<boolean | null>(peek<{ saving: boolean }>("perf:pcie")?.saving ?? null);
-  const [cacheMsg, setCacheMsg] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState("");
+  const recTask = useTask("perf:recommended");
+  const revTask = useTask("perf:revert");
+  const shaderTask = useTask<{ bytes: number; cleared: string[] }>("perf:shaders");
+  const blocker = useBlockedBy("perf");
+  const recBusy = recTask?.status === "running";
+  const revBusy = revTask?.status === "running";
+  const shaderBusy = shaderTask?.status === "running";
+  const blockedMsg = blocker ? `${blocker.label} is already running` : undefined;
+  const anyPerfBusy = !!blocker;
+  const blockedTitle = blockedMsg;
 
   async function load(force = false) {
     if (force) invalidate("perf:tweaks", "perf:power", "perf:gpuPrefs", "perf:gpuInfo", "perf:pcie");
@@ -49,31 +59,101 @@ export default function GameBoostPage() {
 
   const restartNeeded = tweaks?.some((t) => t.needsRestart && t.applied);
 
-  async function toggle(t: Tweak, on: boolean) {
-    setTweaks((prev) => prev?.map((x) => (x.id === t.id ? { ...x, applied: on } : x)) ?? null);
-    const r = await window.anchor.perfApply(t.id, on);
-    if (!r.ok) setTweaks((prev) => prev?.map((x) => (x.id === t.id ? { ...x, applied: !on } : x)) ?? null);
+  function toggle(t: Tweak, on: boolean) {
+    const setApplied = (applied: boolean) =>
+      setTweaks((prev) => prev?.map((x) => (x.id === t.id ? { ...x, applied } : x)) ?? null);
+    setApplied(on);
+    runTask(
+      `perf:${t.id}`,
+      {
+        label: "Performance tweak",
+        where: PERF_WHERE,
+        group: "perf",
+        isError: (r: { ok: boolean; error: string }) => (r.ok ? null : r.error || "Couldn't change this tweak"),
+        summarize: () => `${t.name} ${on ? "on" : "off"}`,
+      },
+      async () => {
+        const r = await window.anchor.perfApply(t.id, on);
+        if (!r.ok) invalidate("perf:tweaks"); // page may be closed: re-read the truth next visit
+        return r;
+      },
+    ).then((r) => { if (!r?.ok) setApplied(!on); });
   }
 
-  async function applyRecommended() {
-    setBusy(true);
-    setMsg("Checking restore point…");
-    const rp = await ensureRestorePoint("Anchor performance tweaks");
-    setMsg(rp.skipped ? `${rp.message} Applying tweaks…` : "Restore point created. Applying tweaks…");
-    await window.anchor.perfApplyRecommended();
-    await load(true);
-    setMsg("Recommended tweaks applied. Every one can be switched back off below.");
-    setBusy(false);
+  function applyRecommended() {
+    runTask(
+      "perf:recommended",
+      {
+        label: "Recommended tweaks",
+        where: PERF_WHERE,
+        group: "perf",
+        isError: (r: Array<{ id: string; ok: boolean }>) =>
+          r.length > 0 && r.every((x) => !x.ok) ? "None of the tweaks could be applied" : null,
+        summarize: (r) => `Applied ${r.filter((x) => x.ok).length} tweaks`,
+      },
+      async () => {
+        await ensureRestorePoint("Anchor performance tweaks");
+        const r = await window.anchor.perfApplyRecommended();
+        await load(true);
+        return r;
+      },
+    );
   }
 
-  async function revertAll() {
-    setBusy(true);
-    setMsg("Restoring Windows defaults…");
-    for (const t of tweaks ?? []) if (t.applied) await window.anchor.perfApply(t.id, false);
-    await load(true);
-    setMsg("All tweaks reverted to Windows defaults.");
-    setBusy(false);
+  function revertAll() {
+    const applied = (tweaks ?? []).filter((t) => t.applied);
+    runTask(
+      "perf:revert",
+      {
+        label: "Revert tweaks",
+        where: PERF_WHERE,
+        group: "perf",
+        isError: (r: boolean[]) => (r.some((ok) => !ok) ? `${r.filter((ok) => !ok).length} tweaks couldn't be reverted` : null),
+        summarize: () => "Windows defaults restored",
+      },
+      async () => {
+        const oks: boolean[] = [];
+        for (const t of applied) oks.push((await window.anchor.perfApply(t.id, false)).ok);
+        await load(true);
+        return oks;
+      },
+    );
   }
+
+  function clearShaders() {
+    runTask(
+      "perf:shaders",
+      {
+        label: "Shader cache clear",
+        where: PERF_WHERE,
+        summarize: (r: { bytes: number; cleared: string[] }) =>
+          r.cleared.length ? `Cleared ${formatBytes(r.bytes)}` : "No shader caches found",
+      },
+      () => window.anchor.clearShaderCaches(),
+    );
+  }
+
+  const latestOne = (recTask?.finishedAt ?? 0) >= (revTask?.finishedAt ?? 0) ? recTask : revTask;
+  const msg = recBusy
+    ? "Checking restore point, then applying tweaks…"
+    : revBusy
+    ? "Restoring Windows defaults…"
+    : latestOne?.status === "error"
+    ? `${latestOne.label} failed: ${latestOne.error}`
+    : latestOne?.status === "done"
+    ? latestOne === recTask
+      ? "Recommended tweaks applied. Every one can be switched back off below."
+      : "All tweaks reverted to Windows defaults."
+    : "";
+  const cacheMsg = shaderBusy
+    ? "Clearing shader caches…"
+    : shaderTask?.status === "error"
+    ? `Couldn't clear shader caches: ${shaderTask.error}`
+    : shaderTask?.result
+    ? shaderTask.result.cleared.length
+      ? `Cleared ${formatBytes(shaderTask.result.bytes)} from ${shaderTask.result.cleared.join(", ")}. Games rebuild these on next launch.`
+      : "No shader caches found to clear."
+    : "";
 
   async function addGame() {
     const exe = await window.anchor.pickExe();
@@ -102,13 +182,14 @@ export default function GameBoostPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-wrap gap-2">
-            <Button onClick={applyRecommended} loading={busy}>
-              {!busy && <Zap />} Apply recommended
+            <Button onClick={applyRecommended} loading={recBusy} disabled={anyPerfBusy && !recBusy} title={recBusy ? undefined : blockedTitle}>
+              {!recBusy && <Zap />} Apply recommended
             </Button>
-            <Button variant="outline" onClick={revertAll} disabled={busy}>
-              <RotateCcw /> Revert all
+            <Button variant="outline" onClick={revertAll} loading={revBusy} disabled={anyPerfBusy && !revBusy} title={revBusy ? undefined : blockedTitle}>
+              {!revBusy && <RotateCcw />} Revert all
             </Button>
           </div>
+          {blockedMsg && <p className="text-xs text-muted-foreground">{blockedMsg}</p>}
           {msg && <p className="text-sm text-muted-foreground">{msg}</p>}
           {restartNeeded && (
             <Alert variant="warning">Restart your PC to finish applying GPU scheduling.</Alert>
@@ -171,18 +252,8 @@ export default function GameBoostPage() {
             <Button
               variant="outline"
               size="sm"
-              loading={busy}
-              onClick={async () => {
-                setBusy(true);
-                setCacheMsg("Clearing shader caches…");
-                const r = await window.anchor.clearShaderCaches();
-                setCacheMsg(
-                  r.cleared.length
-                    ? `Cleared ${formatBytes(r.bytes)} from ${r.cleared.join(", ")}. Games rebuild these on next launch.`
-                    : "No shader caches found to clear."
-                );
-                setBusy(false);
-              }}
+              loading={shaderBusy}
+              onClick={clearShaders}
             >
               <Eraser /> Clear shader caches
             </Button>
@@ -269,7 +340,7 @@ export default function GameBoostPage() {
                   </p>
                   <p className="text-xs text-muted-foreground">{t.desc}</p>
                 </div>
-                <Switch checked={t.applied} onCheckedChange={(v) => toggle(t, v)} />
+                <Switch checked={t.applied} disabled={anyPerfBusy} onCheckedChange={(v) => toggle(t, v)} />
               </div>
             ))}
           </CardContent>

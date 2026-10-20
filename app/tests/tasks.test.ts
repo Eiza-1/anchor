@@ -142,4 +142,16 @@ describe("observers", () => {
     await t.runTask("later", { label: "L", where }, async () => 1);
     expect(cb).toHaveBeenCalledTimes(2);
   });
+
+  it("restore then change: a change waits for a running restore point", async () => {
+    const d = deferred<string>();
+    const restore = t.runTask("restore:create", { label: "Restore point", where, group: "restore" }, () => d.promise);
+    const fn = vi.fn(async () => "removed");
+    expect(await t.runTask("bloat:remove", { label: "Bloatware removal", where, group: "change" }, fn)).toBeUndefined();
+    expect(fn).not.toHaveBeenCalled();
+    d.resolve("ok");
+    await restore;
+    expect(await t.runTask("bloat:remove", { label: "Bloatware removal", where, group: "change" }, fn)).toBe("removed");
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
 });

@@ -6,6 +6,7 @@ import {
 import { greetingFor } from "@/lib/utils";
 import { HealthList } from "@/components/HealthList";
 import { runBoost, runHealthCheck, useAppState } from "@/lib/store";
+import { useBlockedBy, useTask } from "@/lib/tasks";
 
 export default function HomePage() {
   const { health, boost } = useAppState();
@@ -14,6 +15,10 @@ export default function HomePage() {
   useEffect(() => {
     window.anchor.loadProfile().then((p) => setGreeting(greetingFor(p)));
   }, []);
+
+  const boostTask = useTask("home:boost");
+  const blocker = useBlockedBy("cleanup");
+  const blockedMsg = blocker && blocker.key !== "home:boost" ? `${blocker.label} is already running` : undefined;
 
   const healthPct = health.total ? (health.done / health.total) * 100 : 0;
 
@@ -37,9 +42,13 @@ export default function HomePage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-3">
-          <Button onClick={runBoost} loading={boost.running}>
+          <Button onClick={runBoost} loading={boost.running} disabled={!!blockedMsg} title={blockedMsg}>
             {!boost.running && <Zap />} Boost now
           </Button>
+          {blockedMsg && <p className="text-xs text-muted-foreground">{blockedMsg}</p>}
+          {boostTask?.status === "error" && (
+            <p className="text-sm text-destructive">Boost failed: {boostTask.error}</p>
+          )}
           {boost.message && <p className="text-sm text-muted-foreground">{boost.message}</p>}
         </CardContent>
       </Card>

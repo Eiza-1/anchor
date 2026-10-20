@@ -73,6 +73,16 @@ export function useBlockedBy(group?: TaskGroup): Task | undefined {
   return useSyncExternalStore(subscribe, () => blockedBy(group), () => blockedBy(group));
 }
 
+/** Key of the first running task whose key starts with `prefix` (a stable string,
+ *  so it's safe as a snapshot) — for "disable the siblings while one runs". */
+export function runningKeyWith(prefix: string): string | undefined {
+  for (const t of tasks.values()) if (t.status === "running" && t.key.startsWith(prefix)) return t.key;
+  return undefined;
+}
+export function useRunningKeyWith(prefix: string): string | undefined {
+  return useSyncExternalStore(subscribe, () => runningKeyWith(prefix), () => runningKeyWith(prefix));
+}
+
 export const runningSections = () => sections;
 export function useRunningSections(): Set<string> {
   return useSyncExternalStore(subscribe, runningSections, runningSections);

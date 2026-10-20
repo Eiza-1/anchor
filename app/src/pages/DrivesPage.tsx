@@ -9,8 +9,10 @@ import {
 import { cn, formatBytes } from "@/lib/utils";
 import { invalidate, peek } from "@/lib/store";
 import { Q } from "@/lib/queries";
+import { runTask, useTask } from "@/lib/tasks";
 
 type Drive = { name: string; media: string; health: string; size: number; wear?: number; temp?: number; predictFailure?: boolean };
+type BenchResult = Awaited<ReturnType<typeof window.anchor.benchRun>>;
 type Volume = { DeviceID: string; FreeSpace: number; Size: number };
 
 export default function DrivesPage() {
@@ -20,20 +22,25 @@ export default function DrivesPage() {
 
   const [benchDrive, setBenchDrive] = useState("C:");
   const [benchSize, setBenchSize] = useState(256);
-  const [bench, setBench] = useState<Awaited<ReturnType<typeof window.anchor.benchRun>> | null>(
-    peek("bench:last") ?? null
-  );
-  const [benching, setBenching] = useState(false);
+  const benchTask = useTask<BenchResult>("drives:bench");
+  const benching = benchTask?.status === "running";
+  const bench: BenchResult | null =
+    benchTask?.result ?? (benchTask?.status === "error" ? { error: benchTask.error } : null);
   const [memTest, setMemTest] = useState<Awaited<ReturnType<typeof window.anchor.memoryTestResults>> | null>(null);
 
   useEffect(() => { window.anchor.memoryTestResults().then(setMemTest); }, []);
 
-  async function runBench() {
-    setBenching(true);
-    setBench(null);
-    const r = await window.anchor.benchRun(benchDrive, benchSize);
-    setBench(r);
-    setBenching(false);
+  function runBench() {
+    runTask(
+      "drives:bench",
+      {
+        label: "Speed test",
+        where: { section: "system", tab: "drives" },
+        isError: (r: BenchResult) => r.error ?? null,
+        summarize: (r) => `Read ${r.seqReadMB} MB/s`,
+      },
+      () => window.anchor.benchRun(benchDrive, benchSize),
+    );
   }
 
   async function scan(force = false) {

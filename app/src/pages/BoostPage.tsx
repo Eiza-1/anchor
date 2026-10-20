@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Eraser, RefreshCw, Trash2, Zap } from "lucide-react";
 import {
   Alert, Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle,
@@ -7,6 +7,7 @@ import {
 import { formatBytes } from "@/lib/utils";
 import { invalidate, peek, runMemoryTrim, useAppState } from "@/lib/store";
 import { Q } from "@/lib/queries";
+import { runTask, useBlockedBy, useTask } from "@/lib/tasks";
 
 type Target = {
   id: string; name: string; detail: string;
@@ -17,29 +18,49 @@ export default function BoostPage() {
   const { trim } = useAppState();
   const [targets, setTargets] = useState<Target[] | null>(peek<Target[]>("cleanup:scan") ?? null);
   const [chosen, setChosen] = useState<Set<string>>(new Set());
-  const [scanning, setScanning] = useState(false);
-  const [cleaning, setCleaning] = useState(false);
   const [confirm, setConfirm] = useState(false);
-  const [result, setResult] = useState("");
+  const scanTask = useTask<Target[]>("cleanup:scan");
+  const cleanTask = useTask<{ freed: number; cleaned: string[] }>("cleanup:clean");
+  const blocker = useBlockedBy("cleanup");
+  const scanning = scanTask?.status === "running";
+  const cleaning = cleanTask?.status === "running";
+  const blockedMsg = blocker && blocker.key !== "cleanup:clean" ? `${blocker.label} is already running` : undefined;
+  const hadList = useRef(targets !== null);
+  const forceNext = useRef(false);
 
   useEffect(() => {
     // pre-select from saved results right away; the rescan below refreshes them
     if (targets) setChosen(new Set(targets.filter((t) => t.default && t.bytes > 0).map((t) => t.id)));
-    scan();
+    scan(false, true);
   }, []);
 
-  async function scan(force = false) {
-    setScanning(true);
-    if (force) invalidate("cleanup:scan");
-    try {
-      const hadList = targets !== null;
-      const list = await Q.cleanupScan();
-      setTargets(list);
-      // a background refresh keeps whatever the user ticked meanwhile
-      if (force || !hadList) setChosen(new Set(list.filter((t) => t.default && t.bytes > 0).map((t) => t.id)));
-    } finally {
-      setScanning(false);
+  // a finished scan (even one that finished while this page was closed) shows its list;
+  // a background refresh keeps whatever the user ticked meanwhile
+  useEffect(() => {
+    if (scanTask?.status !== "done" || !scanTask.result) return;
+    const list = scanTask.result;
+    setTargets(list);
+    if (forceNext.current || !hadList.current) {
+      setChosen(new Set(list.filter((t) => t.default && t.bytes > 0).map((t) => t.id)));
     }
+    forceNext.current = false;
+    hadList.current = true;
+  }, [scanTask?.finishedAt]);
+
+  // after a clean finishes, the numbers are stale
+  const firstClean = useRef(true);
+  useEffect(() => {
+    if (firstClean.current) { firstClean.current = false; return; }
+    if (cleanTask?.status === "done") scan(true);
+  }, [cleanTask?.finishedAt]);
+
+  function scan(force = false, automatic = false) {
+    if (force) { invalidate("cleanup:scan"); forceNext.current = true; }
+    return runTask(
+      "cleanup:scan",
+      { label: "Cleanup scan", where: { section: "cleanup" }, silent: automatic },
+      () => Q.cleanupScan(),
+    );
   }
 
   const selected = (targets ?? []).filter((t) => chosen.has(t.id));
@@ -47,15 +68,27 @@ export default function BoostPage() {
   const totalFound = (targets ?? []).reduce((sum, t) => sum + t.bytes, 0);
   const hasOneWay = selected.some((t) => t.oneWay);
 
-  async function clean() {
+  function clean() {
     setConfirm(false);
-    setCleaning(true);
-    setResult("Clearing…");
-    const r = await window.anchor.cleanupRun([...chosen]);
-    setResult(`Freed ${formatBytes(r.freed)} from ${r.cleaned.length} location${r.cleaned.length === 1 ? "" : "s"}.`);
-    setCleaning(false);
-    scan(true);
+    runTask(
+      "cleanup:clean",
+      {
+        label: "Cleanup",
+        where: { section: "cleanup" },
+        group: "cleanup",
+        summarize: (r) => `Freed ${formatBytes(r.freed)}`,
+      },
+      () => window.anchor.cleanupRun([...chosen]),
+    );
   }
+
+  const result = cleaning
+    ? "Clearing…"
+    : cleanTask?.status === "done" && cleanTask.result
+    ? `Freed ${formatBytes(cleanTask.result.freed)} from ${cleanTask.result.cleaned.length} location${cleanTask.result.cleaned.length === 1 ? "" : "s"}.`
+    : cleanTask?.status === "error"
+    ? `Cleanup failed: ${cleanTask.error}`
+    : "";
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-6">
@@ -84,7 +117,8 @@ export default function BoostPage() {
             </Button>
             <Button
               onClick={() => setConfirm(true)}
-              disabled={chosen.size === 0 || cleaning}
+              disabled={chosen.size === 0 || !!blockedMsg}
+              title={blockedMsg}
               loading={cleaning}
             >
               {!cleaning && <Trash2 />} Clear selected ({formatBytes(totalSelected)})
@@ -96,6 +130,7 @@ export default function BoostPage() {
             )}
           </div>
 
+          {blockedMsg && <p className="text-xs text-muted-foreground">{blockedMsg}</p>}
           {result && <p className="text-sm text-muted-foreground">{result}</p>}
 
           <div className="space-y-1.5">

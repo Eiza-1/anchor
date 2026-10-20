@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle, Clock, Cpu, Droplets, FileWarning, Play, RefreshCw, Stethoscope, Wrench,
 } from "lucide-react";
@@ -12,6 +12,7 @@ import {
   clearLeakHistory, ensureRestorePoint, invalidate, peek, startLeakWatch, useProcHistory,
 } from "@/lib/store";
 import { Q } from "@/lib/queries";
+import { runTask, useBlockedBy, useRunningKeyWith, useTask } from "@/lib/tasks";
 
 type Repair = { id: string; name: string; detail: string; minutes: string };
 type ErrorGroups = { total: number; groups: { source: string; count: number; latest: string; sample: string }[] };
@@ -21,9 +22,7 @@ export default function DiagnosticsPage() {
   const [state, setState] = useState<SystemState | null>(peek<SystemState>("diag:state") ?? null);
   const [errors, setErrors] = useState<ErrorGroups | null>(peek<ErrorGroups>("diag:errors") ?? null);
   const [repairs, setRepairs] = useState<Repair[]>(peek<Repair[]>("diag:repairs") ?? []);
-  const [busy, setBusy] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<Repair | null>(null);
-  const [result, setResult] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -44,16 +43,32 @@ export default function DiagnosticsPage() {
   const hogs = cpuHogs(latest);
   const advice = uptimeAdvice(state, suspects.filter((s) => s.confidence !== "watching").length);
 
-  async function runRepair(r: Repair) {
+  function runRepair(r: Repair) {
     setConfirm(null);
-    setBusy(r.id);
-    setResult(`Running ${r.name}… ${r.minutes === "instant" ? "" : `This takes ${r.minutes}.`}`);
-    if (r.id === "winsock" || r.id === "updatecache") await ensureRestorePoint(`Anchor: ${r.name}`);
-    const res = await window.anchor.diagRunRepair(r.id);
-    setResult(res.ok ? `${r.name} finished.` : `${r.name} reported a problem: ${res.error || res.output.slice(-200)}`);
-    setBusy(null);
-    load(true);
+    runTask(
+      `diag:repair:${r.id}`,
+      {
+        label: r.name,
+        where: { section: "system", tab: "diagnostics" },
+        group: "change",
+        isError: (res: { ok: boolean; output: string; error: string }) =>
+          res.ok ? null : `${r.name} reported a problem: ${res.error || res.output.slice(-200)}`,
+        summarize: () => `${r.name} finished.`,
+      },
+      async () => {
+        if (r.id === "winsock" || r.id === "updatecache") await ensureRestorePoint(`Anchor: ${r.name}`);
+        return window.anchor.diagRunRepair(r.id);
+      },
+    );
   }
+
+  // a finished repair refreshes the system state (also when it finished while this page was closed)
+  const anyRepair = useRunningKeyWith("diag:repair:");
+  const wasRunning = useRef(false);
+  useEffect(() => {
+    if (wasRunning.current && !anyRepair) load(true);
+    wasRunning.current = !!anyRepair;
+  }, [anyRepair]);
 
   const TONE = {
     ok: "border-emerald-500/40 bg-emerald-500/10",
@@ -230,26 +245,8 @@ export default function DiagnosticsPage() {
         </CardHeader>
         <CardContent className="space-y-2">
           {repairs.map((r) => (
-            <div key={r.id} className="flex flex-wrap items-start justify-between gap-3 rounded-lg border p-3">
-              <div className="min-w-0 flex-1">
-                <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
-                  {r.name}
-                  <Badge variant="secondary">{r.minutes}</Badge>
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">{r.detail}</p>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                loading={busy === r.id}
-                disabled={busy !== null}
-                onClick={() => setConfirm(r)}
-              >
-                {busy !== r.id && <Play />} Run
-              </Button>
-            </div>
+            <RepairRow key={r.id} r={r} anyRunning={anyRepair} onAsk={() => setConfirm(r)} />
           ))}
-          {result && <p className="text-sm text-muted-foreground">{result}</p>}
         </CardContent>
       </Card>
 
@@ -282,6 +279,38 @@ function Stat({ label, value, warn }: { label: string; value: string; warn?: boo
     <div className="rounded-md border p-3">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className={cn("text-lg font-semibold", warn && "text-amber-400")}>{value}</p>
+    </div>
+  );
+}
+
+function RepairRow({ r, anyRunning, onAsk }: { r: Repair; anyRunning?: string; onAsk: () => void }) {
+  const task = useTask<{ ok: boolean; output: string; error: string }>(`diag:repair:${r.id}`);
+  const blocker = useBlockedBy("change");
+  const running = task?.status === "running";
+  const blockedMsg = blocker ? `${blocker.label} is already running` : anyRunning && !running ? "Another repair is already running" : undefined;
+  const msg = running
+    ? `Running ${r.name}… ${r.minutes === "instant" ? "" : `This takes ${r.minutes}.`}`
+    : task?.status === "done"
+    ? `${r.name} finished.`
+    : task?.status === "error"
+    ? task.error ?? ""
+    : "";
+  return (
+    <div className="rounded-lg border p-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
+            {r.name}
+            <Badge variant="secondary">{r.minutes}</Badge>
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{r.detail}</p>
+        </div>
+        <Button size="sm" variant="outline" loading={running} disabled={!!blockedMsg || !!anyRunning} title={blockedMsg} onClick={onAsk}>
+          {!running && <Play />} Run
+        </Button>
+      </div>
+      {blockedMsg && !running && <p className="mt-2 text-xs text-muted-foreground">{blockedMsg}</p>}
+      {msg && <p className="mt-2 text-sm text-muted-foreground">{msg}</p>}
     </div>
   );
 }

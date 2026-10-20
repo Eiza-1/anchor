@@ -5,7 +5,8 @@ import {
 } from "@/components/ui";
 import { Palette } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { applyTheme, invalidate, peek, THEMES } from "@/lib/store";
+import { applyTheme, peek, runRestorePoint, THEMES } from "@/lib/store";
+import { useBlockedBy, useTask } from "@/lib/tasks";
 import { Q } from "@/lib/queries";
 import { displayNameOf, greetingFor } from "@/lib/utils";
 import type { Profile } from "@/types";
@@ -396,10 +397,13 @@ function RestorePoints({ initialPolicy }: { initialPolicy: string }) {
     const l = peek<{ days: number }>("restore:last");
     return l ? describeAge(l.days) : "";
   });
-  const [msg, setMsg] = useState("");
-  const [creating, setCreating] = useState(false);
+  const task = useTask<{ ok: boolean; message: string }>("restore:create");
+  const blocker = useBlockedBy("restore");
+  const creating = task?.status === "running";
+  const blockedMsg = blocker && blocker.key !== "restore:create" ? `${blocker.label} is already running` : undefined;
+  const msg = creating ? "Creating restore point…" : task?.result?.message ?? task?.error ?? "";
 
-  useEffect(() => { Q.lastRestorePoint().then((l) => setLast(describeAge(l.days)), () => {}); }, []);
+  useEffect(() => { Q.lastRestorePoint().then((l) => setLast(describeAge(l.days)), () => {}); }, [task?.finishedAt]);
 
   return (
     <Card>
@@ -430,21 +434,15 @@ function RestorePoints({ initialPolicy }: { initialPolicy: string }) {
             variant="outline"
             size="sm"
             loading={creating}
-            onClick={async () => {
-              setCreating(true);
-              setMsg("Creating restore point…");
-              const r = await window.anchor.createRestorePoint("Anchor manual restore point");
-              setMsg(r.message);
-              invalidate("restore:last");
-              const l = await Q.lastRestorePoint();
-              setLast(describeAge(l.days));
-              setCreating(false);
-            }}
+            disabled={!!blockedMsg}
+            title={blockedMsg}
+            onClick={() => { runRestorePoint("Anchor manual restore point"); }}
           >
             Create one now
           </Button>
         </div>
         {last && <p className="text-xs text-muted-foreground">Most recent restore point: {last}</p>}
+        {blockedMsg && <p className="text-xs text-muted-foreground">{blockedMsg}</p>}
         {msg && <p className="text-xs text-muted-foreground">{msg}</p>}
       </CardContent>
     </Card>

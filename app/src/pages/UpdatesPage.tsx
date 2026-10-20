@@ -4,16 +4,26 @@ import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Skel
 import type { NewsItem } from "@/types";
 import { peek } from "@/lib/store";
 import { articles, Q, windowsNews } from "@/lib/queries";
+import { runTask, useTask } from "@/lib/tasks";
+
+type UpdateResult = Awaited<ReturnType<typeof window.anchor.checkUpdates>>;
 
 const describe = (b: Awaited<ReturnType<typeof Q.buildInfo>>) =>
   b ? `${b.ProductName} ${b.DisplayVersion} — build ${b.CurrentBuild}.${b.UBR}` : "";
 
 export default function UpdatesPage() {
   const [build, setBuild] = useState(describe(peek("build") ?? null));
-  const [checking, setChecking] = useState(false);
-  const [status, setStatus] = useState("");
-  const [pending, setPending] = useState<string[]>([]);
-  const [last, setLast] = useState("");
+  const task = useTask<UpdateResult>("updates:check");
+  const checking = task?.status === "running";
+  const u = task?.result;
+  const status = task?.status === "error"
+    ? `Couldn't query Windows Update: ${task.error}. Open Settings > Windows Update to check manually.`
+    : !u ? ""
+    : u.error ? `Couldn't query Windows Update: ${u.error}. Open Settings > Windows Update to check manually.`
+    : u.pending === 0 ? "You're on a recent stable build — no cumulative, security, or feature updates are pending."
+    : `${u.pending} update(s) pending. Installing cumulative and security updates keeps your system stable and secure.`;
+  const pending = u?.titles ?? [];
+  const last = u?.last ? `Last successful update: ${u.last}` : "";
   const cachedNews = peek<NewsItem[]>("news:articles");
   const [news, setNews] = useState<NewsItem[] | null>(cachedNews ? windowsNews(cachedNews).slice(0, 12) : null);
 
@@ -22,15 +32,17 @@ export default function UpdatesPage() {
     articles().then((list) => setNews(windowsNews(list).slice(0, 12)), () => setNews([]));
   }, []);
 
-  async function check() {
-    setChecking(true);
-    const u = await window.anchor.checkUpdates();
-    if (u.error) setStatus(`Couldn't query Windows Update: ${u.error}. Open Settings > Windows Update to check manually.`);
-    else if (u.pending === 0) setStatus("You're on a recent stable build — no cumulative, security, or feature updates are pending.");
-    else setStatus(`${u.pending} update(s) pending. Installing cumulative and security updates keeps your system stable and secure.`);
-    setPending(u.titles ?? []);
-    setLast(u.last ? `Last successful update: ${u.last}` : "");
-    setChecking(false);
+  function check() {
+    runTask(
+      "updates:check",
+      {
+        label: "Windows Update check",
+        where: { section: "updates" },
+        isError: (r: UpdateResult) => r.error ?? null,
+        summarize: (r) => (r.pending === 0 ? "Up to date" : `${r.pending} update${r.pending === 1 ? "" : "s"} pending`),
+      },
+      () => window.anchor.checkUpdates(),
+    );
   }
 
   return (

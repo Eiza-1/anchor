@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge, Button, Card, CardContent, Checkbox, Dialog, Skeleton } from "@/components/ui";
 import { ensureRestorePoint, invalidate, peek } from "@/lib/store";
 import { Q } from "@/lib/queries";
+import { runTask, useBlockedBy, useTask } from "@/lib/tasks";
+
+type RemoveResult = Array<{ name: string; ok: boolean; error: string }>;
 
 type App = { name: string; packageFullName: string; safe: boolean };
 
@@ -9,7 +12,10 @@ export default function BloatwarePage() {
   const [apps, setApps] = useState<App[] | null>(peek<App[]>("bloatware") ?? null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
-  const [removing, setRemoving] = useState(false);
+  const removeTask = useTask<RemoveResult>("bloat:remove");
+  const blocker = useBlockedBy("change");
+  const removing = removeTask?.status === "running";
+  const blockedMsg = blocker && blocker.key !== "bloat:remove" ? `${blocker.label} is already running` : undefined;
   const [confirm, setConfirm] = useState(false);
   const [result, setResult] = useState("");
 
@@ -37,22 +43,44 @@ export default function BloatwarePage() {
 
   const chosen = apps?.filter((a) => selected.has(a.packageFullName)) ?? [];
 
-  async function remove() {
+  function remove() {
     setConfirm(false);
-    setRemoving(true);
-    setResult("Checking restore point…");
-    const rp = await ensureRestorePoint("Anchor bloatware removal");
-    setResult(rp.skipped ? `${rp.message} Removing…` : "Restore point created. Removing…");
-    const results = await window.anchor.bloatwareRemove(chosen);
-    const ok = results.filter((r) => r.ok).length;
-    setResult(
-      `Removed ${ok}/${results.length}.` +
-        (ok < results.length ? ` Failures: ${results.filter((r) => !r.ok).map((r) => r.name).join(", ")}` : "")
+    const pkgs = chosen;
+    runTask(
+      "bloat:remove",
+      {
+        label: "Bloatware removal",
+        where: { section: "debloat", tab: "bloatware" },
+        group: "change",
+        isError: (r: RemoveResult) =>
+          r.length > 0 && r.every((x) => !x.ok) ? `Couldn't remove: ${r.map((x) => x.name).join(", ")}` : null,
+        summarize: (r) => `Removed ${r.filter((x) => x.ok).length} apps`,
+      },
+      async () => {
+        await ensureRestorePoint("Anchor bloatware removal");
+        return window.anchor.bloatwareRemove(pkgs);
+      },
     );
-    setRemoving(false);
-    setSelected(new Set());
-    load(true);
   }
+
+  // a finished removal refreshes the list (also if it finished while this page was closed)
+  const firstRun = useRef(true);
+  useEffect(() => {
+    if (firstRun.current) { firstRun.current = false; return; }
+    if (removeTask && removeTask.status !== "running") {
+      setSelected(new Set());
+      load(true);
+    }
+  }, [removeTask?.finishedAt]);
+
+  const removeLine = removing
+    ? "Creating a restore point if needed, then removing…"
+    : removeTask?.status === "error" && !removeTask.result
+    ? `Removal failed: ${removeTask.error}`
+    : removeTask?.result
+    ? `Removed ${removeTask.result.filter((r) => r.ok).length}/${removeTask.result.length}.` +
+      (removeTask.result.some((r) => !r.ok) ? ` Failures: ${removeTask.result.filter((r) => !r.ok).map((r) => r.name).join(", ")}` : "")
+    : "";
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-6">
@@ -66,11 +94,13 @@ export default function BloatwarePage() {
         >
           Select all safe
         </Button>
-        <Button size="sm" onClick={() => setConfirm(true)} disabled={chosen.length === 0} loading={removing}>
+        <Button size="sm" onClick={() => setConfirm(true)} disabled={chosen.length === 0 || !!blockedMsg} title={blockedMsg} loading={removing}>
           Remove selected ({chosen.length})
         </Button>
       </div>
 
+      {blockedMsg && <p className="text-xs text-muted-foreground">{blockedMsg}</p>}
+      {removeLine && <p className="text-sm text-muted-foreground">{removeLine}</p>}
       {result && <p className="text-sm text-muted-foreground">{result}</p>}
 
       <div className="space-y-1.5">

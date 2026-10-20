@@ -3,6 +3,7 @@
 // Pages subscribe with useAppState(); the jobs themselves are plain functions here.
 import { useSyncExternalStore } from "react";
 import { formatBytes } from "@/lib/utils";
+import { runTask } from "@/lib/tasks";
 
 export type HealthStatus = "ok" | "warn" | "bad" | "info" | "tip";
 export type HealthIcon =
@@ -244,6 +245,26 @@ export async function ensureRestorePoint(description: string) {
   return window.anchor.ensureRestorePoint(description, days);
 }
 
+/** Manual restore point, tracked so it survives page switches. Returns undefined
+ *  when one is already running or a change is in progress. */
+export function runRestorePoint(description: string) {
+  return runTask(
+    "restore:create",
+    {
+      label: "Restore point",
+      where: { section: "account" },
+      group: "restore",
+      isError: (r: { ok: boolean; message: string }) => (r.ok ? null : r.message),
+      summarize: (r) => r.message,
+    },
+    async () => {
+      const r = await window.anchor.createRestorePoint(description);
+      invalidate("restore:last");
+      return r;
+    },
+  );
+}
+
 /* --------------------------------- Themes --------------------------------- */
 export const THEMES = [
   { id: "dark", name: "Dark", hint: "Default — neutral charcoal", swatch: ["#09090b", "#27272a", "#fafafa"] },
@@ -301,6 +322,21 @@ export function initUpdates() {
  *  slowest one (Windows Update, which can take a while) never blocks the rest. */
 export async function runHealthCheck() {
   if (state.health.running) return;
+  await runTask(
+    "home:health",
+    {
+      label: "Health Check",
+      where: { section: "home" },
+      summarize: (lines: HealthLine[]) => {
+        const n = lines.filter((l) => l.status === "bad" || l.status === "warn").length;
+        return n === 0 ? "No issues found" : `${n} issue${n === 1 ? "" : "s"} found`;
+      },
+    },
+    healthJob,
+  );
+}
+
+async function healthJob(): Promise<HealthLine[]> {
   setHealth(() => ({ running: true, done: 0, total: 6, lines: [], finishedAt: null }));
 
   const add = (line: HealthLine) =>
@@ -427,6 +463,7 @@ export async function runHealthCheck() {
   await Promise.allSettled(jobs);
   setHealth((h) => ({ ...h, running: false, finishedAt: Date.now() }));
   try { localStorage.setItem("anchor:health", JSON.stringify(state.health)); } catch { /* ignore */ }
+  return state.health.lines;
 }
 
 /* --------------------------------- Boost --------------------------------- */
@@ -434,26 +471,59 @@ export async function runHealthCheck() {
  *  and leftovers — nothing that needs rolling back — so no restore point. */
 export async function runBoost() {
   if (state.boost.running) return;
-  setJob("boost", { ...idle, running: true, message: "Boosting…" });
-  const r = await window.anchor.cleanupQuick();
-  invalidate("cleanup:scan");
-  setJob("boost", {
-    ...idle,
-    finishedAt: Date.now(),
-    message: `Freed ${formatBytes(r.freed)} from ${r.cleaned.length} location${r.cleaned.length === 1 ? "" : "s"}.`,
-  });
+  await runTask(
+    "home:boost",
+    {
+      label: "Boost",
+      where: { section: "home" },
+      group: "cleanup",
+      summarize: (r: { freed: number }) => `Freed ${formatBytes(r.freed)}`,
+    },
+    async () => {
+      setJob("boost", { ...idle, running: true, message: "Boosting…" });
+      try {
+        const r = await window.anchor.cleanupQuick();
+        invalidate("cleanup:scan");
+        setJob("boost", {
+          ...idle,
+          finishedAt: Date.now(),
+          message: `Freed ${formatBytes(r.freed)} from ${r.cleaned.length} location${r.cleaned.length === 1 ? "" : "s"}.`,
+        });
+        return r;
+      } catch (e) {
+        setJob("boost", { ...idle, finishedAt: Date.now(), message: "Boost failed." });
+        throw e;
+      }
+    },
+  );
 }
 
 /** Optional memory trim. Windows manages RAM well on its own, so this is a
  *  manual tool, not part of Boost. Never touches apps with an open window. */
 export async function runMemoryTrim() {
   if (state.trim.running) return;
-  setJob("trim", { ...idle, running: true, message: "Trimming…" });
-  const r = await window.anchor.trimMemory();
-  setJob("trim", {
-    running: false,
-    finishedAt: Date.now(),
-    skipped: r.skipped ?? [],
-    message: `Trimmed ${r.trimmed} background processes — ${formatBytes(r.freedBytes)} RAM freed, measured system-wide.`,
-  });
+  await runTask(
+    "cleanup:trim",
+    {
+      label: "Memory trim",
+      where: { section: "cleanup" },
+      summarize: () => state.trim.message,
+    },
+    async () => {
+      setJob("trim", { ...idle, running: true, message: "Trimming…" });
+      try {
+        const r = await window.anchor.trimMemory();
+        setJob("trim", {
+          running: false,
+          finishedAt: Date.now(),
+          skipped: r.skipped ?? [],
+          message: `Trimmed ${r.trimmed} background processes — ${formatBytes(r.freedBytes)} RAM freed, measured system-wide.`,
+        });
+        return r;
+      } catch (e) {
+        setJob("trim", { ...idle, finishedAt: Date.now(), message: "Memory trim failed." });
+        throw e;
+      }
+    },
+  );
 }
