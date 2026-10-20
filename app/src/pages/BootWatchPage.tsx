@@ -7,7 +7,8 @@ import {
   Dialog, Skeleton, Switch,
 } from "@/components/ui";
 import { cn } from "@/lib/utils";
-import { cached, ensureRestorePoint, invalidate, peek } from "@/lib/store";
+import { ensureRestorePoint, invalidate, peek } from "@/lib/store";
+import { Q } from "@/lib/queries";
 import type { BootFinding, BootProcessEvent } from "@/types";
 
 const LEVEL_BADGE = { high: "destructive", medium: "warning", low: "secondary" } as const;
@@ -31,8 +32,7 @@ export default function BootWatchPage() {
   async function scan(force = false) {
     setScanning(true);
     if (force) invalidate("boot:scan");
-    setFindings(await cached("boot:scan", 120_000, () => window.anchor.bootScan()));
-    setScanning(false);
+    try { setFindings(await Q.bootScan()); } finally { setScanning(false); }
   }
 
   async function disable(f: BootFinding) {
@@ -49,13 +49,6 @@ export default function BootWatchPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Boot Watch</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Seen a black console window flash for a split second after logging in? Windows won't tell you what it was.
-          Anchor finds everything set to run at startup, explains why each one runs, and flags the ones that look wrong.
-        </p>
-      </div>
 
       <Card>
         <CardHeader>

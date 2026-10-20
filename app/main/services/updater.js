@@ -1,12 +1,20 @@
 // In-app updates via electron-updater, reading GitHub Releases.
 // The user gets: check → download (with progress) → restart & install.
 // No manual .exe downloading. Release notes come from the release body.
+//
+// Anchor ships as a web installer: each release has a small setup stub plus one
+// app package per architecture. An update fetches only this PC's package, and
+// only the blocks that changed since the installed version (via its .blockmap),
+// so a typical update is a few MB instead of the whole app. If the differential
+// download can't be used, electron-updater falls back to the full package.
 const { autoUpdater } = require("electron-updater");
 const { app } = require("electron");
 
 autoUpdater.autoDownload = false;          // never download behind the user's back
 autoUpdater.autoInstallOnAppQuit = true;   // if downloaded, apply on next quit
 autoUpdater.allowPrerelease = false;
+autoUpdater.disableWebInstaller = false;   // we publish web-installer packages
+autoUpdater.disableDifferentialDownload = false;
 
 let sendToUI = () => {};
 const send = (status, data = {}) => sendToUI({ status, ...data });

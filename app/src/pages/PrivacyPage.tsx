@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
 import { Button, Card, CardContent, Skeleton, Switch } from "@/components/ui";
-import { ensureRestorePoint } from "@/lib/store";
+import { ensureRestorePoint, peek, remember } from "@/lib/store";
+import { Q } from "@/lib/queries";
 
 type Tweak = { id: string; name: string; desc: string; applied: boolean };
 
 export default function PrivacyPage() {
-  const [tweaks, setTweaks] = useState<Tweak[] | null>(null);
+  const [tweaks, setTweaks] = useState<Tweak[] | null>(peek<Tweak[]>("privacy") ?? null);
   const [restoreMsg, setRestoreMsg] = useState("");
 
-  useEffect(() => { window.anchor.privacyList().then(setTweaks); }, []);
+  useEffect(() => { Q.privacy().then(setTweaks, () => {}); }, []);
+  useEffect(() => { if (tweaks) remember("privacy", tweaks); }, [tweaks]);
 
   async function apply(t: Tweak, on: boolean) {
     setTweaks((prev) => prev?.map((x) => (x.id === t.id ? { ...x, applied: on } : x)) ?? null);
@@ -22,13 +24,6 @@ export default function PrivacyPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Privacy & Telemetry</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Each toggle shows exactly which registry value it changes — no hidden behavior, all reversible here.
-          Consider creating a restore point first.
-        </p>
-      </div>
 
       <div className="flex items-center gap-3">
         <Button

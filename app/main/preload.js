@@ -15,9 +15,10 @@ contextBridge.exposeInMainWorld("anchor", {
   createRestorePoint: (desc) => call("boost:restorePoint", desc),
   ensureRestorePoint: (desc, minDays) => call("boost:ensureRestorePoint", desc, minDays),
   lastRestorePoint: () => call("boost:lastRestorePoint"),
-  runBoost: (opts) => call("boost:run", opts),
+  trimMemory: () => call("boost:trim"),
   cleanupScan: () => call("cleanup:scan"),
   cleanupRun: (ids) => call("cleanup:run", ids),
+  cleanupQuick: () => call("cleanup:quick"),
 
   // windows update
   buildInfo: () => call("sys:buildInfo"),
@@ -54,7 +55,6 @@ contextBridge.exposeInMainWorld("anchor", {
   feeds: () => call("news:feeds"),
   articles: (sources) => call("news:articles", sources),
   videos: () => call("news:videos"),
-  windowsNews: () => call("news:windows"),
   backfillImages: (links) => call("news:backfill", links),
 
   // account
@@ -82,9 +82,6 @@ contextBridge.exposeInMainWorld("anchor", {
   pcieState: () => call("perf:pcieState"),
   setPcie: (on) => call("perf:setPcie", on),
   clearShaderCaches: () => call("perf:clearShaderCaches"),
-
-  // app updates + links
-  checkAppUpdate: () => call("app:checkUpdate"),
 
   // disk benchmark + RAM test
   benchRun: (drive, sizeMB) => call("bench:run", drive, sizeMB),

@@ -9,8 +9,9 @@ import {
 import { cn, formatBytes } from "@/lib/utils";
 import { cpuHogs, findLeaks, uptimeAdvice, type ProcSample, type SystemState } from "@/lib/diagnose";
 import {
-  cached, clearLeakHistory, ensureRestorePoint, invalidate, peek, startLeakWatch, useProcHistory,
+  clearLeakHistory, ensureRestorePoint, invalidate, peek, startLeakWatch, useProcHistory,
 } from "@/lib/store";
+import { Q } from "@/lib/queries";
 
 type Repair = { id: string; name: string; detail: string; minutes: string };
 type ErrorGroups = { total: number; groups: { source: string; count: number; latest: string; sample: string }[] };
@@ -19,7 +20,7 @@ export default function DiagnosticsPage() {
   const history = useProcHistory();
   const [state, setState] = useState<SystemState | null>(peek<SystemState>("diag:state") ?? null);
   const [errors, setErrors] = useState<ErrorGroups | null>(peek<ErrorGroups>("diag:errors") ?? null);
-  const [repairs, setRepairs] = useState<Repair[]>([]);
+  const [repairs, setRepairs] = useState<Repair[]>(peek<Repair[]>("diag:repairs") ?? []);
   const [busy, setBusy] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<Repair | null>(null);
   const [result, setResult] = useState("");
@@ -28,18 +29,13 @@ export default function DiagnosticsPage() {
   useEffect(() => {
     startLeakWatch();               // keeps sampling even after leaving this page
     load();
-    cached("diag:repairs", Infinity, () => window.anchor.diagRepairs()).then(setRepairs);
+    Q.diagRepairs().then(setRepairs, () => {});
   }, []);
 
   async function load(force = false) {
     setRefreshing(true);
     if (force) invalidate("diag:state", "diag:errors");
-    const [s, e] = await Promise.all([
-      cached("diag:state", 30_000, () => window.anchor.diagState()),
-      cached("diag:errors", 300_000, () => window.anchor.diagErrors(7)),
-    ]);
-    setState(s);
-    setErrors(e);
+    await Promise.allSettled([Q.diagState().then(setState), Q.diagErrors().then(setErrors)]);
     setRefreshing(false);
   }
 
@@ -67,13 +63,6 @@ export default function DiagnosticsPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Diagnostics</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          The problems that build up quietly: memory that never gets released, apps burning CPU in the background,
-          errors piling up in the logs, and updates waiting on a restart.
-        </p>
-      </div>
 
       {/* uptime verdict */}
       <div className={cn("rounded-lg border p-4", TONE[advice.level])}>

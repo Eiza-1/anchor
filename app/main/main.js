@@ -7,7 +7,6 @@ const sys = require("./services/system");
 const news = require("./services/news");
 const profile = require("./services/profile");
 const auth = require("./services/auth");
-const appUpdate = require("./services/appUpdate");
 const perf = require("./services/perftweaks");
 const updater = require("./services/updater");
 const { warmUp, shutdown } = require("./services/ps");
@@ -137,9 +136,10 @@ handle("boost:ensureRestorePoint", (desc, minDays) =>
   boost.ensureRestorePoint(desc ?? "Anchor", minDays ?? 7)
 );
 handle("boost:lastRestorePoint", () => boost.lastRestorePointAgeDays());
-handle("boost:run", (opts) => boost.runFullBoost(opts ?? {}));
+handle("boost:trim", () => boost.trimMemory());
 handle("cleanup:scan", () => cleanup.scan());
 handle("cleanup:run", (ids) => cleanup.clean(ids ?? []));
+handle("cleanup:quick", () => cleanup.quickClean());
 
 handle("sys:buildInfo", () => sys.buildInfo());
 handle("sys:checkUpdates", () => sys.checkUpdates());
@@ -174,7 +174,6 @@ handle("sys:saveAutounattend", async (opts) => {
 handle("news:feeds", () => ({ articles: Object.keys(news.FEEDS), videos: Object.keys(news.VIDEO_CHANNELS) }));
 handle("news:articles", (sources) => news.fetchArticles(sources));
 handle("news:videos", () => news.fetchVideos());
-handle("news:windows", () => news.fetchWindowsUpdateNews());
 handle("news:backfill", (links) => news.backfillImages(links ?? []));
 
 handle("profile:load", () => profile.loadProfile());
@@ -275,7 +274,6 @@ handle("bootwatch:status", () => ({
   openAtLogin: app.getLoginItemSettings({ path: process.execPath, args: ["--startup"] }).openAtLogin,
 }));
 
-handle("app:checkUpdate", () => appUpdate.checkForUpdate());
 handle("update:check", () => updater.check());
 handle("update:download", () => updater.download());
 handle("update:install", () => updater.install());

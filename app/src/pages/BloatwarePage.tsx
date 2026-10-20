@@ -1,24 +1,29 @@
 import { useEffect, useState } from "react";
 import { Badge, Button, Card, CardContent, Checkbox, Dialog, Skeleton } from "@/components/ui";
-import { ensureRestorePoint } from "@/lib/store";
+import { ensureRestorePoint, invalidate, peek } from "@/lib/store";
+import { Q } from "@/lib/queries";
 
 type App = { name: string; packageFullName: string; safe: boolean };
 
 export default function BloatwarePage() {
-  const [apps, setApps] = useState<App[] | null>(null);
+  const [apps, setApps] = useState<App[] | null>(peek<App[]>("bloatware") ?? null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [result, setResult] = useState("");
 
-  async function load() {
+  async function load(force = false) {
     setLoading(true);
-    const list = await window.anchor.bloatwareList();
-    setApps(list);
-    setSelected(new Set());
-    setResult(`${list.length} removable apps found (${list.filter((a) => a.safe).length} marked safe).`);
-    setLoading(false);
+    if (force) invalidate("bloatware");
+    try {
+      const list = await Q.bloatware();
+      setApps(list);
+      setSelected((prev) => new Set([...prev].filter((p) => list.some((a) => a.packageFullName === p))));
+      setResult(`${list.length} removable apps found (${list.filter((a) => a.safe).length} marked safe).`);
+    } finally {
+      setLoading(false);
+    }
   }
   useEffect(() => { load(); }, []);
 
@@ -45,22 +50,15 @@ export default function BloatwarePage() {
         (ok < results.length ? ` Failures: ${results.filter((r) => !r.ok).map((r) => r.name).join(", ")}` : "")
     );
     setRemoving(false);
-    load();
+    setSelected(new Set());
+    load(true);
   }
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Bloatware Removal</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Uninstall pre-installed Store apps in batches. Apps marked "Safe" have no system dependencies and can be
-          reinstalled free from the Microsoft Store. Essential apps (Store, Calculator, Photos, Security…) are never
-          listed. A restore point is created before removal.
-        </p>
-      </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="outline" size="sm" onClick={load} loading={loading}>Reload</Button>
+        <Button variant="outline" size="sm" onClick={() => load(true)} loading={loading}>Reload</Button>
         <Button
           variant="outline"
           size="sm"

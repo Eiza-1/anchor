@@ -2,20 +2,24 @@ import { useEffect, useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Skeleton } from "@/components/ui";
 import type { NewsItem } from "@/types";
+import { peek } from "@/lib/store";
+import { articles, Q, windowsNews } from "@/lib/queries";
+
+const describe = (b: Awaited<ReturnType<typeof Q.buildInfo>>) =>
+  b ? `${b.ProductName} ${b.DisplayVersion} — build ${b.CurrentBuild}.${b.UBR}` : "";
 
 export default function UpdatesPage() {
-  const [build, setBuild] = useState("");
+  const [build, setBuild] = useState(describe(peek("build") ?? null));
   const [checking, setChecking] = useState(false);
   const [status, setStatus] = useState("");
   const [pending, setPending] = useState<string[]>([]);
   const [last, setLast] = useState("");
-  const [news, setNews] = useState<NewsItem[] | null>(null);
+  const cachedNews = peek<NewsItem[]>("news:articles");
+  const [news, setNews] = useState<NewsItem[] | null>(cachedNews ? windowsNews(cachedNews).slice(0, 12) : null);
 
   useEffect(() => {
-    window.anchor.buildInfo().then((b) => {
-      if (b) setBuild(`${b.ProductName} ${b.DisplayVersion} — build ${b.CurrentBuild}.${b.UBR}`);
-    });
-    window.anchor.windowsNews().then((n) => setNews(n.slice(0, 12)));
+    Q.buildInfo().then((b) => setBuild(describe(b)), () => {});
+    articles().then((list) => setNews(windowsNews(list).slice(0, 12)), () => setNews([]));
   }, []);
 
   async function check() {
@@ -31,7 +35,6 @@ export default function UpdatesPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-6">
-      <h1 className="text-3xl font-semibold tracking-tight">Windows Update</h1>
 
       <Card>
         <CardHeader>

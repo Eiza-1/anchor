@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { Play, RefreshCw } from "lucide-react";
 import { Button, Card, CardContent, Select, Skeleton, Tabs } from "@/components/ui";
-import { cached, invalidate, peek } from "@/lib/store";
+import { invalidate, peek } from "@/lib/store";
+import { articles as loadArticles, Q } from "@/lib/queries";
 import type { NewsItem } from "@/types";
-
-const NEWS_TTL = 10 * 60 * 1000; // feeds don't change minute to minute
 
 export default function SpotlightPage() {
   const [mode, setMode] = useState<"articles" | "videos">("articles");
-  // seed from cache so returning to this page paints instantly
+  // seed from cache so the page paints instantly, even on a fresh launch
   const [articles, setArticles] = useState<NewsItem[] | null>(peek<NewsItem[]>("news:articles") ?? null);
   const [videos, setVideos] = useState<NewsItem[] | null>(peek<NewsItem[]>("news:videos") ?? null);
   const [sources, setSources] = useState<{ articles: string[]; videos: string[] }>(
@@ -20,26 +19,18 @@ export default function SpotlightPage() {
   const load = useCallback(async (force = false) => {
     setLoading(true);
     if (force) invalidate("news:articles", "news:videos");
-    const [a, v] = await Promise.all([
-      cached("news:articles", NEWS_TTL, async () => {
-        const list = await window.anchor.articles();
-        // Backfill missing thumbnails once, then cache the enriched list.
-        const missing = list.filter((x) => !x.imageUrl).map((x) => x.link);
-        if (missing.length) {
-          const found = await window.anchor.backfillImages(missing);
-          return list.map((x) => (x.imageUrl || !found[x.link] ? x : { ...x, imageUrl: found[x.link] }));
-        }
-        return list;
-      }),
-      cached("news:videos", NEWS_TTL, () => window.anchor.videos()),
+    // With nothing on screen yet, show each feed as it lands; otherwise swap in
+    // the fresh list once it's complete so the page doesn't reshuffle mid-read.
+    const showPartial = peek("news:articles") === undefined;
+    await Promise.all([
+      loadArticles(showPartial ? setArticles : undefined).then(setArticles, () => {}),
+      Q.videos().then(setVideos, () => {}),
     ]);
-    setArticles(a);
-    setVideos(v);
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    cached("news:feeds", Infinity, () => window.anchor.feeds()).then(setSources);
+    Q.feeds().then(setSources, () => {});
     load();
   }, [load]);
 
@@ -86,7 +77,7 @@ export default function SpotlightPage() {
             <Card
               key={v.link}
               onClick={() => window.anchor.openExternal(v.link)}
-              className="card-item cursor-pointer overflow-hidden transition-colors hover:bg-accent"
+              className="offscreen-card cursor-pointer overflow-hidden transition-colors hover:bg-accent"
             >
               <div className="relative aspect-video bg-secondary">
                 {v.imageUrl && (
@@ -120,7 +111,7 @@ export default function SpotlightPage() {
             <button
               key={a.link}
               onClick={() => window.anchor.openExternal(a.link)}
-              className="list-item flex w-full gap-4 rounded-lg border p-3 text-left transition-colors hover:bg-accent"
+              className="offscreen-row flex w-full gap-4 rounded-lg border p-3 text-left transition-colors hover:bg-accent"
             >
               {a.imageUrl && (
                 <img

@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { LogIn, LogOut, Mail, Pencil, UserRound } from "lucide-react";
+import { LogIn, LogOut, Mail, Pencil, ShieldCheck, UserRound } from "lucide-react";
 import {
-  Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label, Switch,
+  Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label, Select, Switch,
 } from "@/components/ui";
 import { Palette } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { applyTheme, THEMES } from "@/lib/store";
+import { applyTheme, invalidate, peek, THEMES } from "@/lib/store";
+import { Q } from "@/lib/queries";
 import { displayNameOf, greetingFor } from "@/lib/utils";
 import type { Profile } from "@/types";
 
@@ -316,6 +317,8 @@ export default function AccountPage() {
         </CardContent>
       </Card>
 
+      <RestorePoints initialPolicy={p.restorePolicy ?? "weekly"} />
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -377,5 +380,73 @@ function Toggle({
       </div>
       <Switch checked={checked} onCheckedChange={onChange} disabled={disabled} />
     </div>
+  );
+}
+
+function describeAge(days: number) {
+  if (days > 9000) return "none found";
+  if (days < 1) return "earlier today";
+  const d = Math.round(days);
+  return `${d} day${d === 1 ? "" : "s"} ago`;
+}
+
+function RestorePoints({ initialPolicy }: { initialPolicy: string }) {
+  const [policy, setPolicy] = useState(initialPolicy);
+  const [last, setLast] = useState(() => {
+    const l = peek<{ days: number }>("restore:last");
+    return l ? describeAge(l.days) : "";
+  });
+  const [msg, setMsg] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  useEffect(() => { Q.lastRestorePoint().then((l) => setLast(describeAge(l.days)), () => {}); }, []);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <ShieldCheck className="size-4 text-emerald-500" /> Restore points
+        </CardTitle>
+        <CardDescription>
+          Created before changes that are hard to undo, such as removing apps or editing the registry. Windows deletes
+          the oldest to make room, so Anchor doesn't make one for every change.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <Select
+            className="w-48"
+            value={policy}
+            onChange={async (e) => {
+              setPolicy(e.target.value);
+              await window.anchor.saveProfile({ restorePolicy: e.target.value as "weekly" | "monthly" | "always" });
+            }}
+          >
+            <option value="weekly">At most weekly</option>
+            <option value="monthly">At most monthly</option>
+            <option value="always">Before every change</option>
+          </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            loading={creating}
+            onClick={async () => {
+              setCreating(true);
+              setMsg("Creating restore point…");
+              const r = await window.anchor.createRestorePoint("Anchor manual restore point");
+              setMsg(r.message);
+              invalidate("restore:last");
+              const l = await Q.lastRestorePoint();
+              setLast(describeAge(l.days));
+              setCreating(false);
+            }}
+          >
+            Create one now
+          </Button>
+        </div>
+        {last && <p className="text-xs text-muted-foreground">Most recent restore point: {last}</p>}
+        {msg && <p className="text-xs text-muted-foreground">{msg}</p>}
+      </CardContent>
+    </Card>
   );
 }

@@ -7,12 +7,11 @@ import {
   Progress, Select, Skeleton,
 } from "@/components/ui";
 import { cn, formatBytes } from "@/lib/utils";
-import { cached, invalidate, peek } from "@/lib/store";
+import { invalidate, peek } from "@/lib/store";
+import { Q } from "@/lib/queries";
 
 type Drive = { name: string; media: string; health: string; size: number; wear?: number; temp?: number; predictFailure?: boolean };
 type Volume = { DeviceID: string; FreeSpace: number; Size: number };
-
-const TTL = 60_000;
 
 export default function DrivesPage() {
   const [drives, setDrives] = useState<Drive[] | null>(peek<Drive[]>("drives") ?? null);
@@ -40,25 +39,13 @@ export default function DrivesPage() {
   async function scan(force = false) {
     setLoading(true);
     if (force) invalidate("drives", "volumes");
-    const [d, v] = await Promise.all([
-      cached("drives", TTL, () => window.anchor.driveHealth()),
-      cached("volumes", TTL, () => window.anchor.volumes()),
-    ]);
-    setDrives(d);
-    setVols(v);
+    await Promise.allSettled([Q.drives().then(setDrives), Q.volumes().then(setVols)]);
     setLoading(false);
   }
   useEffect(() => { scan(); }, []);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Drive Health</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Early warnings for SSD/HDD failure using Windows' own S.M.A.R.T. and storage-reliability data. If you ever see
-          a warning here, back up first, diagnose second.
-        </p>
-      </div>
 
       <Button variant="outline" size="sm" onClick={() => scan(true)} loading={loading}>
         {!loading && <RefreshCw />} Scan drives

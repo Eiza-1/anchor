@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import {
-  Home, Zap, RefreshCw, Newspaper, Rocket, Trash2, Lock, HardDrive,
-  Activity, Wrench, User, Anchor as AnchorIcon, Download, X, Gamepad2, Sparkles, ShieldAlert,
-  Stethoscope,
+  Home, Eraser, Gauge, Newspaper, Rocket, Trash2, HardDrive, User, Anchor as AnchorIcon, Download, X,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui";
+import { Button, Tabs } from "@/components/ui";
 import { WhatsNew } from "@/components/WhatsNew";
 import { applyTheme, initUpdates, useUpdateState } from "@/lib/store";
+import { prefetch } from "@/lib/queries";
 
 import HomePage from "@/pages/HomePage";
 import BoostPage from "@/pages/BoostPage";
@@ -24,23 +24,79 @@ import PerformancePage from "@/pages/PerformancePage";
 import ToolsPage from "@/pages/ToolsPage";
 import AccountPage from "@/pages/AccountPage";
 
-const NAV = [
+type Tab = { id: string; label: string; intro: string; page: React.ComponentType };
+type Section = {
+  id: string; label: string; icon: React.ComponentType<{ className?: string }>;
+  page?: React.ComponentType; tabs?: Tab[];
+};
+
+// Related tools share one sidebar entry, as tabs, so the sidebar stays short.
+const NAV: Section[] = [
   { id: "home", label: "Home", icon: Home, page: HomePage },
-  { id: "boost", label: "Boost & Cleanup", icon: Zap, page: BoostPage },
-  { id: "gameboost", label: "Game & App Boost", icon: Gamepad2, page: GameBoostPage },
-  { id: "updates", label: "Windows Update", icon: RefreshCw, page: UpdatesPage },
+  { id: "cleanup", label: "Cleanup", icon: Eraser, page: BoostPage },
+  {
+    id: "performance", label: "Performance", icon: Gauge, tabs: [
+      { id: "boost", label: "Game & App Boost", page: GameBoostPage,
+        intro: "Reversible Windows settings that free up resources for games and heavy apps." },
+      { id: "monitor", label: "Live monitor", page: PerformancePage,
+        intro: "Live readings every second, showing which part of your PC is holding it back." },
+    ],
+  },
+  {
+    id: "startup", label: "Startup", icon: Rocket, tabs: [
+      { id: "apps", label: "Startup apps", page: StartupPage,
+        intro: "Stop apps launching at boot. Nothing is uninstalled; switch them back on any time." },
+      { id: "bootwatch", label: "Boot Watch", page: BootWatchPage,
+        intro: "Everything set to run at startup, with anything suspicious flagged." },
+    ],
+  },
+  {
+    id: "debloat", label: "Debloat", icon: Trash2, tabs: [
+      { id: "bloatware", label: "Bloatware", page: BloatwarePage,
+        intro: "Remove pre-installed Store apps. Ones marked Safe can be reinstalled from the Store." },
+      { id: "privacy", label: "Privacy", page: PrivacyPage,
+        intro: "Turn off telemetry. Each toggle names the registry value it changes." },
+    ],
+  },
+  {
+    id: "system", label: "System", icon: HardDrive, tabs: [
+      { id: "drives", label: "Drive health", page: DrivesPage,
+        intro: "Early warning for failing drives, from Windows' own S.M.A.R.T. data." },
+      { id: "diagnostics", label: "Diagnostics", page: DiagnosticsPage,
+        intro: "Memory leaks, background CPU hogs, piling-up errors and pending restarts." },
+      { id: "updates", label: "Windows Update", page: UpdatesPage,
+        intro: "Check for pending updates and read recent update news." },
+      { id: "tools", label: "Tools", page: ToolsPage,
+        intro: "Microsoft's own maintenance tools, one click away." },
+    ],
+  },
   { id: "spotlight", label: "Tech Spotlight", icon: Newspaper, page: SpotlightPage },
-  { separator: true, id: "s1" },
-  { id: "bootwatch", label: "Boot Watch", icon: ShieldAlert, page: BootWatchPage },
-  { id: "startup", label: "Startup Apps", icon: Rocket, page: StartupPage },
-  { id: "bloatware", label: "Bloatware Removal", icon: Trash2, page: BloatwarePage },
-  { id: "privacy", label: "Privacy & Telemetry", icon: Lock, page: PrivacyPage },
-  { separator: true, id: "s2" },
-  { id: "drives", label: "Drive Health", icon: HardDrive, page: DrivesPage },
-  { id: "performance", label: "Performance", icon: Activity, page: PerformancePage },
-  { id: "diagnostics", label: "Diagnostics", icon: Stethoscope, page: DiagnosticsPage },
-  { id: "tools", label: "Advanced Tools", icon: Wrench, page: ToolsPage },
-] as const;
+];
+const ACCOUNT: Section = { id: "account", label: "Account", icon: User, page: AccountPage };
+
+// Remembers the open tab in each section while the app runs.
+const lastTab: Record<string, string> = {};
+
+function SectionView({ section }: { section: Section }) {
+  const tabs = section.tabs!;
+  const [tabId, setTabId] = useState(lastTab[section.id] ?? tabs[0].id);
+  const tab = tabs.find((t) => t.id === tabId) ?? tabs[0];
+  const Page = tab.page;
+  return (
+    <div>
+      <div className="mx-auto max-w-4xl space-y-3 pt-6">
+        <h1 className="text-3xl font-semibold tracking-tight">{section.label}</h1>
+        <Tabs
+          value={tab.id}
+          onValueChange={(v) => { lastTab[section.id] = v; setTabId(v); }}
+          options={tabs.map((t) => ({ value: t.id, label: t.label }))}
+        />
+        <p className="text-sm text-muted-foreground">{tab.intro}</p>
+      </div>
+      <Page key={tab.id} />
+    </div>
+  );
+}
 
 export default function App() {
   const [active, setActive] = useState("home");
@@ -53,38 +109,35 @@ export default function App() {
     window.anchor.appVersion().then(setVersion);
     window.anchor.loadProfile().then((p) => applyTheme(p.theme ?? "dark"));
     initUpdates();
+    // after first paint, so the window appears before any background work
+    const t = setTimeout(prefetch, 600);
+    return () => clearTimeout(t);
   }, []);
 
   const updateReady = update.status === "available" || update.status === "downloaded";
 
-  const current = [...NAV, { id: "account", label: "Account", icon: User, page: AccountPage }].find(
-    (n) => "page" in n && n.id === active
-  ) as { page: React.ComponentType } | undefined;
-  const Page = current?.page ?? HomePage;
+  const current = [...NAV, ACCOUNT].find((n) => n.id === active) ?? NAV[0];
+  const Page = current.page;
 
   return (
     <div className="flex h-full bg-background">
       {/* Sidebar */}
-      <aside className="flex w-64 shrink-0 flex-col border-r bg-card/40">
+      <aside className="flex w-56 shrink-0 flex-col border-r bg-card/40">
         <div className="flex h-10 items-center gap-2 px-4" style={{ WebkitAppRegion: "drag" } as React.CSSProperties}>
           <AnchorIcon className="size-4 text-sky-500" />
           <span className="text-sm font-semibold">Anchor</span>
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-          {NAV.map((item) =>
-            "separator" in item ? (
-              <div key={item.id} className="my-2 h-px bg-border" />
-            ) : (
-              <NavButton
-                key={item.id}
-                icon={item.icon}
-                label={item.label}
-                active={active === item.id}
-                onClick={() => setActive(item.id)}
-              />
-            )
-          )}
+          {NAV.map((item) => (
+            <NavButton
+              key={item.id}
+              icon={item.icon}
+              label={item.label}
+              active={active === item.id}
+              onClick={() => setActive(item.id)}
+            />
+          ))}
         </nav>
 
         <div className="space-y-1 border-t p-3">
@@ -139,7 +192,7 @@ export default function App() {
         )}
 
         <main className="flex-1 overflow-y-auto px-8 pb-10">
-          <Page />
+          {Page ? <Page /> : <SectionView key={current.id} section={current} />}
         </main>
       </div>
 

@@ -25,7 +25,6 @@ export default function ToolsPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-6">
-      <h1 className="text-3xl font-semibold tracking-tight">Advanced Tools</h1>
 
       <Card>
         <CardHeader>

@@ -16,15 +16,14 @@ export interface AnchorApi {
   createRestorePoint(desc: string): Promise<{ ok: boolean; message: string }>;
   ensureRestorePoint(desc: string, minDays: number): Promise<{ ok: boolean; skipped?: boolean; message: string }>;
   lastRestorePoint(): Promise<{ days: number; description: string | null }>;
-  runBoost(opts: { includeTemp: boolean; includeRecycleBin: boolean }): Promise<{
-    trimmed: number; freedBytes: number; skipped: string[]; tempBytes: number; tempFiles: number;
-  }>;
+  trimMemory(): Promise<{ trimmed: number; freedBytes: number; skipped: string[] }>;
 
   cleanupScan(): Promise<Array<{
     id: string; name: string; detail: string;
     default: boolean; oneWay: boolean; bytes: number;
   }>>;
   cleanupRun(ids: string[]): Promise<{ freed: number; cleaned: string[] }>;
+  cleanupQuick(): Promise<{ freed: number; cleaned: string[] }>;
 
   buildInfo(): Promise<{ ProductName: string; DisplayVersion: string; CurrentBuild: string; UBR: number } | null>;
   checkUpdates(): Promise<{ pending?: number; titles?: string[]; last?: string | null; error?: string }>;
@@ -61,7 +60,6 @@ export interface AnchorApi {
   feeds(): Promise<{ articles: string[]; videos: string[] }>;
   articles(sources?: string[]): Promise<NewsItem[]>;
   videos(): Promise<NewsItem[]>;
-  windowsNews(): Promise<NewsItem[]>;
   backfillImages(links: string[]): Promise<Record<string, string>>;
 
   loadProfile(): Promise<Profile>;
@@ -96,7 +94,7 @@ export interface AnchorApi {
   pickExe(): Promise<string | null>;
   gpuInfo(): Promise<Array<{
     name: string; driver: string; driverDate: string | null;
-    vram: number; status: string; ageDays: number | null;
+    vram: number; status: string; ageDays: number | null; errorCode?: number;
   }>>;
   pcieState(): Promise<{ saving: boolean }>;
   setPcie(on: boolean): Promise<{ ok: boolean; error: string }>;
@@ -129,10 +127,16 @@ export interface AnchorApi {
   bootStatus(): Promise<{ enabled: boolean; openAtLogin: boolean }>;
   onBootProcess(cb: (ev: BootProcessEvent) => void): () => void;
 
-  checkAppUpdate(): Promise<{
-    available: boolean; latestVersion?: string; currentVersion?: string;
-    releaseUrl?: string; installerUrl?: string | null; notes?: string;
-  } | null>;
+  updateCheck(): Promise<void>;
+  updateDownload(): Promise<void>;
+  updateInstall(): Promise<void>;
+  updateNotes(limit?: number): Promise<Array<{
+    version: string; name: string; date: string; notes: string; url: string; isCurrent: boolean;
+  }>>;
+  onUpdateEvent(cb: (payload: {
+    status: import("@/lib/store").UpdateStatus; version?: string; notes?: string;
+    percent?: number; message?: string;
+  }) => void): () => void;
   openExternal(url: string): Promise<void>;
 }
 

@@ -5,7 +5,8 @@ import {
   Select, Skeleton, Switch,
 } from "@/components/ui";
 import { formatBytes } from "@/lib/utils";
-import { cached, ensureRestorePoint, invalidate, peek } from "@/lib/store";
+import { ensureRestorePoint, invalidate, peek, remember } from "@/lib/store";
+import { Q } from "@/lib/queries";
 
 type Tweak = {
   id: string; name: string; desc: string; category: string;
@@ -23,23 +24,28 @@ export default function GameBoostPage() {
   const [power, setPower] = useState<PowerPlan | null>(peek<PowerPlan>("perf:power") ?? null);
   const [gpu, setGpu] = useState<GpuPref[]>(peek<GpuPref[]>("perf:gpuPrefs") ?? []);
   const [gpus, setGpus] = useState<Gpu[]>(peek<Gpu[]>("perf:gpuInfo") ?? []);
-  const [pcieSaving, setPcieSaving] = useState<boolean | null>(null);
+  const [pcieSaving, setPcieSaving] = useState<boolean | null>(peek<{ saving: boolean }>("perf:pcie")?.saving ?? null);
   const [cacheMsg, setCacheMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
   async function load(force = false) {
     if (force) invalidate("perf:tweaks", "perf:power", "perf:gpuPrefs", "perf:gpuInfo", "perf:pcie");
-    const [t, p, g, info, pcie] = await Promise.all([
-      cached("perf:tweaks", 15_000, () => window.anchor.perfList()),
-      cached("perf:power", 15_000, () => window.anchor.powerPlan()),
-      cached("perf:gpuPrefs", 15_000, () => window.anchor.gpuPrefs()),
-      cached("perf:gpuInfo", 300_000, () => window.anchor.gpuInfo()),
-      cached("perf:pcie", 15_000, () => window.anchor.pcieState()),
+    // each section fills in as soon as its own data arrives
+    await Promise.allSettled([
+      Q.perfTweaks().then(setTweaks),
+      Q.powerPlan().then(setPower),
+      Q.gpuPrefs().then(setGpu),
+      Q.gpuInfo().then(setGpus),
+      Q.pcie().then((p) => setPcieSaving(p.saving)),
     ]);
-    setTweaks(t); setPower(p); setGpu(g); setGpus(info); setPcieSaving(pcie.saving);
   }
   useEffect(() => { load(); }, []);
+  // keep the cache in step with toggles, so coming back shows the real state
+  useEffect(() => { if (tweaks) remember("perf:tweaks", tweaks); }, [tweaks]);
+  useEffect(() => { if (power) remember("perf:power", power); }, [power]);
+  useEffect(() => { remember("perf:gpuPrefs", gpu); }, [gpu]);
+  useEffect(() => { if (pcieSaving !== null) remember("perf:pcie", { saving: pcieSaving }); }, [pcieSaving]);
 
   const restartNeeded = tweaks?.some((t) => t.needsRestart && t.applied);
 
@@ -83,13 +89,6 @@ export default function GameBoostPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Game & App Boost</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Windows settings that free up resources for games and heavy apps. Each toggle names the exact registry value
-          it changes, and every one is reversible here. None of these weaken your PC's security.
-        </p>
-      </div>
 
       <Card>
         <CardHeader>

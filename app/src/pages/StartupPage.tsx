@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { Badge, Button, Card, CardContent, Skeleton, Switch } from "@/components/ui";
-import { cached, invalidate, peek } from "@/lib/store";
+import { invalidate, peek, remember } from "@/lib/store";
+import { Q } from "@/lib/queries";
 
 type Entry = { name: string; command: string; scope: string; enabled: boolean };
 
@@ -12,10 +13,10 @@ export default function StartupPage() {
   async function load(force = false) {
     setLoading(true);
     if (force) invalidate("startup");
-    setEntries(await cached("startup", 30_000, () => window.anchor.startupList()));
-    setLoading(false);
+    try { setEntries(await Q.startup()); } finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
+  useEffect(() => { if (entries) remember("startup", entries); }, [entries]);
 
   async function toggle(entry: Entry, on: boolean) {
     setEntries((prev) => prev?.map((e) => (e.name === entry.name && e.scope === entry.scope ? { ...e, enabled: on } : e)) ?? null);
@@ -28,13 +29,6 @@ export default function StartupPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Startup Apps</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Apps that launch when Windows boots. Turning one off doesn't uninstall it — it just stops it auto-starting.
-          Flip the switch back any time. (Same mechanism as Task Manager's Startup tab.)
-        </p>
-      </div>
 
       <Button variant="outline" size="sm" onClick={() => load(true)} loading={loading}>
         {!loading && <RefreshCw />} Refresh

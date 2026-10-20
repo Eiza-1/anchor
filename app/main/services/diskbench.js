@@ -95,7 +95,7 @@ $free = (Get-PSDrive ($drive[0])).Free
 $needed = ${size}MB * 1.2
 if ($free -lt $needed) {
   [PSCustomObject]@{ error = ('Not enough free space on ' + $drive + ' — the test needs about ' + [math]::Round($needed/1GB,1) + ' GB free.') } | ConvertTo-Json -Compress
-  exit
+  return
 }
 
 New-Item -ItemType Directory -Force $dir | Out-Null

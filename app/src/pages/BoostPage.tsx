@@ -5,7 +5,8 @@ import {
   Checkbox, Dialog, Label, Skeleton,
 } from "@/components/ui";
 import { formatBytes } from "@/lib/utils";
-import { cached, invalidate, peek, runBoost, useAppState } from "@/lib/store";
+import { invalidate, peek, runMemoryTrim, useAppState } from "@/lib/store";
+import { Q } from "@/lib/queries";
 
 type Target = {
   id: string; name: string; detail: string;
@@ -13,7 +14,7 @@ type Target = {
 };
 
 export default function BoostPage() {
-  const { boost } = useAppState();
+  const { trim } = useAppState();
   const [targets, setTargets] = useState<Target[] | null>(peek<Target[]>("cleanup:scan") ?? null);
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const [scanning, setScanning] = useState(false);
@@ -21,15 +22,24 @@ export default function BoostPage() {
   const [confirm, setConfirm] = useState(false);
   const [result, setResult] = useState("");
 
-  useEffect(() => { scan(); }, []);
+  useEffect(() => {
+    // pre-select from saved results right away; the rescan below refreshes them
+    if (targets) setChosen(new Set(targets.filter((t) => t.default && t.bytes > 0).map((t) => t.id)));
+    scan();
+  }, []);
 
   async function scan(force = false) {
     setScanning(true);
     if (force) invalidate("cleanup:scan");
-    const list = await cached("cleanup:scan", 60_000, () => window.anchor.cleanupScan());
-    setTargets(list);
-    setChosen(new Set(list.filter((t) => t.default && t.bytes > 0).map((t) => t.id)));
-    setScanning(false);
+    try {
+      const hadList = targets !== null;
+      const list = await Q.cleanupScan();
+      setTargets(list);
+      // a background refresh keeps whatever the user ticked meanwhile
+      if (force || !hadList) setChosen(new Set(list.filter((t) => t.default && t.bytes > 0).map((t) => t.id)));
+    } finally {
+      setScanning(false);
+    }
   }
 
   const selected = (targets ?? []).filter((t) => chosen.has(t.id));
@@ -49,42 +59,12 @@ export default function BoostPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-6">
-      <h1 className="text-3xl font-semibold tracking-tight">Boost & Cleanup</h1>
-
-      {/* memory */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="size-4 text-sky-500" /> Free up memory
-          </CardTitle>
-          <CardDescription>
-            Trims the memory working set of background processes. Anything with an open window — everything on your
-            taskbar — and critical system processes are always skipped. Trimming never closes a program; Windows simply
-            reloads pages if the app needs them again.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Button
-            onClick={() => runBoost({ includeTemp: false, includeRecycleBin: false })}
-            loading={boost.running}
-          >
-            {!boost.running && <Zap />} Free memory now
-          </Button>
-          {boost.message && <p className="text-sm text-muted-foreground">{boost.message}</p>}
-          {boost.skipped.length > 0 && (
-            <details className="text-xs text-muted-foreground">
-              <summary className="cursor-pointer select-none">
-                Transparency log — {boost.skipped.length} processes deliberately left alone
-              </summary>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {boost.skipped.map((s) => (
-                  <span key={s} className="rounded-md bg-secondary px-2 py-0.5">{s}</span>
-                ))}
-              </div>
-            </details>
-          )}
-        </CardContent>
-      </Card>
+      <div>
+        <h1 className="text-3xl font-semibold tracking-tight">Cleanup</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Everything is measured first, so you decide with real numbers. Personal files are never touched.
+        </p>
+      </div>
 
       {/* disk cleanup */}
       <Card>
@@ -93,8 +73,8 @@ export default function BoostPage() {
             <Eraser className="size-4 text-sky-500" /> Free up disk space
           </CardTitle>
           <CardDescription>
-            Each location is measured before anything is deleted, so you decide with real numbers. Personal files —
-            documents, downloads, pictures, saved passwords — are never touched.
+            Documents, downloads, pictures and saved passwords are never touched. Locations ticked by default are what
+            one-click Boost on Home clears.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -152,6 +132,38 @@ export default function BoostPage() {
                   );
                 })}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* memory — optional, deliberately not part of Boost */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="size-4 text-sky-500" /> Trim background memory
+          </CardTitle>
+          <CardDescription>
+            Usually not needed — Windows manages memory well on its own, and trimmed apps reload what they need, so
+            they can be briefly slower afterwards. Useful right before launching something memory-hungry. Apps with an
+            open window and system processes are always skipped; nothing is closed.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Button variant="outline" onClick={runMemoryTrim} loading={trim.running}>
+            {!trim.running && <Zap />} Trim now
+          </Button>
+          {trim.message && <p className="text-sm text-muted-foreground">{trim.message}</p>}
+          {trim.skipped.length > 0 && (
+            <details className="text-xs text-muted-foreground">
+              <summary className="cursor-pointer select-none">
+                {trim.skipped.length} processes deliberately left alone
+              </summary>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {trim.skipped.map((x) => (
+                  <span key={x} className="rounded-md bg-secondary px-2 py-0.5">{x}</span>
+                ))}
+              </div>
+            </details>
+          )}
         </CardContent>
       </Card>
 

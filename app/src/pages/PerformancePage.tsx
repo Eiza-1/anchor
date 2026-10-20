@@ -8,8 +8,9 @@ import {
 import { formatBytes, cn } from "@/lib/utils";
 import { assessPairing, liveVerdict, underLoad, type Sample } from "@/lib/bottleneck";
 import {
-  cached, clearSamples, isMonitoring, startMonitor, stopMonitor, useSamples,
+  clearSamples, isMonitoring, startMonitor, stopMonitor, useSamples,
 } from "@/lib/store";
+import { Q } from "@/lib/queries";
 
 type Proc = { name: string; count: number; bytes: number };
 
@@ -23,10 +24,10 @@ export default function PerformancePage() {
   useEffect(() => {
     startMonitor();
     setRunning(true);
-    cached("cpu:info", Infinity, () => window.anchor.cpuInfo()).then((c) => {
+    Q.cpuInfo().then((c) => {
       if (c) setCpuName(`${c.name} (${c.cores}C/${c.threads}T)`);
     });
-    cached("perf:gpuInfo", 300_000, () => window.anchor.gpuInfo()).then((g) => {
+    Q.gpuInfo().then((g) => {
       const main = g.find((x) => !x.errorCode) ?? g[0];
       if (main) setGpuName(main.name);
     });
@@ -53,13 +54,6 @@ export default function PerformancePage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Performance</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Live readings, updated every second. Anchor watches which component saturates first — that's what's actually
-          limiting your PC. Measuring continues while you're in a game; come back afterwards for the verdict.
-        </p>
-      </div>
 
       {/* live bottleneck verdict */}
       <div className={cn("rounded-lg border p-4", TONE[verdict.culprit])}>

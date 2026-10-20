@@ -202,16 +202,13 @@
 
   /* Long lists (news, videos, apps): skip layout/paint for offscreen rows.
      This is what stops scrolling stuttering once a list gets big. */
-  .list-item {
+  /* (Not named "list-item": that's a Tailwind display utility and overrode flex.) */
+  .offscreen-row {
     content-visibility: auto;
-    contain-intrinsic-size: auto 96px;
+    contain-intrinsic-size: auto 110px;
   }
-  .card-item {
+  .offscreen-card {
     content-visibility: auto;
     contain-intrinsic-size: auto 280px;
-  }
-  /* Images arrive at unpredictable sizes; reserving the box stops reflow jank. */
-  img {
-    content-visibility: auto;
   }
 }
