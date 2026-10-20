@@ -32,6 +32,8 @@ export const Q = {
   lastRestorePoint: q("restore:last", 10 * MIN, "lastRestorePoint"),
   feeds: q("news:feeds", Infinity, "feeds"),
   videos: q("news:videos", 10 * MIN, "videos"),
+  releases: q("games:releases", 24 * 60 * MIN, "gameReleases"),
+  freeGames: q("games:free", 6 * 60 * MIN, "freeGames"),
 };
 
 /* ------------------------------- Articles -------------------------------- *
@@ -100,7 +102,7 @@ export function prefetch() {
   const jobs = [
     Q.perfTweaks, Q.powerPlan, Q.pcie, Q.gpuPrefs, Q.gpuInfo,
     Q.startup, Q.drives, Q.volumes, Q.buildInfo, Q.cleanupScan,
-    () => articles(), Q.videos,
+    () => articles(), Q.videos, Q.releases, Q.freeGames,
   ];
   for (const job of jobs) job().catch(() => {});
 }

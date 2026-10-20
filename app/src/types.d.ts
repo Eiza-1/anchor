@@ -7,6 +7,21 @@ export interface NewsItem {
   imageUrl: string | null;
 }
 
+export type Platform = "pc" | "playstation" | "xbox" | "switch";
+export interface GameRelease {
+  id: number; name: string; slug: string;
+  released: string; // YYYY-MM-DD
+  image: string | null; platforms: Platform[]; genres: string[];
+  added: number; // people tracking it on RAWG
+  url: string;
+}
+export interface FreeGame {
+  id: number; title: string; image: string;
+  store: "steam" | "epic" | "gog";
+  endDate: string | null; worth: string | null; url: string;
+}
+export type GamesResult<T> = { ok: true; items: T[] } | { ok: false; reason: "no-key" | "network" };
+
 export interface AnchorApi {
   minimize(): Promise<void>;
   maximize(): Promise<void>;
@@ -61,6 +76,8 @@ export interface AnchorApi {
   articles(sources?: string[]): Promise<NewsItem[]>;
   videos(): Promise<NewsItem[]>;
   backfillImages(links: string[]): Promise<Record<string, string>>;
+  gameReleases(): Promise<GamesResult<GameRelease>>;
+  freeGames(): Promise<GamesResult<FreeGame>>;
 
   loadProfile(): Promise<Profile>;
   saveProfile(p: Partial<Profile>): Promise<Profile>;

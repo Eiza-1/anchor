@@ -56,6 +56,8 @@ contextBridge.exposeInMainWorld("anchor", {
   articles: (sources) => call("news:articles", sources),
   videos: () => call("news:videos"),
   backfillImages: (links) => call("news:backfill", links),
+  gameReleases: () => call("games:releases"),
+  freeGames: () => call("games:free"),
 
   // account
   loadProfile: () => call("profile:load"),

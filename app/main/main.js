@@ -16,6 +16,7 @@ const diagnostics = require("./services/diagnostics");
 const diskbench = require("./services/diskbench");
 const cleanup = require("./services/cleanup");
 const background = require("./services/background");
+const games = require("./services/games");
 
 let win;
 let tray = null;
@@ -176,6 +177,14 @@ handle("news:feeds", () => ({ articles: Object.keys(news.FEEDS), videos: Object.
 handle("news:articles", (sources) => news.fetchArticles(sources));
 handle("news:videos", () => news.fetchVideos());
 handle("news:backfill", (links) => news.backfillImages(links ?? []));
+handle("games:releases", () => {
+  let key = "";
+  try { key = require("./config").rawgKey ?? ""; } catch { /* no config.js */ }
+  const d = new Date(), p = (n) => String(n).padStart(2, "0");
+  const today = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  return games.upcomingReleases(key, today);
+});
+handle("games:free", () => games.freeGames());
 
 handle("profile:load", () => profile.loadProfile());
 // `background` is owned by services/background.js; a stale copy from the UI must not undo a pick/reset.
