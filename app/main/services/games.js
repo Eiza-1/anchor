@@ -43,8 +43,8 @@ function mapGamerPower(json) {
     const store = storeOf(g?.platforms);
     if (!store) continue;
     const title = String(g.title ?? "")
-      .replace(/\s*\((Steam|Epic Games|GOG)\)\s*Giveaway$/i, "")
-      .replace(/ Giveaway$/, "")
+      .replace(/\s*\((Steam|Epic Games|GOG)\)(\s*(Key|Giveaway))*$/i, "")
+      .replace(/( Key)? Giveaway$/, "")
       .trim();
     const end = String(g.end_date ?? "").trim();
     const worth = String(g.worth ?? "").trim();

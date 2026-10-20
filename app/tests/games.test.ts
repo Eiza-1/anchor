@@ -1,6 +1,6 @@
 import { createRequire } from "module";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { releaseCountdown, filterByPlatform } from "@/lib/games";
+import { releaseCountdown, filterByPlatform, dayMonth, rawgImage, timeAgo } from "@/lib/games";
 import type { GameRelease, GamesResult } from "@/types";
 
 const require = createRequire(import.meta.url);
@@ -53,6 +53,12 @@ describe("mapGamerPower", () => {
     expect(b.worth).toBeNull();
     expect(a.url).toBe("https://g/1");
   });
+  it("drops the store and Key suffixes from titles", () => {
+    const titles = ["Dwarven Realms (Steam) Key", "Bar (GOG) Key Giveaway", "Baz Key Giveaway"].map(
+      (title) => games.mapGamerPower([{ ...base, title, platforms: "PC, Steam", end_date: "N/A" }])[0].title,
+    );
+    expect(titles).toEqual(["Dwarven Realms", "Bar", "Baz"]);
+  });
   it("drops unknown stores", () => {
     expect(games.mapGamerPower([{ ...base, title: "X", platforms: "PC, Itch.io", end_date: "N/A" }])).toEqual([]);
   });
@@ -101,5 +107,28 @@ describe("filterByPlatform", () => {
   it("filters", () => {
     expect(filterByPlatform(l, "all")).toHaveLength(2);
     expect(filterByPlatform(l, "xbox")).toHaveLength(1);
+  });
+});
+
+
+describe("Home display helpers", () => {
+  it("splits a YYYY-MM-DD date without timezone drift", () => {
+    expect(dayMonth("2026-10-07")).toEqual({ day: 7, month: "Oct" });
+    expect(dayMonth("2027-01-31")).toEqual({ day: 31, month: "Jan" });
+  });
+  it("asks RAWG for a resized image once", () => {
+    expect(rawgImage("https://media.rawg.io/media/games/a/b.jpg", 640))
+      .toBe("https://media.rawg.io/media/resize/640/-/games/a/b.jpg");
+    expect(rawgImage("https://media.rawg.io/media/resize/640/-/games/a/b.jpg", 420))
+      .toBe("https://media.rawg.io/media/resize/640/-/games/a/b.jpg");
+    expect(rawgImage("https://elsewhere/x.jpg", 640)).toBe("https://elsewhere/x.jpg");
+    expect(rawgImage(null, 640)).toBeNull();
+  });
+  it("words elapsed time", () => {
+    const now = 1_000_000_000_000;
+    expect(timeAgo(now - 5_000, now)).toBe("just now");
+    expect(timeAgo(now - 60_000, now)).toBe("1 minute ago");
+    expect(timeAgo(now - 3 * 3_600_000, now)).toBe("3 hours ago");
+    expect(timeAgo(now - 2 * 86_400_000, now)).toBe("2 days ago");
   });
 });

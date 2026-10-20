@@ -33,10 +33,10 @@ const STATUS_BADGE: Partial<Record<HealthStatus, React.ComponentType<{ className
   info: Info,
 };
 
-export function HealthList({ lines }: { lines: HealthLine[] }) {
+export function HealthList({ lines, className }: { lines: HealthLine[]; className?: string }) {
   const sorted = [...lines].sort((a, b) => a.order - b.order);
   return (
-    <ul className="space-y-2">
+    <ul className={cn("space-y-2", className)}>
       {sorted.map((l) => {
         const Icon = ICONS[l.icon];
         const Badge = STATUS_BADGE[l.status];

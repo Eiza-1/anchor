@@ -2,7 +2,6 @@
 // scrim; every other page shows it blurred and darker (lighter on Light) so
 // the semi-transparent cards stay readable without their own backdrop-filter.
 // Only opacity animates; the blur is static on its own layer.
-import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { SPRING_SOFT } from "@/lib/motion";
 import { useBackground, useHeroArt } from "@/lib/background";
@@ -12,9 +11,6 @@ const fill = "absolute inset-0 h-full w-full object-cover";
 export function AppBackground({ mode }: { mode: "home" | "page" }) {
   const { url } = useBackground();
   const hero = useHeroArt();
-  // keep the last hero picture while it fades out
-  const [heroShown, setHeroShown] = useState<string | null>(hero);
-  useEffect(() => { if (hero) setHeroShown(hero); }, [hero]);
 
   const home = mode === "home";
 
@@ -53,20 +49,24 @@ export function AppBackground({ mode }: { mode: "home" | "page" }) {
         </motion.div>
       </AnimatePresence>
 
-      {/* hovered release art (Home, Task 8) */}
-      {heroShown && (
-        <motion.img
-          src={heroShown}
-          alt=""
-          draggable={false}
-          className="absolute -inset-[30px] h-[calc(100%+60px)] w-[calc(100%+60px)] max-w-none object-cover"
-          style={{ filter: "blur(18px) saturate(1.2)" }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: hero ? 0.55 : 0 }}
-          transition={SPRING_SOFT}
-          onAnimationComplete={() => { if (!hero) setHeroShown(null); }}
-        />
-      )}
+      {/* hovered release art (Home). Keyed by url, so hovering card A then B
+          cross-fades A→B; the outgoing layer fades on its own, never delaying B. */}
+      <AnimatePresence initial={false}>
+        {hero && (
+          <motion.img
+            key={hero}
+            src={hero}
+            alt=""
+            draggable={false}
+            className="absolute -inset-[30px] h-[calc(100%+60px)] w-[calc(100%+60px)] max-w-none object-cover"
+            style={{ filter: "blur(18px) saturate(1.2)" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.55 }}
+            exit={{ opacity: 0, transition: { duration: 0.45, ease: "easeOut" } }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          />
+        )}
+      </AnimatePresence>
 
       {/* scrims */}
       <motion.div

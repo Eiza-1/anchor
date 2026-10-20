@@ -37,6 +37,8 @@
     --scrim-home: linear-gradient(180deg, hsl(var(--background) / 0.15) 0%, hsl(var(--background) / 0.55) 55%, hsl(var(--background) / 0.85) 100%);
     --scrim-page: linear-gradient(180deg, hsl(var(--background) / 0.7), hsl(var(--background) / 0.86));
     --bg-blur-page: 24px;
+    /* Home's frosted release cards: a light frost over the crisp picture */
+    --glass-home: 0 0% 100% / 0.1;
   }
 
   /* Soft light — a warm grey page rather than pure white, and text that stops
@@ -69,6 +71,7 @@
     --scrim-home: linear-gradient(180deg, hsl(0 0% 100% / 0.05) 0%, hsl(var(--background) / 0.35) 55%, hsl(var(--background) / 0.8) 100%);
     --scrim-page: linear-gradient(180deg, hsl(0 0% 100% / 0.6), hsl(var(--background) / 0.78));
     --bg-blur-page: 22px;
+    --glass-home: 0 0% 100% / 0.5;
   }
 
   /* Deep navy — easier on the eyes at night than pure black */
@@ -335,5 +338,12 @@
   }
   .glow {
     box-shadow: 0 0 24px hsl(var(--primary) / 0.45);
+  }
+  /* Home rails: scrollable by wheel/trackpad and the arrows, no scrollbar */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }
