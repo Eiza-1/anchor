@@ -47,6 +47,12 @@ export default function UpdatesPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-6">
+      <div>
+        <h1 className="text-3xl font-semibold tracking-tight">Windows Update</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Check for pending updates and read recent update news.
+        </p>
+      </div>
 
       <Card>
         <CardHeader>

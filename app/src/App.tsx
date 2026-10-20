@@ -1,18 +1,18 @@
-import { useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useState } from "react";
 import {
-  Home, Eraser, Gauge, Newspaper, Rocket, Trash2, HardDrive, User, Anchor as AnchorIcon, Download, X,
-  Sparkles,
+  Home, Eraser, Gauge, Newspaper, Rocket, Trash2, HardDrive, User, Download, X, Sparkles, RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button, Tabs } from "@/components/ui";
 import { WhatsNew } from "@/components/WhatsNew";
 import { applyTheme, initUpdates, useUpdateState } from "@/lib/store";
 import { prefetch } from "@/lib/queries";
-import { navigate, useNav } from "@/lib/nav";
+import { getNav, navigate, useNav } from "@/lib/nav";
 import { Toaster } from "@/components/Toaster";
 import { AppBackground } from "@/components/AppBackground";
-import { MotionConfig } from "framer-motion";
-import { SPRING } from "@/lib/motion";
+import { Sidebar } from "@/components/Sidebar";
+import { MotionConfig, motion } from "framer-motion";
+import { SPRING, enter } from "@/lib/motion";
 
 import HomePage from "@/pages/HomePage";
 import BoostPage from "@/pages/BoostPage";
@@ -33,14 +33,18 @@ type Tab = { id: string; label: string; intro: string; page: React.ComponentType
 type Section = {
   id: string; label: string; icon: React.ComponentType<{ className?: string }>;
   page?: React.ComponentType; tabs?: Tab[];
+  /** Starts a labelled sidebar group. */
+  group?: string;
 };
 
 // Related tools share one sidebar entry, as tabs, so the sidebar stays short.
 const NAV: Section[] = [
   { id: "home", label: "Home", icon: Home, page: HomePage },
+  { id: "spotlight", label: "Tech Spotlight", icon: Newspaper, page: SpotlightPage },
+  { id: "updates", label: "Windows Update", icon: RefreshCw, page: UpdatesPage },
   { id: "cleanup", label: "Cleanup", icon: Eraser, page: BoostPage },
   {
-    id: "performance", label: "Performance", icon: Gauge, tabs: [
+    id: "performance", label: "Performance", icon: Gauge, group: "Optimize", tabs: [
       { id: "boost", label: "Game & App Boost", page: GameBoostPage,
         intro: "Reversible Windows settings that free up resources for games and heavy apps." },
       { id: "monitor", label: "Live monitor", page: PerformancePage,
@@ -69,24 +73,21 @@ const NAV: Section[] = [
         intro: "Early warning for failing drives, from Windows' own S.M.A.R.T. data." },
       { id: "diagnostics", label: "Diagnostics", page: DiagnosticsPage,
         intro: "Memory leaks, background CPU hogs, piling-up errors and pending restarts." },
-      { id: "updates", label: "Windows Update", page: UpdatesPage,
-        intro: "Check for pending updates and read recent update news." },
       { id: "tools", label: "Tools", page: ToolsPage,
         intro: "Microsoft's own maintenance tools, one click away." },
     ],
   },
-  { id: "spotlight", label: "Tech Spotlight", icon: Newspaper, page: SpotlightPage },
 ];
 const ACCOUNT: Section = { id: "account", label: "Account", icon: User, page: AccountPage };
 
-function SectionView({ section }: { section: Section }) {
+function SectionView({ section, tabId }: { section: Section; tabId?: string }) {
   const tabs = section.tabs!;
-  const nav = useNav();
-  const tab = tabs.find((t) => t.id === nav.tab) ?? tabs[0];
-  // record the default tab in nav so isViewing({ section, tab }) is accurate
+  const tab = tabs.find((t) => t.id === tabId) ?? tabs[0];
+  // record the default tab in nav so isViewing({ section, tab }) is accurate.
+  // The page renders a deferred nav, so only do this while nav is still here.
   useEffect(() => {
-    if (nav.tab !== tab.id) navigate({ section: section.id, tab: tab.id });
-  }, [nav.tab, tab.id, section.id]);
+    if (tabId !== tab.id && getNav().section === section.id) navigate({ section: section.id, tab: tab.id });
+  }, [tabId, tab.id, section.id]);
   const Page = tab.page;
   return (
     <div>
@@ -99,13 +100,20 @@ function SectionView({ section }: { section: Section }) {
         />
         <p className="text-sm text-muted-foreground">{tab.intro}</p>
       </div>
-      <Page key={tab.id} />
+      {/* the heading stays put (its tab pill glides); the tab's content enters */}
+      <motion.div key={tab.id} {...enter}>
+        <Page />
+      </motion.div>
     </div>
   );
 }
 
 export default function App() {
-  const active = useNav().section;
+  const live = useNav();
+  // The sidebar follows nav at once; the page renders a deferred copy, so the
+  // highlight starts gliding before a heavy page mounts (React renders the
+  // deferred page in the background, yielding to animation frames).
+  const shown = useDeferredValue(live);
   const [version, setVersion] = useState("");
   const [whatsNew, setWhatsNew] = useState(false);
   const [dismissed, setDismissed] = useState(false);
@@ -123,38 +131,16 @@ export default function App() {
 
   const updateReady = update.status === "available" || update.status === "downloaded";
 
-  const current = [...NAV, ACCOUNT].find((n) => n.id === active) ?? NAV[0];
+  const find = (id: string) => [...NAV, ACCOUNT].find((n) => n.id === id) ?? NAV[0];
+  const current = find(shown.section);
   const Page = current.page;
 
   return (
     <MotionConfig reducedMotion="user" transition={SPRING}>
       {/* transparent shell over the picture; body keeps the solid theme colour as a fallback */}
       <div className="flex h-full">
-        <AppBackground mode={active === "home" ? "home" : "page"} />
-        {/* Sidebar */}
-        <aside className="flex w-56 shrink-0 flex-col border-r bg-card/40">
-          <div className="flex h-10 items-center gap-2 px-4" style={{ WebkitAppRegion: "drag" } as React.CSSProperties}>
-            <AnchorIcon className="size-4 text-sky-500" />
-            <span className="text-sm font-semibold">Anchor</span>
-          </div>
-
-          <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-            {NAV.map((item) => (
-              <NavButton
-                key={item.id}
-                icon={item.icon}
-                label={item.label}
-                active={active === item.id}
-                onClick={() => navigate({ section: item.id })}
-              />
-            ))}
-          </nav>
-
-          <div className="space-y-1 border-t p-3">
-            <NavButton icon={User} label="Account" active={active === "account"} onClick={() => navigate({ section: "account" })} />
-            <p className="px-3 pt-2 text-[11px] text-muted-foreground">v{version}</p>
-          </div>
-        </aside>
+        <AppBackground mode={live.section === "home" ? "home" : "page"} />
+        <Sidebar items={NAV} account={ACCOUNT} active={find(live.section).id} version={version} />
 
         {/* Main */}
         <div className="flex min-w-0 flex-1 flex-col">
@@ -202,7 +188,11 @@ export default function App() {
           )}
 
           <main className="flex-1 overflow-y-auto px-8 pb-10">
-            {Page ? <Page /> : <SectionView key={current.id} section={current} />}
+            {/* enters on every section change; tab changes enter inside SectionView.
+                No exit, so the new page never waits for the old one. */}
+            <motion.div key={current.id} {...enter}>
+              {Page ? <Page /> : <SectionView section={current} tabId={shown.tab} />}
+            </motion.div>
           </main>
         </div>
 
@@ -210,27 +200,5 @@ export default function App() {
         <WhatsNew open={whatsNew} onClose={() => setWhatsNew(false)} version={version} />
       </div>
     </MotionConfig>
-  );
-}
-
-function NavButton({
-  icon: Icon, label, active, onClick,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-        active ? "bg-secondary font-medium text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"
-      )}
-    >
-      <Icon className="size-4 shrink-0" />
-      <span className="truncate">{label}</span>
-    </button>
   );
 }
