@@ -8,6 +8,8 @@ import { Button, Tabs } from "@/components/ui";
 import { WhatsNew } from "@/components/WhatsNew";
 import { applyTheme, initUpdates, useUpdateState } from "@/lib/store";
 import { prefetch } from "@/lib/queries";
+import { navigate, useNav } from "@/lib/nav";
+import { Toaster } from "@/components/Toaster";
 
 import HomePage from "@/pages/HomePage";
 import BoostPage from "@/pages/BoostPage";
@@ -74,13 +76,14 @@ const NAV: Section[] = [
 ];
 const ACCOUNT: Section = { id: "account", label: "Account", icon: User, page: AccountPage };
 
-// Remembers the open tab in each section while the app runs.
-const lastTab: Record<string, string> = {};
-
 function SectionView({ section }: { section: Section }) {
   const tabs = section.tabs!;
-  const [tabId, setTabId] = useState(lastTab[section.id] ?? tabs[0].id);
-  const tab = tabs.find((t) => t.id === tabId) ?? tabs[0];
+  const nav = useNav();
+  const tab = tabs.find((t) => t.id === nav.tab) ?? tabs[0];
+  // record the default tab in nav so isViewing({ section, tab }) is accurate
+  useEffect(() => {
+    if (nav.tab !== tab.id) navigate({ section: section.id, tab: tab.id });
+  }, [nav.tab, tab.id, section.id]);
   const Page = tab.page;
   return (
     <div>
@@ -88,7 +91,7 @@ function SectionView({ section }: { section: Section }) {
         <h1 className="text-3xl font-semibold tracking-tight">{section.label}</h1>
         <Tabs
           value={tab.id}
-          onValueChange={(v) => { lastTab[section.id] = v; setTabId(v); }}
+          onValueChange={(v) => navigate({ section: section.id, tab: v })}
           options={tabs.map((t) => ({ value: t.id, label: t.label }))}
         />
         <p className="text-sm text-muted-foreground">{tab.intro}</p>
@@ -99,7 +102,7 @@ function SectionView({ section }: { section: Section }) {
 }
 
 export default function App() {
-  const [active, setActive] = useState("home");
+  const active = useNav().section;
   const [version, setVersion] = useState("");
   const [whatsNew, setWhatsNew] = useState(false);
   const [dismissed, setDismissed] = useState(false);
@@ -109,9 +112,10 @@ export default function App() {
     window.anchor.appVersion().then(setVersion);
     window.anchor.loadProfile().then((p) => applyTheme(p.theme ?? "dark"));
     initUpdates();
+    const offNav = window.anchor.onNavigate(navigate);
     // after first paint, so the window appears before any background work
     const t = setTimeout(prefetch, 600);
-    return () => clearTimeout(t);
+    return () => { clearTimeout(t); offNav(); };
   }, []);
 
   const updateReady = update.status === "available" || update.status === "downloaded";
@@ -135,13 +139,13 @@ export default function App() {
               icon={item.icon}
               label={item.label}
               active={active === item.id}
-              onClick={() => setActive(item.id)}
+              onClick={() => navigate({ section: item.id })}
             />
           ))}
         </nav>
 
         <div className="space-y-1 border-t p-3">
-          <NavButton icon={User} label="Account" active={active === "account"} onClick={() => setActive("account")} />
+          <NavButton icon={User} label="Account" active={active === "account"} onClick={() => navigate({ section: "account" })} />
           <p className="px-3 pt-2 text-[11px] text-muted-foreground">v{version}</p>
         </div>
       </aside>
@@ -196,6 +200,7 @@ export default function App() {
         </main>
       </div>
 
+      <Toaster />
       <WhatsNew open={whatsNew} onClose={() => setWhatsNew(false)} version={version} />
     </div>
   );

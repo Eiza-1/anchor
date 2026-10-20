@@ -138,6 +138,8 @@ export interface AnchorApi {
     percent?: number; message?: string;
   }) => void): () => void;
   openExternal(url: string): Promise<void>;
+  notify(n: { title: string; body: string; target: import("@/lib/nav").NavTarget }): Promise<void>;
+  onNavigate(cb: (t: import("@/lib/nav").NavTarget) => void): () => void;
 }
 
 export interface BootFinding {

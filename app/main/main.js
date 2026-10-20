@@ -281,3 +281,20 @@ handle("update:notes", (limit) => updater.releaseNotes(limit));
 handle("app:openExternal", (url) => {
   if (typeof url === "string" && /^https?:\/\//.test(url)) shell.openExternal(url);
 });
+// Windows notification for a finished task, only when Anchor isn't the focused window.
+handle("app:notify", (n) => {
+  if (!win || win.isDestroyed() || win.isFocused() || !Notification.isSupported()) return;
+  if (!n || typeof n.title !== "string") return;
+  const note = new Notification({
+    title: n.title,
+    body: typeof n.body === "string" ? n.body : "",
+    icon: path.join(__dirname, "..", "build", "icon.ico"),
+  });
+  note.on("click", () => {
+    if (!win || win.isDestroyed()) return;
+    win.show();
+    win.focus();
+    win.webContents.send("nav:go", n.target);
+  });
+  note.show();
+});

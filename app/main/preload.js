@@ -119,4 +119,10 @@ contextBridge.exposeInMainWorld("anchor", {
     return () => ipcRenderer.removeListener("update:event", handler);
   },
   openExternal: (url) => call("app:openExternal", url),
+  notify: (n) => call("app:notify", n),
+  onNavigate: (cb) => {
+    const handler = (_e, target) => cb(target);
+    ipcRenderer.on("nav:go", handler);
+    return () => ipcRenderer.removeListener("nav:go", handler);
+  },
 });
