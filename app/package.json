@@ -8,15 +8,16 @@
   "license": "MIT",
   "homepage": "https://github.com/Eiza-1/anchor",
   "scripts": {
+    "test": "vitest run",
     "dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
     "build:ui": "vite build",
     "build": "npm run build:ui && electron-builder --win --x64 --arm64 --publish never",
     "release": "npm run build:ui && electron-builder --win --x64 --arm64 --publish always"
   },
   "dependencies": {
-    "electron-updater": "^6.3.4",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "electron-updater": "^6.3.4",
     "fast-xml-parser": "^4.4.0",
     "lucide-react": "^0.417.0",
     "react": "^18.3.1",
@@ -36,6 +37,7 @@
     "tailwindcss": "^3.4.7",
     "typescript": "^5.5.4",
     "vite": "^5.3.5",
+    "vitest": "^1.6.1",
     "wait-on": "^7.2.0"
   },
   "build": {
