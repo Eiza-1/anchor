@@ -32,6 +32,7 @@ export const Q = {
   cpuInfo: q("cpu:info", Infinity, "cpuInfo"),
   drives: q("drives", 5 * MIN, "driveHealth"),
   volumes: q("volumes", 5 * MIN, "volumes"),
+  isAdmin: q("isAdmin", Infinity, "isAdmin"),
   buildInfo: q("build", 60 * MIN, "buildInfo"),
   diagState: q("diag:state", MIN, "diagState"),
   diagErrors: () => cached("diag:errors", 10 * MIN, () => window.anchor.diagErrors(7)),

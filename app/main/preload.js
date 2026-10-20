@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld("anchor", {
   // drives / performance
   driveHealth: () => call("sys:driveHealth"),
   volumes: () => call("sys:volumes"),
+  isAdmin: () => call("sys:isAdmin"),
   deviceHealth: () => call("sys:deviceHealth"),
   cpuInfo: () => call("sys:cpuInfo"),
   monitorStart: () => call("monitor:start"),

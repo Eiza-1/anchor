@@ -47,6 +47,7 @@ export interface AnchorApi {
     name: string; media: string; health: string; size: number;
     wear?: number; temp?: number; predictFailure?: boolean;
   }>>;
+  isAdmin(): Promise<boolean>;
   volumes(): Promise<Array<{ DeviceID: string; FreeSpace: number; Size: number }>>;
   deviceHealth(): Promise<Array<{
     name: string; deviceClass: string; code: number;

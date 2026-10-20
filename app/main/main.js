@@ -147,6 +147,7 @@ handle("sys:buildInfo", () => sys.buildInfo());
 handle("sys:checkUpdates", () => sys.checkUpdates());
 handle("sys:driveHealth", () => sys.driveHealth());
 handle("sys:volumes", () => sys.volumes());
+handle("sys:isAdmin", () => sys.isAdmin());
 handle("sys:deviceHealth", () => sys.deviceHealth());
 handle("sys:cpuInfo", () => sys.cpuInfo());
 handle("monitor:start", () => monitor.start(win.webContents));

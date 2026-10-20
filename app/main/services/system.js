@@ -73,6 +73,11 @@ async function volumes() {
   return Array.isArray(v) ? v : v ? [v] : [];
 }
 
+async function isAdmin() {
+  const r = await runPSJson("([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) | ConvertTo-Json");
+  return r === true;
+}
+
 // ---------- Device health (Device Manager problem codes) ----------
 // Windows records a ConfigManagerErrorCode per device — the same number Device
 // Manager shows as "Code 43" etc. Anything non-zero means the device isn't
@@ -371,7 +376,7 @@ function generateAutounattend(o) {
 }
 
 module.exports = {
-  buildInfo, checkUpdates, driveHealth, volumes, perfSample, topProcesses, deviceHealth, cpuInfo,
+  buildInfo, checkUpdates, driveHealth, volumes, isAdmin, perfSample, topProcesses, deviceHealth, cpuInfo,
   startupList, startupToggle, bloatwareList, bloatwareRemove,
   privacyList, privacyApply, openTool, generateAutounattend,
 };
