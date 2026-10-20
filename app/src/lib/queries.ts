@@ -2,7 +2,7 @@
 // how to fetch it. Pages and the launch-time prefetch both go through here, so
 // a tab opened right after launch usually finds its data already loaded.
 import { cached } from "@/lib/store";
-import type { NewsItem } from "@/types";
+import type { GamesResult, NewsItem } from "@/types";
 
 const MIN = 60_000;
 type Api = typeof window.anchor;
@@ -10,6 +10,13 @@ type Data<K extends keyof Api> = Api[K] extends (...a: never[]) => Promise<infer
 
 const q = <K extends keyof Api>(key: string, ttl: number, method: K) =>
   () => cached(key, ttl, () => (window.anchor[method] as () => Promise<Data<K>>)());
+
+/** Failed game fetches reject, so cached() keeps the last good list instead of storing the failure. */
+async function unwrap<T>(p: Promise<GamesResult<T>>): Promise<T[]> {
+  const r = await p;
+  if (!r.ok) throw new Error(r.reason);
+  return r.items;
+}
 
 export const Q = {
   cleanupScan: q("cleanup:scan", 5 * MIN, "cleanupScan"),
@@ -32,8 +39,8 @@ export const Q = {
   lastRestorePoint: q("restore:last", 10 * MIN, "lastRestorePoint"),
   feeds: q("news:feeds", Infinity, "feeds"),
   videos: q("news:videos", 10 * MIN, "videos"),
-  releases: q("games:releases", 24 * 60 * MIN, "gameReleases"),
-  freeGames: q("games:free", 6 * 60 * MIN, "freeGames"),
+  releases: () => cached("games:releases", 24 * 60 * MIN, () => unwrap(window.anchor.gameReleases())),
+  freeGames: () => cached("games:free", 6 * 60 * MIN, () => unwrap(window.anchor.freeGames())),
 };
 
 /* ------------------------------- Articles -------------------------------- *

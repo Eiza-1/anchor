@@ -77,7 +77,7 @@ async function getJson(url) {
 async function upcomingReleases(key, today, days = 45) {
   if (!key) return { ok: false, reason: "no-key" };
   try {
-    const url = `https://api.rawg.io/api/games?key=${key}&dates=${today},${addDays(today, days)}&ordering=-added&page_size=40`;
+    const url = `https://api.rawg.io/api/games?key=${encodeURIComponent(key)}&dates=${today},${addDays(today, days)}&ordering=-added&page_size=40`;
     return { ok: true, items: mapRawg(await getJson(url)) };
   } catch {
     return { ok: false, reason: "network" };
