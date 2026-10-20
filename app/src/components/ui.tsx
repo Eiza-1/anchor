@@ -7,11 +7,11 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { SPRING, SPRING_SOFT } from "@/lib/motion";
-import { Loader2 } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 
 /* ---------------- Button ---------------- */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-medium transition-[transform,box-shadow,background-color,color,opacity] duration-spring ease-spring motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-medium transition-[transform,box-shadow,background-color,color,opacity] duration-spring ease-spring [.reduce-motion_&]:transition-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -104,6 +104,12 @@ export const CardFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDiv
   <div className={cn("flex items-center p-6 pt-0", className)} {...props} />
 );
 
+/* ---------------- Page title ---------------- */
+/** A page's heading, matching Home's greeting: bold, with a soft shadow over the picture. */
+export const PageTitle = ({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
+  <h1 className={cn("text-4xl font-bold tracking-tight dark:[text-shadow:0_2px_20px_rgb(0_0_0/0.4)]", className)} {...props} />
+);
+
 /* ---------------- Switch ---------------- */
 export function Switch({
   checked, onCheckedChange, disabled, className, title,
@@ -130,7 +136,7 @@ export function Switch({
     >
       <span
         className={cn(
-          "pointer-events-none block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform duration-spring ease-spring motion-reduce:transition-none",
+          "pointer-events-none block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform duration-spring ease-spring [.reduce-motion_&]:transition-none",
           checked ? "translate-x-4" : "translate-x-0"
         )}
       />
@@ -139,23 +145,29 @@ export function Switch({
 }
 
 /* ---------------- Checkbox ---------------- */
+// A glass box that fills with the accent and springs a tick in when checked.
+// The native input stays (keyboard, labels, forms); only its look is replaced.
 export function Checkbox({
   checked, onCheckedChange, className,
 }: { checked: boolean; onCheckedChange: (v: boolean) => void; className?: string }) {
   return (
-    <input
-      type="checkbox"
-      checked={checked}
-      onChange={(e) => onCheckedChange(e.target.checked)}
-      className={cn(
-        "h-4 w-4 shrink-0 cursor-pointer rounded-sm border border-primary accent-primary shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-        className
-      )}
-    />
+    <span className={cn("relative inline-grid size-4 shrink-0 place-items-center", className)}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onCheckedChange(e.target.checked)}
+        className="peer size-4 cursor-pointer appearance-none rounded-[5px] border border-foreground/25 bg-[hsl(var(--glass))] shadow-sm transition-[background-color,border-color,box-shadow] hover:border-foreground/45 checked:border-primary checked:bg-primary checked:shadow-[0_0_10px_hsl(var(--primary)/0.45)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      />
+      <Check
+        strokeWidth={3.5}
+        className="pointer-events-none absolute size-3 scale-50 text-primary-foreground opacity-0 transition-[opacity,transform] duration-spring ease-spring peer-checked:scale-100 peer-checked:opacity-100"
+      />
+    </span>
   );
 }
 
 /* ---------------- Input / Label ---------------- */
+// (Input and Select keep a faint 1px border on a glass fill: a field needs a visible edge.)
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   ({ className, ...props }, ref) => (
     <input
@@ -202,6 +214,7 @@ export function Progress({ value, className }: { value: number; className?: stri
 }
 
 /* ---------------- Badge ---------------- */
+// (Badges keep a border: it is tinted per variant, not the old flat panel edge.)
 const badgeVariants = cva(
   "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium transition-colors",
   {
@@ -225,6 +238,7 @@ export const Badge = ({
 );
 
 /* ---------------- Alert ---------------- */
+// (Status alerts keep a tinted border + fill so their colour reads as meaning; default is glass.)
 export function Alert({
   variant = "default", className, children,
 }: { variant?: "default" | "destructive" | "warning" | "success"; className?: string; children: React.ReactNode }) {

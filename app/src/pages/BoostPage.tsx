@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Eraser, RefreshCw, Trash2, Zap } from "lucide-react";
 import {
   Alert, Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle,
-  Checkbox, Dialog, Label, Skeleton,
+  Checkbox, Dialog, Label, PageTitle, Skeleton,
 } from "@/components/ui";
 import { formatBytes } from "@/lib/utils";
 import { invalidate, peek, runMemoryTrim, useAppState } from "@/lib/store";
@@ -97,8 +97,8 @@ export default function BoostPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-6">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Cleanup</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <PageTitle>Cleanup</PageTitle>
+        <p className="mt-1 text-sm text-foreground/80 dark:[text-shadow:0_1px_8px_rgb(0_0_0/0.5)]">
           Everything is measured first, so you decide with real numbers. Personal files are never touched.
         </p>
       </div>
@@ -107,7 +107,7 @@ export default function BoostPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Eraser className="size-4 text-sky-500" /> Free up disk space
+            <Eraser className="size-4 text-primary" /> Free up disk space
           </CardTitle>
           <CardDescription>
             Documents, downloads, pictures and saved passwords are never touched. Locations ticked by default are what
@@ -145,7 +145,7 @@ export default function BoostPage() {
                   return (
                     <label
                       key={t.id}
-                      className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-accent/50 ${empty ? "opacity-50" : ""}`}
+                      className={`glass cut-corner rounded-lg flex cursor-pointer items-start gap-3 p-3 transition-colors hover:bg-accent/50 ${empty ? "opacity-50" : ""}`}
                     >
                       <Checkbox
                         checked={chosen.has(t.id)}
@@ -178,7 +178,7 @@ export default function BoostPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Zap className="size-4 text-sky-500" /> Trim background memory
+            <Zap className="size-4 text-primary" /> Trim background memory
           </CardTitle>
           <CardDescription>
             Usually not needed — Windows manages memory well on its own, and trimmed apps reload what they need, so
@@ -198,7 +198,7 @@ export default function BoostPage() {
               </summary>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {trim.skipped.map((x) => (
-                  <span key={x} className="rounded-md bg-secondary px-2 py-0.5">{x}</span>
+                  <span key={x} className="rounded-md bg-foreground/[0.08] px-2 py-0.5">{x}</span>
                 ))}
               </div>
             </details>

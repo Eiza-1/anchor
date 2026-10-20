@@ -175,7 +175,7 @@ export default function GameBoostPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Sparkles className="size-4 text-sky-500" /> One click
+            <Sparkles className="size-4 text-primary" /> One click
           </CardTitle>
           <CardDescription>
             Applies the recommended set (everything except the one needing a restart), after creating a System Restore
@@ -207,7 +207,7 @@ export default function GameBoostPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Cpu className="size-4 text-sky-500" /> Your graphics hardware
+            <Cpu className="size-4 text-primary" /> Your graphics hardware
           </CardTitle>
           <CardDescription>
             Read-only. Outdated drivers are the most common cause of games getting slower over time.
@@ -221,7 +221,7 @@ export default function GameBoostPage() {
               const stale = g.ageDays !== null && g.ageDays > 365;
               const aging = g.ageDays !== null && g.ageDays > 180 && !stale;
               return (
-                <div key={g.name} className="rounded-lg border p-3">
+                <div key={g.name} className="glass cut-corner rounded-lg p-3">
                   <p className="text-sm font-medium">{g.name}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     Driver {g.driver}
@@ -276,7 +276,7 @@ export default function GameBoostPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <MonitorPlay className="size-4 text-sky-500" /> Power plan
+            <MonitorPlay className="size-4 text-primary" /> Power plan
           </CardTitle>
           <CardDescription>
             Balanced throttles the CPU to save power. High performance keeps clocks up — best while gaming, at the cost
@@ -313,7 +313,7 @@ export default function GameBoostPage() {
             </div>
           )}
 
-          <div className="flex items-start gap-4 rounded-lg border p-3">
+          <div className="flex items-start gap-4 glass cut-corner rounded-lg p-3">
             <div className="min-w-0 flex-1 space-y-1">
               <p className="text-sm font-medium">Maximum PCIe link speed</p>
               <p className="text-xs text-muted-foreground">
@@ -338,7 +338,7 @@ export default function GameBoostPage() {
           <CardHeader><CardTitle>{cat}</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             {items.map((t) => (
-              <div key={t.id} className="flex items-start gap-4 rounded-lg border p-3">
+              <div key={t.id} className="flex items-start gap-4 glass cut-corner rounded-lg p-3">
                 <div className="min-w-0 flex-1 space-y-1">
                   <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
                     {t.name}
@@ -360,7 +360,7 @@ export default function GameBoostPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Gamepad2 className="size-4 text-sky-500" /> Per-game GPU preference
+            <Gamepad2 className="size-4 text-primary" /> Per-game GPU preference
           </CardTitle>
           <CardDescription>
             On laptops with two GPUs, Windows sometimes runs a game on the power-saving chip. Add the game's .exe to
@@ -374,7 +374,7 @@ export default function GameBoostPage() {
           {gpu.length > 0 && (
             <div className="space-y-1.5">
               {gpu.map((g) => (
-                <div key={g.path} className="flex items-center gap-3 rounded-md border p-2.5">
+                <div key={g.path} className="flex items-center gap-3 glass cut-corner rounded-lg p-2.5">
                   <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{g.path}</span>
                   <Badge variant="success">High performance</Badge>
                   <Button

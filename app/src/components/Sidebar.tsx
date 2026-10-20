@@ -283,7 +283,7 @@ function RunDot({ className }: { className?: string }) {
       animate={{ scale: 1, opacity: 1 }}
       transition={ICON_SPRING}
     >
-      <span className="absolute size-[7px] motion-safe:animate-ping rounded-full bg-primary/60" />
+      <span className="absolute size-[7px] animate-ping [.reduce-motion_&]:animate-none rounded-full bg-primary/60" />
       <motion.span
         className="size-[7px] rounded-full bg-primary shadow-[0_0_6px_hsl(var(--primary)/0.9)]"
         animate={{ opacity: [1, 0.45, 1], scale: [1, 0.75, 1] }}

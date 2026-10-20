@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Play, RefreshCw } from "lucide-react";
-import { Button, Card, CardContent, Select, Skeleton, Tabs } from "@/components/ui";
+import { Button, Card, CardContent, PageTitle, Select, Skeleton, Tabs } from "@/components/ui";
 import { invalidate, peek } from "@/lib/store";
 import { articles as loadArticles, Q } from "@/lib/queries";
 import type { NewsItem } from "@/types";
@@ -43,8 +43,8 @@ export default function SpotlightPage() {
   return (
     <div className="space-y-6 py-6">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Tech Spotlight</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <PageTitle>Tech Spotlight</PageTitle>
+        <p className="mt-1 text-sm text-foreground/80 dark:[text-shadow:0_1px_8px_rgb(0_0_0/0.5)]">
           Latest tech news and videos via public feeds — no accounts, no tracking. Click anything to open it in your browser.
         </p>
       </div>
@@ -77,13 +77,13 @@ export default function SpotlightPage() {
             <Card
               key={v.link}
               onClick={() => window.anchor.openExternal(v.link)}
-              className="offscreen-card cursor-pointer overflow-hidden transition-colors hover:bg-accent"
+              className="offscreen-card group cursor-pointer overflow-hidden transition-[transform,background-color] duration-spring ease-spring hover:-translate-y-0.5 hover:bg-accent/70"
             >
-              <div className="relative aspect-video bg-secondary">
+              <div className="relative aspect-video overflow-hidden bg-foreground/[0.06]">
                 {v.imageUrl && (
                   <img
                     src={v.imageUrl}
-                    className="size-full object-cover"
+                    className="size-full object-cover transition-transform duration-spring ease-spring group-hover:scale-[1.03]"
                     loading="lazy"
                     decoding="async"
                     width={320}
@@ -91,7 +91,7 @@ export default function SpotlightPage() {
                   />
                 )}
                 <div className="absolute inset-0 grid place-items-center">
-                  <div className="grid size-11 place-items-center rounded-full bg-black/70 backdrop-blur">
+                  <div className="grid size-11 place-items-center rounded-full bg-black/60 ring-1 ring-white/25 transition-transform duration-spring ease-spring group-hover:scale-110">
                     <Play className="size-4 fill-white text-white" />
                   </div>
                 </div>
@@ -111,7 +111,7 @@ export default function SpotlightPage() {
             <button
               key={a.link}
               onClick={() => window.anchor.openExternal(a.link)}
-              className="offscreen-row flex w-full gap-4 rounded-lg border p-3 text-left transition-colors hover:bg-accent"
+              className="offscreen-row glass cut-corner flex w-full gap-4 rounded-lg p-3 text-left transition-[transform,background-color] duration-spring ease-spring hover:-translate-y-px hover:bg-accent/70"
             >
               {a.imageUrl && (
                 <img

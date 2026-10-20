@@ -44,19 +44,22 @@ export default function PerformancePage() {
   const memPct = last?.memUsed && last?.memTotal ? (last.memUsed / last.memTotal) * 100 : 0;
 
   const TONE: Record<string, string> = {
-    cpu: "border-amber-500/40 bg-amber-500/10",
-    gpu: "border-sky-500/40 bg-sky-500/10",
-    disk: "border-amber-500/40 bg-amber-500/10",
-    memory: "border-red-500/40 bg-red-500/10",
-    balanced: "border-emerald-500/40 bg-emerald-500/10",
-    idle: "border-border bg-card",
+    // a status tint over the glass (the tint replaces the glass fill; the glass edge stays).
+    // GPU keeps sky blue rather than the theme accent: it's the GPU series colour in
+    // the sparkline below, and must not collide with CPU's amber on Ember/Crimson.
+    cpu: "bg-amber-500/10",
+    gpu: "bg-sky-500/10",
+    disk: "bg-amber-500/10",
+    memory: "bg-red-500/10",
+    balanced: "bg-emerald-500/10",
+    idle: "",
   };
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-6">
 
       {/* live bottleneck verdict */}
-      <div className={cn("rounded-lg border p-4", TONE[verdict.culprit])}>
+      <div className={cn("glass cut-corner rounded-lg p-4", TONE[verdict.culprit])}>
         <div className="flex items-start gap-3">
           <Activity className="mt-0.5 size-5 shrink-0" />
           <div className="min-w-0 flex-1">
@@ -107,7 +110,7 @@ export default function PerformancePage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Scale className="size-4 text-sky-500" /> Are your CPU and GPU a good match?
+            <Scale className="size-4 text-primary" /> Are your CPU and GPU a good match?
           </CardTitle>
           <CardDescription>
             Judged from what your hardware actually does under load, not from model names. Needs about a minute of real
@@ -138,11 +141,11 @@ export default function PerformancePage() {
           )}
           {pairing.status !== "unknown" && (
             <div className="grid gap-3 pt-1 sm:grid-cols-2">
-              <div className="rounded-md border p-3">
+              <div className="glass cut-corner rounded-lg p-3">
                 <p className="text-xs text-muted-foreground">CPU average under load</p>
                 <p className="text-lg font-semibold">{Math.round(pairing.cpuAvg)}%</p>
               </div>
-              <div className="rounded-md border p-3">
+              <div className="glass cut-corner rounded-lg p-3">
                 <p className="text-xs text-muted-foreground">GPU average under load</p>
                 <p className="text-lg font-semibold">{Math.round(pairing.gpuAvg)}%</p>
               </div>
@@ -206,6 +209,7 @@ function Sparkline({ samples }: { samples: Sample[] }) {
     <div>
       <div className="mb-1 flex gap-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-amber-400" /> CPU</span>
+        {/* series colours, not the accent: fixed so CPU and GPU never look alike on any theme */}
         <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-sky-400" /> GPU</span>
         <span className="ml-auto">last {recent.length}s</span>
       </div>

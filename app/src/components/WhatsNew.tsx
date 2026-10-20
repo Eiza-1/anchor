@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Download, RefreshCw, Sparkles, X } from "lucide-react";
 import { Badge, Button, Progress, Skeleton } from "@/components/ui";
 import { useUpdateState } from "@/lib/store";
+import { motion } from "framer-motion";
+import { SPRING } from "@/lib/motion";
 
 type Release = {
   version: string; name: string; date: string; notes: string; url: string; isCurrent: boolean;
@@ -46,22 +48,30 @@ export function WhatsNew({ open, onClose, version }: { open: boolean; onClose: (
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-6" onClick={onClose}>
-      <div
+    <motion.div
+      className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-6"
+      onClick={onClose}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+    >
+      <motion.div
         className="glass-strong cut-corner flex max-h-[80vh] w-full max-w-2xl flex-col rounded-lg"
         onClick={(e) => e.stopPropagation()}
+        initial={{ opacity: 0, scale: 0.94, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={SPRING}
       >
-        <div className="flex items-center gap-3 border-b p-4">
-          <Sparkles className="size-4 text-sky-500" />
+        <div className="flex items-center gap-3 border-b border-foreground/10 p-4">
+          <Sparkles className="size-4 text-primary" />
           <div className="flex-1">
-            <h2 className="text-sm font-semibold">What's new in Anchor</h2>
+            <h2 className="text-base font-bold tracking-tight">What's new in Anchor</h2>
             <p className="text-xs text-muted-foreground">You're running v{version}</p>
           </div>
           <Button size="icon" variant="ghost" onClick={onClose}><X /></Button>
         </div>
 
         {/* update controls */}
-        <div className="border-b p-4">
+        <div className="border-b border-foreground/10 p-4">
           {update.status === "available" || update.status === "downloading" || update.status === "downloaded" ? (
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -113,7 +123,7 @@ export function WhatsNew({ open, onClose, version }: { open: boolean; onClose: (
             </p>
           ) : (
             releases.map((r) => (
-              <div key={r.version} className="space-y-2">
+              <div key={r.version} className="glass cut-corner space-y-2 rounded-lg p-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-sm font-semibold">{r.name || `v${r.version}`}</h3>
                   {r.isCurrent && <Badge variant="secondary">Installed</Badge>}
@@ -126,7 +136,7 @@ export function WhatsNew({ open, onClose, version }: { open: boolean; onClose: (
             ))
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

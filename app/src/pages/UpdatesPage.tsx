@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ExternalLink } from "lucide-react";
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Skeleton } from "@/components/ui";
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, PageTitle, Skeleton } from "@/components/ui";
 import type { NewsItem } from "@/types";
 import { peek } from "@/lib/store";
 import { articles, Q, windowsNews } from "@/lib/queries";
@@ -48,8 +48,8 @@ export default function UpdatesPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-6">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Windows Update</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <PageTitle>Windows Update</PageTitle>
+        <p className="mt-1 text-sm text-foreground/80 dark:[text-shadow:0_1px_8px_rgb(0_0_0/0.5)]">
           Check for pending updates and read recent update news.
         </p>
       </div>
@@ -91,7 +91,7 @@ export default function UpdatesPage() {
                 <button
                   key={n.link}
                   onClick={() => window.anchor.openExternal(n.link)}
-                  className="flex w-full gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-accent"
+                  className="glass cut-corner flex w-full gap-3 rounded-lg p-3 text-left transition-[transform,background-color] duration-spring ease-spring hover:-translate-y-px hover:bg-accent/70"
                 >
                   {n.imageUrl && (
                     <img src={n.imageUrl} className="h-16 w-24 shrink-0 rounded-md object-cover" loading="lazy" />

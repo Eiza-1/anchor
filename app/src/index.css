@@ -286,6 +286,18 @@
     background: transparent;
   }
 
+  /* "Reduce animations" (Account → Appearance) sets html.reduce-motion; CSS motion
+     follows that switch, not Windows' prefers-reduced-motion, so Anchor animates by
+     default. Spinners keep turning: they show that work is still going. */
+  html.reduce-motion *:not(.animate-spin),
+  html.reduce-motion *::before,
+  html.reduce-motion *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
   /* Long lists (news, videos, apps): skip layout/paint for offscreen rows.
      This is what stops scrolling stuttering once a list gets big. */
   /* (Not named "list-item": that's a Tailwind display utility and overrode flex.) */

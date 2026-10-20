@@ -73,16 +73,17 @@ export default function DiagnosticsPage() {
   }, [anyRepair]);
 
   const TONE = {
-    ok: "border-emerald-500/40 bg-emerald-500/10",
-    suggest: "border-amber-500/40 bg-amber-500/10",
-    urgent: "border-red-500/40 bg-red-500/10",
+    // a status tint over the glass (the tint replaces the glass fill; the glass edge stays)
+    ok: "bg-emerald-500/10",
+    suggest: "bg-amber-500/10",
+    urgent: "bg-red-500/10",
   } as const;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-6">
 
       {/* uptime verdict */}
-      <div className={cn("rounded-lg border p-4", TONE[advice.level])}>
+      <div className={cn("glass cut-corner rounded-lg p-4", TONE[advice.level])}>
         <div className="flex items-start gap-3">
           <Clock className="mt-0.5 size-5 shrink-0" />
           <div className="min-w-0 flex-1">
@@ -96,7 +97,7 @@ export default function DiagnosticsPage() {
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle className="flex items-center gap-2">
-            <Stethoscope className="size-4 text-sky-500" /> System state
+            <Stethoscope className="size-4 text-primary" /> System state
           </CardTitle>
           <Button variant="ghost" size="sm" onClick={() => load(true)} loading={refreshing}>
             {!refreshing && <RefreshCw />} Refresh
@@ -127,7 +128,7 @@ export default function DiagnosticsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Droplets className="size-4 text-sky-500" /> Memory leak watch
+            <Droplets className="size-4 text-primary" /> Memory leak watch
           </CardTitle>
           <CardDescription>
             A big app isn't a leak — a leak is memory that climbs and never comes back. Anchor samples every minute and
@@ -145,7 +146,7 @@ export default function DiagnosticsPage() {
             </Alert>
           ) : (
             suspects.map((s) => (
-              <div key={s.pid} className="rounded-lg border p-3">
+              <div key={s.pid} className="glass cut-corner rounded-lg p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={s.confidence === "strong" ? "destructive" : s.confidence === "likely" ? "warning" : "secondary"}>
                     {s.confidence === "watching" ? "Still watching" : s.confidence === "likely" ? "Likely leak" : "Strong leak"}
@@ -174,7 +175,7 @@ export default function DiagnosticsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Cpu className="size-4 text-sky-500" /> CPU time hogs
+            <Cpu className="size-4 text-primary" /> CPU time hogs
           </CardTitle>
           <CardDescription>
             Total CPU each process has consumed since it started. Something using a steady slice while "idle" shows up
@@ -188,7 +189,7 @@ export default function DiagnosticsPage() {
             </p>
           ) : (
             hogs.map((p) => (
-              <div key={p.pid} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3">
+              <div key={p.pid} className="flex flex-wrap items-center justify-between gap-2 glass cut-corner rounded-lg p-3">
                 <div className="min-w-0">
                   <p className="text-sm font-medium">{p.name}</p>
                   <p className="text-xs text-muted-foreground">
@@ -206,7 +207,7 @@ export default function DiagnosticsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FileWarning className="size-4 text-sky-500" /> Errors in the last 7 days
+            <FileWarning className="size-4 text-primary" /> Errors in the last 7 days
           </CardTitle>
           <CardDescription>
             Critical and error entries from the System and Application logs, grouped by what caused them.
@@ -221,7 +222,7 @@ export default function DiagnosticsPage() {
             <>
               <p className="text-sm text-muted-foreground">{errors.total} entries logged.</p>
               {errors.groups.map((g) => (
-                <div key={g.source} className="rounded-lg border p-3">
+                <div key={g.source} className="glass cut-corner rounded-lg p-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant={g.count > 50 ? "warning" : "secondary"}>{g.count}×</Badge>
                     <span className="text-sm font-medium">{g.source}</span>
@@ -239,7 +240,7 @@ export default function DiagnosticsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Wrench className="size-4 text-sky-500" /> Repairs
+            <Wrench className="size-4 text-primary" /> Repairs
           </CardTitle>
           <CardDescription>
             Each one is a documented Windows repair. Anchor explains what it does before running it.
@@ -278,7 +279,7 @@ export default function DiagnosticsPage() {
 
 function Stat({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
   return (
-    <div className="rounded-md border p-3">
+    <div className="glass cut-corner rounded-lg p-3">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className={cn("text-lg font-semibold", warn && "text-amber-400")}>{value}</p>
     </div>
@@ -298,7 +299,7 @@ function RepairRow({ r, anyRunning, onAsk }: { r: Repair; anyRunning?: string; o
     ? task.error ?? ""
     : "";
   return (
-    <div className="rounded-lg border p-3">
+    <div className="glass cut-corner rounded-lg p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-2 text-sm font-medium">

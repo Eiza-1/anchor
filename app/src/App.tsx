@@ -3,7 +3,7 @@ import {
   Home, Eraser, Gauge, Newspaper, Rocket, Trash2, HardDrive, User, Download, X, Sparkles, RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button, Tabs } from "@/components/ui";
+import { Button, PageTitle, Tabs } from "@/components/ui";
 import { WhatsNew } from "@/components/WhatsNew";
 import { applyTheme, initUpdates, useUpdateState } from "@/lib/store";
 import { prefetch } from "@/lib/queries";
@@ -12,7 +12,7 @@ import { Toaster } from "@/components/Toaster";
 import { AppBackground } from "@/components/AppBackground";
 import { Sidebar } from "@/components/Sidebar";
 import { MotionConfig, motion } from "framer-motion";
-import { SPRING, enter } from "@/lib/motion";
+import { SPRING, enter, useReduceMotion } from "@/lib/motion";
 
 import HomePage from "@/pages/HomePage";
 import BoostPage from "@/pages/BoostPage";
@@ -91,13 +91,13 @@ function SectionView({ section, tabId }: { section: Section; tabId?: string }) {
   return (
     <div>
       <div className="mx-auto max-w-4xl space-y-3 pt-6">
-        <h1 className="text-3xl font-semibold tracking-tight">{section.label}</h1>
+        <PageTitle>{section.label}</PageTitle>
         <Tabs
           value={tab.id}
           onValueChange={(v) => navigate({ section: section.id, tab: v })}
           options={tabs.map((t) => ({ value: t.id, label: t.label }))}
         />
-        <p className="text-sm text-muted-foreground">{tab.intro}</p>
+        <p className="text-sm text-foreground/80 dark:[text-shadow:0_1px_8px_rgb(0_0_0/0.5)]">{tab.intro}</p>
       </div>
       {/* the heading stays put (its tab pill glides); the tab's content enters */}
       <motion.div key={tab.id} {...enter}>
@@ -113,6 +113,8 @@ export default function App() {
   const [whatsNew, setWhatsNew] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const update = useUpdateState();
+  // Anchor animates regardless of Windows' "Animation effects"; Account → Appearance can turn it down
+  const reduceMotion = useReduceMotion();
 
   useEffect(() => {
     window.anchor.appVersion().then(setVersion);
@@ -130,7 +132,7 @@ export default function App() {
   const Page = current.page;
 
   return (
-    <MotionConfig reducedMotion="user" transition={SPRING}>
+    <MotionConfig reducedMotion={reduceMotion ? "always" : "never"} transition={SPRING}>
       {/* transparent shell over the picture; body keeps the solid theme colour as a fallback */}
       <div className="flex h-full">
         <AppBackground mode={nav.section === "home" ? "home" : "page"} />
@@ -149,19 +151,19 @@ export default function App() {
               className={cn(
                 "relative flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors",
                 updateReady
-                  ? "bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
+                  ? "bg-primary/15 text-primary hover:bg-primary/25"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
               )}
             >
               <Sparkles className="size-3.5" />
               {updateReady ? `Update to ${update.version}` : "What's new"}
-              {updateReady && <span className="ml-0.5 size-1.5 rounded-full bg-sky-400" />}
+              {updateReady && <span className="ml-0.5 size-1.5 rounded-full bg-primary" />}
             </button>
           </div>
 
           {updateReady && !dismissed && (
-            <div className="mx-8 mb-2 flex items-center gap-3 rounded-lg border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-sm">
-              <Download className="size-4 shrink-0 text-sky-400" />
+            <div className="glass cut-corner mx-8 mb-2 flex items-center gap-3 rounded-lg px-4 py-3 text-sm">
+              <Download className="size-4 shrink-0 text-primary" />
               <div className="min-w-0 flex-1">
                 <p className="font-medium">
                   Anchor {update.version} is available — you're on {version}

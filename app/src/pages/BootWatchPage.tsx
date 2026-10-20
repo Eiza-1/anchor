@@ -64,7 +64,7 @@ export default function BootWatchPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Eye className="size-4 text-sky-500" /> Watch every startup
+            <Eye className="size-4 text-primary" /> Watch every startup
           </CardTitle>
           <CardDescription>
             Anchor starts with Windows in the background, records what runs, and notifies you if something suspicious
@@ -99,7 +99,7 @@ export default function BootWatchPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             {events.map((e, i) => (
-              <div key={`${e.pid}-${e.time}-${i}`} className="rounded-lg border p-3">
+              <div key={`${e.pid}-${e.time}-${i}`} className="glass cut-corner rounded-lg p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={LEVEL_BADGE[e.level]}>{LEVEL_LABEL[e.level]}</Badge>
                   <span className="text-sm font-medium">{e.name}</span>
@@ -108,7 +108,7 @@ export default function BootWatchPage() {
                   </span>
                 </div>
                 {e.command && (
-                  <p className="mt-1.5 break-all rounded bg-secondary/60 p-2 font-mono text-xs text-muted-foreground">
+                  <p className="mt-1.5 break-all rounded bg-foreground/[0.07] p-2 font-mono text-xs text-muted-foreground">
                     {e.command}
                   </p>
                 )}
@@ -160,9 +160,9 @@ export default function BootWatchPage() {
               <div
                 key={f.id}
                 className={cn(
-                  "space-y-2 rounded-lg border p-3",
-                  f.level === "high" && "border-red-500/40 bg-red-500/5",
-                  f.level === "medium" && "border-amber-500/40 bg-amber-500/5"
+                  "glass cut-corner rounded-lg space-y-2 p-3",
+                  f.level === "high" && "bg-red-500/10",
+                  f.level === "medium" && "bg-amber-500/10"
                 )}
               >
                 <div className="flex flex-wrap items-center gap-2">
@@ -183,7 +183,7 @@ export default function BootWatchPage() {
                 </div>
 
                 {f.command && (
-                  <p className="break-all rounded bg-secondary/60 p-2 font-mono text-xs text-muted-foreground">
+                  <p className="break-all rounded bg-foreground/[0.07] p-2 font-mono text-xs text-muted-foreground">
                     {f.command}
                   </p>
                 )}

@@ -2,13 +2,13 @@
 // covers that tilt toward the pointer on a spring.
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  motion, useMotionTemplate, useReducedMotion, useSpring, useTransform,
+  motion, useMotionTemplate, useSpring, useTransform,
 } from "framer-motion";
 import { Gift } from "lucide-react";
 import { Q } from "@/lib/queries";
 import { peek } from "@/lib/store";
 import { dayMonth } from "@/lib/games";
-import { SPRING_SOFT } from "@/lib/motion";
+import { SPRING_SOFT, useReduceMotion } from "@/lib/motion";
 import { Rail, RailNotice, type ChipOption } from "@/components/home/Rail";
 import type { FreeGame } from "@/types";
 
@@ -74,7 +74,7 @@ const GiftIcon = () => <Gift className="size-5 shrink-0 text-muted-foreground" /
 
 function FreeCard({ game: g, index }: { game: FreeGame; index: number }) {
   const ref = useRef<HTMLButtonElement>(null);
-  const reduce = useReducedMotion();
+  const reduce = useReduceMotion();
   const rx = useSpring(0, TILT_SPRING);
   const ry = useSpring(0, TILT_SPRING);
   const scale = useSpring(1, TILT_SPRING);

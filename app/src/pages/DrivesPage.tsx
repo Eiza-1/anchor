@@ -147,7 +147,7 @@ export default function DrivesPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Timer className="size-4 text-sky-500" /> Speed test
+            <Timer className="size-4 text-primary" /> Speed test
           </CardTitle>
           <CardDescription>
             The same measurements CrystalDiskMark takes — sequential and random 4K, read and write — using unbuffered
@@ -205,7 +205,7 @@ export default function DrivesPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <MemoryStick className="size-4 text-sky-500" /> Memory (RAM) test
+            <MemoryStick className="size-4 text-primary" /> Memory (RAM) test
           </CardTitle>
           <CardDescription>
             Faulty RAM causes random crashes, corrupted files and blue screens that look like software problems.
@@ -247,7 +247,7 @@ function TempChip({ temp, admin }: { temp?: number | null; admin: boolean }) {
 
 function BenchStat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-md border p-3">
+    <div className="glass cut-corner rounded-lg p-3">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="text-lg font-semibold">{value}</p>
       {sub && <p className="text-xs text-muted-foreground">{sub}</p>}

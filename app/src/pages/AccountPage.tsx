@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { LogIn, LogOut, Mail, Pencil, ShieldCheck, UserRound } from "lucide-react";
 import {
-  Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label, Select, Switch,
+  Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label, PageTitle, Select, Switch,
 } from "@/components/ui";
 import { ImageIcon, Palette, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,7 @@ import { applyTheme, peek, runRestorePoint, THEMES } from "@/lib/store";
 import { refreshBackground, useBackground } from "@/lib/background";
 import { useBlockedBy, useTask } from "@/lib/tasks";
 import { Q } from "@/lib/queries";
+import { setReduceMotion, useReduceMotion } from "@/lib/motion";
 import { displayNameOf, greetingFor } from "@/lib/utils";
 import type { Profile } from "@/types";
 
@@ -131,14 +132,14 @@ export default function AccountPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-6">
-      <h1 className="text-3xl font-semibold tracking-tight">{greeting}</h1>
+      <PageTitle>{greeting}</PageTitle>
 
       {signedIn ? (
         <>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <UserRound className="size-4 text-sky-500" /> Signed in
+                <UserRound className="size-4 text-primary" /> Signed in
               </CardTitle>
               <CardDescription>
                 Your details are stored only on this PC and used for greetings and the mail preferences below.
@@ -161,7 +162,7 @@ export default function AccountPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Pencil className="size-4 text-sky-500" /> What should Anchor call you?
+                <Pencil className="size-4 text-primary" /> What should Anchor call you?
               </CardTitle>
               <CardDescription>
                 {p.displayName
@@ -231,7 +232,7 @@ export default function AccountPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Mail className="size-4 text-sky-500" /> Or use your email
+                <Mail className="size-4 text-primary" /> Or use your email
               </CardTitle>
               <CardDescription>
                 No account with those services? We'll email you a one-time code — no password to
@@ -286,7 +287,7 @@ export default function AccountPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Palette className="size-4 text-sky-500" /> Appearance
+            <Palette className="size-4 text-primary" /> Appearance
           </CardTitle>
           <CardDescription>
             Dark is the default. Pick whichever is easiest on your eyes. Each theme comes with its own background picture, or use one of yours.
@@ -302,11 +303,11 @@ export default function AccountPage() {
                   await persist({ theme: t.id });
                 }}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-accent",
-                  (p.theme ?? "dark") === t.id && "border-primary ring-1 ring-primary"
+                  "glass cut-corner rounded-lg flex items-center gap-3 p-3 text-left transition-[transform,background-color,box-shadow] duration-spring ease-spring hover:-translate-y-px hover:bg-accent/70",
+                  (p.theme ?? "dark") === t.id && "shadow-[inset_0_0_0_1.5px_hsl(var(--primary)),0_0_18px_-4px_hsl(var(--primary)/0.6)]"
                 )}
               >
-                <span className="flex shrink-0 overflow-hidden rounded-md border">
+                <span className="flex shrink-0 overflow-hidden rounded-md ring-1 ring-foreground/15">
                   {t.swatch.map((c) => (
                     <span key={c} className="size-4" style={{ background: c }} />
                   ))}
@@ -319,6 +320,7 @@ export default function AccountPage() {
             ))}
           </div>
           <BackgroundPicker />
+          <ReduceMotionToggle />
         </CardContent>
       </Card>
 
@@ -327,7 +329,7 @@ export default function AccountPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Mail className="size-4 text-sky-500" /> Email updates
+            <Mail className="size-4 text-primary" /> Email updates
           </CardTitle>
           <CardDescription>
             {signedIn
@@ -385,6 +387,19 @@ function Toggle({
       </div>
       <Switch checked={checked} onCheckedChange={onChange} disabled={disabled} />
     </div>
+  );
+}
+
+/** Off by default: Anchor animates even when Windows' "Animation effects" is off. */
+function ReduceMotionToggle() {
+  const on = useReduceMotion();
+  return (
+    <Toggle
+      label="Reduce animations"
+      hint="Turns off Anchor's springs, slides and pulses. Anchor ignores Windows' animation setting, so use this instead."
+      checked={on}
+      onChange={setReduceMotion}
+    />
   );
 }
 

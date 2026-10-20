@@ -22,7 +22,7 @@ const TONE: Record<HealthStatus, string> = {
   ok: "text-emerald-400 bg-emerald-500/10",
   warn: "text-amber-400 bg-amber-500/10",
   bad: "text-red-400 bg-red-500/10",
-  info: "text-sky-400 bg-sky-500/10",
+  info: "text-primary bg-primary/10",
   tip: "text-violet-400 bg-violet-500/10",
 };
 
@@ -41,7 +41,7 @@ export function HealthList({ lines, className }: { lines: HealthLine[]; classNam
         const Icon = ICONS[l.icon];
         const Badge = STATUS_BADGE[l.status];
         return (
-          <li key={l.id} className="flex items-start gap-3 rounded-lg border bg-card/50 p-3">
+          <li key={l.id} className="glass cut-corner flex items-start gap-3 rounded-lg p-3">
             <span className={cn("grid size-8 shrink-0 place-items-center rounded-md", TONE[l.status])}>
               <Icon className="size-4" />
             </span>

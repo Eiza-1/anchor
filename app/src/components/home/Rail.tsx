@@ -2,10 +2,10 @@
 // with arrows outside its edges. The arrows scroll ±360px on a spring; trackpads
 // and Shift+wheel scroll it natively (the scrollbar is hidden).
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { animate, motion, useReducedMotion, type AnimationPlaybackControls } from "framer-motion";
+import { animate, motion, type AnimationPlaybackControls } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SPRING, SPRING_SOFT } from "@/lib/motion";
+import { SPRING, SPRING_SOFT, useReduceMotion } from "@/lib/motion";
 
 export interface ChipOption<T extends string> { value: T; label: string }
 
@@ -31,7 +31,7 @@ export function Rail<T extends string>({
   const track = useRef<HTMLDivElement>(null);
   const anim = useRef<AnimationPlaybackControls | null>(null);
   const target = useRef(0);
-  const reduce = useReducedMotion();
+  const reduce = useReduceMotion();
   const [edges, setEdges] = useState({ left: false, right: false });
 
   const measure = useCallback(() => {
