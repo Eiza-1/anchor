@@ -4,12 +4,12 @@ import { CheckCircle2, XCircle } from "lucide-react";
 import { onTaskFinished, type Task } from "@/lib/tasks";
 import { isViewing, navigate, type NavTarget } from "@/lib/nav";
 import { cn } from "@/lib/utils";
+import { SPRING } from "@/lib/motion";
 
 interface Toast { id: number; title: string; body: string; ok: boolean; target: NavTarget }
 
 const MAX = 3;
 const HIDE_MS = 6000;
-const spring = { type: "spring", stiffness: 420, damping: 32, mass: 0.9 } as const;
 let nextId = 1;
 
 export function Toaster() {
@@ -59,11 +59,11 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number)
       initial={{ opacity: 0, x: 48, scale: 0.96 }}
       animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={{ opacity: 0, x: 48, scale: 0.96 }}
-      transition={spring}
+      transition={SPRING}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       onClick={() => { navigate(toast.target); onDismiss(toast.id); }}
-      className="pointer-events-auto flex w-full items-start gap-3 rounded-lg border bg-card/95 p-3 text-left shadow-lg backdrop-blur"
+      className="glass-strong cut-corner pointer-events-auto flex w-full items-start gap-3 rounded-lg p-3 text-left"
     >
       <Icon className={cn("mt-0.5 size-4 shrink-0", toast.ok ? "text-emerald-500" : "text-red-500")} />
       <span className="min-w-0 flex-1">

@@ -46,9 +46,9 @@ export function WhatsNew({ open, onClose, version }: { open: boolean; onClose: (
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/80 p-6" onClick={onClose}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-6" onClick={onClose}>
       <div
-        className="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-lg border bg-background shadow-lg"
+        className="glass-strong cut-corner flex max-h-[80vh] w-full max-w-2xl flex-col rounded-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 border-b p-4">

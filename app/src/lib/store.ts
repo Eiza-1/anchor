@@ -267,7 +267,7 @@ export function runRestorePoint(description: string) {
 
 /* --------------------------------- Themes --------------------------------- */
 export const THEMES = [
-  { id: "dark", name: "Dark", hint: "Default — neutral charcoal", swatch: ["#09090b", "#27272a", "#fafafa"] },
+  { id: "dark", name: "Dark", hint: "Default — charcoal with sky blue", swatch: ["#09090b", "#27272a", "#38bdf8"] },
   { id: "light", name: "Light", hint: "Soft grey — kinder than pure white", swatch: ["#eeeef2", "#f7f7fa", "#2b2b33"] },
   { id: "midnight", name: "Midnight", hint: "Deep navy, softer than black", swatch: ["#0b1220", "#1e293b", "#60a5fa"] },
   { id: "ember", name: "Ember", hint: "Warm greys, low blue light", swatch: ["#12100e", "#2a2422", "#f97316"] },

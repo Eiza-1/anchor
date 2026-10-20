@@ -10,6 +10,8 @@ import { applyTheme, initUpdates, useUpdateState } from "@/lib/store";
 import { prefetch } from "@/lib/queries";
 import { navigate, useNav } from "@/lib/nav";
 import { Toaster } from "@/components/Toaster";
+import { MotionConfig } from "framer-motion";
+import { SPRING } from "@/lib/motion";
 
 import HomePage from "@/pages/HomePage";
 import BoostPage from "@/pages/BoostPage";
@@ -124,85 +126,87 @@ export default function App() {
   const Page = current.page;
 
   return (
-    <div className="flex h-full bg-background">
-      {/* Sidebar */}
-      <aside className="flex w-56 shrink-0 flex-col border-r bg-card/40">
-        <div className="flex h-10 items-center gap-2 px-4" style={{ WebkitAppRegion: "drag" } as React.CSSProperties}>
-          <AnchorIcon className="size-4 text-sky-500" />
-          <span className="text-sm font-semibold">Anchor</span>
-        </div>
-
-        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-          {NAV.map((item) => (
-            <NavButton
-              key={item.id}
-              icon={item.icon}
-              label={item.label}
-              active={active === item.id}
-              onClick={() => navigate({ section: item.id })}
-            />
-          ))}
-        </nav>
-
-        <div className="space-y-1 border-t p-3">
-          <NavButton icon={User} label="Account" active={active === "account"} onClick={() => navigate({ section: "account" })} />
-          <p className="px-3 pt-2 text-[11px] text-muted-foreground">v{version}</p>
-        </div>
-      </aside>
-
-      {/* Main */}
-      <div className="flex min-w-0 flex-1 flex-col">
-        {/* title bar strip: draggable, with the What's new tab pinned right */}
-        <div
-          className="flex h-10 shrink-0 items-center justify-end px-8"
-          style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
-        >
-          <button
-            onClick={() => setWhatsNew(true)}
-            style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
-            className={cn(
-              "relative flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors",
-              updateReady
-                ? "bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground"
-            )}
-          >
-            <Sparkles className="size-3.5" />
-            {updateReady ? `Update to ${update.version}` : "What's new"}
-            {updateReady && <span className="ml-0.5 size-1.5 rounded-full bg-sky-400" />}
-          </button>
-        </div>
-
-        {updateReady && !dismissed && (
-          <div className="mx-8 mb-2 flex items-center gap-3 rounded-lg border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-sm">
-            <Download className="size-4 shrink-0 text-sky-400" />
-            <div className="min-w-0 flex-1">
-              <p className="font-medium">
-                Anchor {update.version} is available — you're on {version}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {update.status === "downloaded"
-                  ? "Downloaded and ready. Restart to install."
-                  : "Anchor can download and install it for you."}
-              </p>
-            </div>
-            {update.status === "downloaded" ? (
-              <Button size="sm" onClick={() => window.anchor.updateInstall()}>Restart & install</Button>
-            ) : (
-              <Button size="sm" onClick={() => window.anchor.updateDownload()}>Update now</Button>
-            )}
-            <Button size="icon" variant="ghost" onClick={() => setDismissed(true)}><X /></Button>
+    <MotionConfig reducedMotion="user" transition={SPRING}>
+      <div className="flex h-full bg-background">
+        {/* Sidebar */}
+        <aside className="flex w-56 shrink-0 flex-col border-r bg-card/40">
+          <div className="flex h-10 items-center gap-2 px-4" style={{ WebkitAppRegion: "drag" } as React.CSSProperties}>
+            <AnchorIcon className="size-4 text-sky-500" />
+            <span className="text-sm font-semibold">Anchor</span>
           </div>
-        )}
 
-        <main className="flex-1 overflow-y-auto px-8 pb-10">
-          {Page ? <Page /> : <SectionView key={current.id} section={current} />}
-        </main>
+          <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+            {NAV.map((item) => (
+              <NavButton
+                key={item.id}
+                icon={item.icon}
+                label={item.label}
+                active={active === item.id}
+                onClick={() => navigate({ section: item.id })}
+              />
+            ))}
+          </nav>
+
+          <div className="space-y-1 border-t p-3">
+            <NavButton icon={User} label="Account" active={active === "account"} onClick={() => navigate({ section: "account" })} />
+            <p className="px-3 pt-2 text-[11px] text-muted-foreground">v{version}</p>
+          </div>
+        </aside>
+
+        {/* Main */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          {/* title bar strip: draggable, with the What's new tab pinned right */}
+          <div
+            className="flex h-10 shrink-0 items-center justify-end px-8"
+            style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
+          >
+            <button
+              onClick={() => setWhatsNew(true)}
+              style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+              className={cn(
+                "relative flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors",
+                updateReady
+                  ? "bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              )}
+            >
+              <Sparkles className="size-3.5" />
+              {updateReady ? `Update to ${update.version}` : "What's new"}
+              {updateReady && <span className="ml-0.5 size-1.5 rounded-full bg-sky-400" />}
+            </button>
+          </div>
+
+          {updateReady && !dismissed && (
+            <div className="mx-8 mb-2 flex items-center gap-3 rounded-lg border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-sm">
+              <Download className="size-4 shrink-0 text-sky-400" />
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">
+                  Anchor {update.version} is available — you're on {version}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {update.status === "downloaded"
+                    ? "Downloaded and ready. Restart to install."
+                    : "Anchor can download and install it for you."}
+                </p>
+              </div>
+              {update.status === "downloaded" ? (
+                <Button size="sm" onClick={() => window.anchor.updateInstall()}>Restart & install</Button>
+              ) : (
+                <Button size="sm" onClick={() => window.anchor.updateDownload()}>Update now</Button>
+              )}
+              <Button size="icon" variant="ghost" onClick={() => setDismissed(true)}><X /></Button>
+            </div>
+          )}
+
+          <main className="flex-1 overflow-y-auto px-8 pb-10">
+            {Page ? <Page /> : <SectionView key={current.id} section={current} />}
+          </main>
+        </div>
+
+        <Toaster />
+        <WhatsNew open={whatsNew} onClose={() => setWhatsNew(false)} version={version} />
       </div>
-
-      <Toaster />
-      <WhatsNew open={whatsNew} onClose={() => setWhatsNew(false)} version={version} />
-    </div>
+    </MotionConfig>
   );
 }
 

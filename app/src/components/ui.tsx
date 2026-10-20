@@ -1,28 +1,34 @@
-// shadcn/ui components (button, card, switch, input, select, progress, badge,
-// alert, tabs, skeleton), ported to plain React + Tailwind with shadcn's exact
-// class recipes and zinc theme tokens.
+// Anchor's UI kit: shadcn/ui shapes (button, card, switch, input, select,
+// progress, badge, alert, tabs, skeleton, dialog) restyled as frosted glass
+// with cut corners, glowing primary buttons, chip tabs and spring motion.
+// Glass utilities (.glass, .glass-strong, .cut-corner, .glow) live in index.css.
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
+import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { SPRING, SPRING_SOFT } from "@/lib/motion";
 import { Loader2 } from "lucide-react";
 
 /* ---------------- Button ---------------- */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-medium transition-[transform,box-shadow,background-color,color,opacity] duration-spring ease-spring motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow hover:bg-primary/90",
-        destructive: "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
-        outline: "border border-input bg-transparent shadow-sm hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
+        // glowing accent, lifts 1px on hover
+        default:
+          "glow bg-primary font-semibold text-primary-foreground hover:-translate-y-px hover:bg-primary/90 hover:shadow-[0_0_32px_hsl(var(--primary)/0.6)] active:translate-y-0",
+        destructive:
+          "bg-destructive text-destructive-foreground shadow-[0_0_20px_hsl(var(--destructive)/0.4)] hover:-translate-y-px hover:bg-destructive/90 active:translate-y-0",
+        outline: "glass text-foreground hover:-translate-y-px hover:bg-accent/70 active:translate-y-0",
+        secondary: "glass text-secondary-foreground hover:-translate-y-px hover:bg-accent/70 active:translate-y-0",
+        ghost: "hover:bg-accent/70 hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
         default: "h-9 px-4 py-2",
-        sm: "h-8 rounded-md px-3 text-xs",
-        lg: "h-10 rounded-md px-8",
+        sm: "h-8 px-3 text-xs",
+        lg: "h-10 px-8",
         icon: "h-9 w-9",
       },
     },
@@ -53,7 +59,7 @@ Button.displayName = "Button";
 
 /* ---------------- Card ---------------- */
 export const Card = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("rounded-lg border bg-card text-card-foreground shadow-sm", className)} {...props} />
+  <div className={cn("glass cut-corner rounded-lg text-card-foreground", className)} {...props} />
 );
 export const CardHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div className={cn("flex flex-col space-y-1.5 p-6", className)} {...props} />
@@ -117,14 +123,14 @@ export function Switch({
       disabled={disabled}
       onClick={() => onCheckedChange(!checked)}
       className={cn(
-        "peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
-        checked ? "bg-primary" : "bg-input",
+        "peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent shadow-sm transition-[background-color,box-shadow] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+        checked ? "bg-primary shadow-[0_0_12px_hsl(var(--primary)/0.45)]" : "bg-foreground/15",
         className
       )}
     >
       <span
         className={cn(
-          "pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform",
+          "pointer-events-none block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform duration-spring ease-spring motion-reduce:transition-none",
           checked ? "translate-x-4" : "translate-x-0"
         )}
       />
@@ -155,7 +161,7 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
     <input
       ref={ref}
       className={cn(
-        "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+        "flex h-9 w-full rounded-md border border-foreground/15 bg-[hsl(var(--glass))] px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
       {...props}
@@ -172,7 +178,7 @@ export const Label = ({ className, ...props }: React.LabelHTMLAttributes<HTMLLab
 export const Select = ({ className, children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) => (
   <select
     className={cn(
-      "flex h-9 w-full items-center rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring [&>option]:bg-background",
+      "flex h-9 w-full items-center rounded-full border border-foreground/15 bg-[hsl(var(--glass))] px-3 py-1 text-sm shadow-sm transition-colors hover:border-foreground/30 focus:outline-none focus:ring-1 focus:ring-ring [&>option]:bg-background",
       className
     )}
     {...props}
@@ -184,10 +190,12 @@ export const Select = ({ className, children, ...props }: React.SelectHTMLAttrib
 /* ---------------- Progress ---------------- */
 export function Progress({ value, className }: { value: number; className?: string }) {
   return (
-    <div className={cn("relative h-2 w-full overflow-hidden rounded-full bg-secondary", className)}>
-      <div
-        className="h-full bg-primary transition-all"
-        style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
+    <div className={cn("relative h-2 w-full overflow-hidden rounded-full bg-foreground/10", className)}>
+      <motion.div
+        className="h-full rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary)/0.6)]"
+        initial={false}
+        animate={{ width: `${Math.min(100, Math.max(0, value || 0))}%` }}
+        transition={SPRING_SOFT}
       />
     </div>
   );
@@ -199,12 +207,12 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: "border-transparent bg-primary text-primary-foreground",
-        secondary: "border-transparent bg-secondary text-secondary-foreground",
-        destructive: "border-transparent bg-destructive text-destructive-foreground",
-        outline: "text-foreground",
-        success: "border-transparent bg-emerald-500/15 text-emerald-400",
-        warning: "border-transparent bg-amber-500/15 text-amber-400",
+        default: "border-primary/50 bg-primary/15 text-primary",
+        secondary: "border-foreground/10 bg-[hsl(var(--glass))] text-secondary-foreground",
+        destructive: "border-red-500/40 bg-red-500/15 text-red-600 dark:text-red-400",
+        outline: "border-foreground/25 text-foreground",
+        success: "border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+        warning: "border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-400",
       },
     },
     defaultVariants: { variant: "default" },
@@ -221,10 +229,10 @@ export function Alert({
   variant = "default", className, children,
 }: { variant?: "default" | "destructive" | "warning" | "success"; className?: string; children: React.ReactNode }) {
   const styles = {
-    default: "bg-card text-foreground",
-    destructive: "border-destructive/50 text-destructive-foreground bg-destructive/10",
-    warning: "border-amber-500/40 bg-amber-500/10 text-amber-200",
-    success: "border-emerald-500/40 bg-emerald-500/10 text-emerald-200",
+    default: "glass border-transparent text-foreground",
+    destructive: "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-200",
+    warning: "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200",
+    success: "border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200",
   }[variant];
   return (
     <div className={cn("relative w-full rounded-lg border px-4 py-3 text-sm", styles, className)}>
@@ -239,36 +247,55 @@ export const AlertDescription = ({ className, ...props }: React.HTMLAttributes<H
   <div className={cn("text-sm [&_p]:leading-relaxed opacity-90", className)} {...props} />
 );
 
-/* ---------------- Tabs (simple, controlled) ---------------- */
+/* ---------------- Tabs (controlled chip row, sliding pill) ---------------- */
 export function Tabs({
-  value, onValueChange, options, className,
+  value, onValueChange, options, className, id,
 }: {
   value: string;
   onValueChange: (v: string) => void;
   options: { value: string; label: string }[];
   className?: string;
+  /** Scopes the sliding pill; defaults to a per-instance id. */
+  id?: string;
 }) {
+  const autoId = React.useId();
+  const pillId = `tabs-indicator-${id ?? autoId}`;
   return (
-    <div className={cn("inline-flex h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground", className)}>
-      {options.map((o) => (
-        <button
-          key={o.value}
-          onClick={() => onValueChange(o.value)}
-          className={cn(
-            "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all",
-            value === o.value ? "bg-background text-foreground shadow" : "hover:text-foreground"
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
+    <div role="tablist" className={cn("flex flex-wrap items-center gap-1.5", className)}>
+      {options.map((o) => {
+        const on = value === o.value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            onClick={() => onValueChange(o.value)}
+            className={cn(
+              "relative inline-flex h-8 items-center justify-center whitespace-nowrap rounded-full border px-3.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              on
+                ? "border-transparent text-primary-foreground dark:text-primary"
+                : "border-foreground/15 bg-[hsl(var(--glass))] text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+            )}
+          >
+            {on && (
+              <motion.span
+                layoutId={pillId}
+                transition={SPRING}
+                className="absolute -inset-px rounded-full border border-primary bg-primary shadow-[0_4px_14px_-4px_hsl(var(--primary)/0.5)] dark:bg-primary/15 dark:shadow-[inset_0_0_10px_hsl(var(--primary)/0.35),0_0_14px_hsl(var(--primary)/0.25)]"
+              />
+            )}
+            <span className="relative">{o.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
 
 /* ---------------- Skeleton / Separator ---------------- */
 export const Skeleton = ({ className }: { className?: string }) => (
-  <div className={cn("animate-pulse rounded-md bg-muted", className)} />
+  <div className={cn("animate-pulse rounded-md bg-foreground/[0.07]", className)} />
 );
 export const Separator = ({ className }: { className?: string }) => (
   <div className={cn("h-px w-full shrink-0 bg-border", className)} />
@@ -285,18 +312,33 @@ export function Dialog({
   children?: React.ReactNode;
   footer?: React.ReactNode;
 }) {
-  if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/80 p-6" onClick={onClose}>
-      <div
-        className="w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-lg font-semibold leading-none tracking-tight">{title}</h2>
-        {description && <p className="mt-2 text-sm text-muted-foreground">{description}</p>}
-        {children && <div className="mt-4 max-h-64 overflow-y-auto text-sm">{children}</div>}
-        <div className="mt-6 flex justify-end gap-2">{footer}</div>
-      </div>
-    </div>
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-6"
+          onClick={onClose}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0, transition: { duration: 0.12 } }}
+        >
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            className="glass-strong cut-corner w-full max-w-lg rounded-lg p-6"
+            onClick={(e) => e.stopPropagation()}
+            initial={{ opacity: 0, scale: 0.94, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.12 } }}
+            transition={SPRING}
+          >
+            <h2 className="text-lg font-semibold leading-none tracking-tight">{title}</h2>
+            {description && <p className="mt-2 text-sm text-muted-foreground">{description}</p>}
+            {children && <div className="mt-4 max-h-64 overflow-y-auto text-sm">{children}</div>}
+            <div className="mt-6 flex justify-end gap-2">{footer}</div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
