@@ -54,16 +54,18 @@ export default function BloatwarePage() {
         group: "change",
         isError: (r: RemoveResult) =>
           r.length > 0 && r.every((x) => !x.ok) ? `Couldn't remove: ${r.map((x) => x.name).join(", ")}` : null,
-        summarize: (r) => `Removed ${r.filter((x) => x.ok).length} apps`,
+        summarize: (r) => { const n = r.filter((x) => x.ok).length; return `Removed ${n} app${n === 1 ? "" : "s"}`; },
       },
       async () => {
         await ensureRestorePoint("Anchor bloatware removal");
-        return window.anchor.bloatwareRemove(pkgs);
+        const r = await window.anchor.bloatwareRemove(pkgs);
+        invalidate("bloatware"); // stale now, even if this page is closed: the next visit refetches
+        return r;
       },
     );
   }
 
-  // a finished removal refreshes the list (also if it finished while this page was closed)
+  // a finished removal refreshes the list while this page is open (if it was closed, the invalidate above covers the next visit)
   const firstRun = useRef(true);
   useEffect(() => {
     if (firstRun.current) { firstRun.current = false; return; }

@@ -10,7 +10,8 @@ export default function PrivacyPage() {
   const [tweaks, setTweaks] = useState<Tweak[] | null>(peek<Tweak[]>("privacy") ?? null);
   const [restoreNote, setRestoreNote] = useState("");
   const restoreTask = useTask<{ ok: boolean; message: string }>("restore:create");
-  const blocker = useBlockedBy("change");
+  const blocker = useBlockedBy("change"); // only ever a restore point (another task)
+  const restoreBlocker = useBlockedBy("restore"); // only ever a change (another task)
   const creating = restoreTask?.status === "running";
   const restoreMsg = creating ? "Creating restore point…" : restoreNote || restoreTask?.result?.message || restoreTask?.error || "";
 
@@ -51,13 +52,13 @@ export default function PrivacyPage() {
           variant="outline"
           size="sm"
           loading={creating}
-          disabled={!!blocker}
-          title={blocker ? `${blocker.label} is already running` : undefined}
+          disabled={!!restoreBlocker}
+          title={restoreBlocker ? `${restoreBlocker.label} is already running` : undefined}
           onClick={() => { setRestoreNote(""); runRestorePoint("Anchor privacy changes"); }}
         >
           Create restore point
         </Button>
-        {blocker && <span className="text-xs text-muted-foreground">{blocker.label} is already running</span>}
+        {restoreBlocker && <span className="text-xs text-muted-foreground">{restoreBlocker.label} is already running</span>}
         {restoreMsg && <span className="text-xs text-muted-foreground">{restoreMsg}</span>}
       </div>
 
@@ -70,8 +71,9 @@ export default function PrivacyPage() {
                   <div className="min-w-0 flex-1 space-y-1">
                     <p className="text-sm font-medium">{t.name}</p>
                     <p className="text-xs text-muted-foreground">{t.desc}</p>
+                    {blocker && <p className="text-xs text-muted-foreground">{blocker.label} is already running</p>}
                   </div>
-                  <Switch checked={t.applied} disabled={!!blocker} onCheckedChange={(v) => apply(t, v)} />
+                  <Switch checked={t.applied} disabled={!!blocker} title={blocker ? `${blocker.label} is already running` : undefined} onCheckedChange={(v) => apply(t, v)} />
                 </CardContent>
               </Card>
             ))}

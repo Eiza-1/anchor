@@ -25,7 +25,7 @@ export default function StartupPage() {
       setEntries((prev) => prev?.map((e) => (e.name === entry.name && e.scope === entry.scope ? { ...e, enabled } : e)) ?? null);
     setEnabled(on);
     const r = await runTask(
-      `startup:${entry.name}`,
+      `startup:${entry.scope}:${entry.name}`,
       {
         label: "Startup app",
         where: { section: "startup", tab: "apps" },
@@ -49,7 +49,6 @@ export default function StartupPage() {
         <Button variant="outline" size="sm" onClick={() => load(true)} loading={loading}>
           {!loading && <RefreshCw />} Refresh
         </Button>
-        {blocker && <span className="text-xs text-muted-foreground">{blocker.label} is already running</span>}
       </div>
 
       <div className="space-y-2">
@@ -67,8 +66,9 @@ export default function StartupPage() {
                     <Badge variant="outline">{e.scope}</Badge>
                   </div>
                   <p className="truncate text-xs text-muted-foreground">{e.command}</p>
+                  {blocker && <p className="text-xs text-muted-foreground">{blocker.label} is already running</p>}
                 </div>
-                <Switch checked={e.enabled} disabled={!!blocker} onCheckedChange={(v) => toggle(e, v)} />
+                <Switch checked={e.enabled} disabled={!!blocker} title={blocker ? `${blocker.label} is already running` : undefined} onCheckedChange={(v) => toggle(e, v)} />
               </CardContent>
             </Card>
           ))

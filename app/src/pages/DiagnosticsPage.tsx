@@ -57,12 +57,14 @@ export default function DiagnosticsPage() {
       },
       async () => {
         if (r.id === "winsock" || r.id === "updatecache") await ensureRestorePoint(`Anchor: ${r.name}`);
-        return window.anchor.diagRunRepair(r.id);
+        const res = await window.anchor.diagRunRepair(r.id);
+        invalidate("diag:state", "diag:errors"); // stale now, even if this page is closed
+        return res;
       },
     );
   }
 
-  // a finished repair refreshes the system state (also when it finished while this page was closed)
+  // a finished repair refreshes the system state while this page is open (if closed, the invalidate in the task covers the next visit)
   const anyRepair = useRunningKeyWith("diag:repair:");
   const wasRunning = useRef(false);
   useEffect(() => {

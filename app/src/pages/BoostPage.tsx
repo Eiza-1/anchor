@@ -51,7 +51,7 @@ export default function BoostPage() {
   const firstClean = useRef(true);
   useEffect(() => {
     if (firstClean.current) { firstClean.current = false; return; }
-    if (cleanTask?.status === "done") scan(true);
+    if (cleanTask?.status === "done") scan(true, true); // automatic rescan: silent
   }, [cleanTask?.finishedAt]);
 
   function scan(force = false, automatic = false) {
@@ -78,7 +78,11 @@ export default function BoostPage() {
         group: "cleanup",
         summarize: (r) => `Freed ${formatBytes(r.freed)}`,
       },
-      () => window.anchor.cleanupRun([...chosen]),
+      async () => {
+        const r = await window.anchor.cleanupRun([...chosen]);
+        invalidate("cleanup:scan"); // stale now, even if this page is closed: the next visit rescans
+        return r;
+      },
     );
   }
 

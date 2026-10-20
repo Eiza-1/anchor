@@ -48,7 +48,9 @@ export default function BootWatchPage() {
       },
       async () => {
         await ensureRestorePoint("Anchor disabled a startup item");
-        return window.anchor.bootDisable(f.id);
+        const r = await window.anchor.bootDisable(f.id);
+        invalidate("boot:scan"); // stale now, even if this page is closed
+        return r;
       },
     );
   }

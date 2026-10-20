@@ -100,17 +100,19 @@ export const CardFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDiv
 
 /* ---------------- Switch ---------------- */
 export function Switch({
-  checked, onCheckedChange, disabled, className,
+  checked, onCheckedChange, disabled, className, title,
 }: {
   checked: boolean;
   onCheckedChange: (v: boolean) => void;
   disabled?: boolean;
   className?: string;
+  title?: string;
 }) {
   return (
     <button
       type="button"
       role="switch"
+      title={title}
       aria-checked={checked}
       disabled={disabled}
       onClick={() => onCheckedChange(!checked)}

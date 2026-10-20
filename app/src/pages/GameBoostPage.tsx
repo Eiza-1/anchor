@@ -35,9 +35,11 @@ export default function GameBoostPage() {
   const recBusy = recTask?.status === "running";
   const revBusy = revTask?.status === "running";
   const shaderBusy = shaderTask?.status === "running";
-  const blockedMsg = blocker ? `${blocker.label} is already running` : undefined;
-  const anyPerfBusy = !!blocker;
-  const blockedTitle = blockedMsg;
+  // message only when a DIFFERENT task blocks a control (its own spinner already says it's running)
+  const blockedBy = (ownKey: string) =>
+    blocker && blocker.key !== ownKey ? `${blocker.label} is already running` : undefined;
+  const recBlocked = blockedBy("perf:recommended");
+  const revBlocked = blockedBy("perf:revert");
 
   async function load(force = false) {
     if (force) invalidate("perf:tweaks", "perf:power", "perf:gpuPrefs", "perf:gpuInfo", "perf:pcie");
@@ -181,15 +183,20 @@ export default function GameBoostPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={applyRecommended} loading={recBusy} disabled={anyPerfBusy && !recBusy} title={recBusy ? undefined : blockedTitle}>
-              {!recBusy && <Zap />} Apply recommended
-            </Button>
-            <Button variant="outline" onClick={revertAll} loading={revBusy} disabled={anyPerfBusy && !revBusy} title={revBusy ? undefined : blockedTitle}>
-              {!revBusy && <RotateCcw />} Revert all
-            </Button>
+          <div className="flex flex-wrap items-start gap-2">
+            <div className="space-y-1">
+              <Button onClick={applyRecommended} loading={recBusy} disabled={!!recBlocked} title={recBlocked}>
+                {!recBusy && <Zap />} Apply recommended
+              </Button>
+              {recBlocked && <p className="text-xs text-muted-foreground">{recBlocked}</p>}
+            </div>
+            <div className="space-y-1">
+              <Button variant="outline" onClick={revertAll} loading={revBusy} disabled={!!revBlocked} title={revBlocked}>
+                {!revBusy && <RotateCcw />} Revert all
+              </Button>
+              {revBlocked && <p className="text-xs text-muted-foreground">{revBlocked}</p>}
+            </div>
           </div>
-          {blockedMsg && <p className="text-xs text-muted-foreground">{blockedMsg}</p>}
           {msg && <p className="text-sm text-muted-foreground">{msg}</p>}
           {restartNeeded && (
             <Alert variant="warning">Restart your PC to finish applying GPU scheduling.</Alert>
@@ -339,8 +346,9 @@ export default function GameBoostPage() {
                     {t.needsRestart && <Badge variant="warning">Needs restart</Badge>}
                   </p>
                   <p className="text-xs text-muted-foreground">{t.desc}</p>
+                  {blockedBy(`perf:${t.id}`) && <p className="text-xs text-muted-foreground">{blockedBy(`perf:${t.id}`)}</p>}
                 </div>
-                <Switch checked={t.applied} disabled={anyPerfBusy} onCheckedChange={(v) => toggle(t, v)} />
+                <Switch checked={t.applied} disabled={!!blocker} title={blockedBy(`perf:${t.id}`)} onCheckedChange={(v) => toggle(t, v)} />
               </div>
             ))}
           </CardContent>
