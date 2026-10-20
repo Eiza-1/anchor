@@ -12,4 +12,6 @@ module.exports = {
 
   // Sign-in providers to show. Enable the matching ones in the Supabase dashboard.
   providers: ["google", "github", "azure", "discord"],
+  // Free key from https://rawg.io/apidocs, for the Home release calendar.
+  rawgKey: "",
 };
