@@ -15,6 +15,7 @@ const bootwatch = require("./services/bootwatch");
 const diagnostics = require("./services/diagnostics");
 const diskbench = require("./services/diskbench");
 const cleanup = require("./services/cleanup");
+const background = require("./services/background");
 
 let win;
 let tray = null;
@@ -32,7 +33,7 @@ function createWindow() {
     title: "Anchor",
     icon: path.join(__dirname, "..", "build", "icon.ico"),
     titleBarStyle: "hidden",
-    titleBarOverlay: { color: "#09090b", symbolColor: "#a1a1aa", height: 40 },
+    titleBarOverlay: { color: "#00000000", symbolColor: "#a1a1aa", height: 40 },
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -177,7 +178,14 @@ handle("news:videos", () => news.fetchVideos());
 handle("news:backfill", (links) => news.backfillImages(links ?? []));
 
 handle("profile:load", () => profile.loadProfile());
-handle("profile:save", (p) => profile.saveProfile(p ?? {}));
+// `background` is owned by services/background.js; a stale copy from the UI must not undo a pick/reset.
+handle("profile:save", (p) => {
+  const { background: _ignored, ...rest } = p ?? {};
+  return profile.saveProfile(rest);
+});
+handle("bg:pick", () => background.pickBackground(win));
+handle("bg:get", () => background.getBackground());
+handle("bg:reset", () => background.resetBackground());
 handle("auth:signIn", async (provider) => {
   try {
     const user = await auth.signIn(provider);

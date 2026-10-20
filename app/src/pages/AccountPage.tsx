@@ -3,9 +3,10 @@ import { LogIn, LogOut, Mail, Pencil, ShieldCheck, UserRound } from "lucide-reac
 import {
   Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label, Select, Switch,
 } from "@/components/ui";
-import { Palette } from "lucide-react";
+import { ImageIcon, Palette, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { applyTheme, peek, runRestorePoint, THEMES } from "@/lib/store";
+import { refreshBackground, useBackground } from "@/lib/background";
 import { useBlockedBy, useTask } from "@/lib/tasks";
 import { Q } from "@/lib/queries";
 import { displayNameOf, greetingFor } from "@/lib/utils";
@@ -287,9 +288,11 @@ export default function AccountPage() {
           <CardTitle className="flex items-center gap-2">
             <Palette className="size-4 text-sky-500" /> Appearance
           </CardTitle>
-          <CardDescription>Dark is the default. Pick whichever is easiest on your eyes.</CardDescription>
+          <CardDescription>
+            Dark is the default. Pick whichever is easiest on your eyes. Each theme comes with its own background picture, or use one of yours.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {THEMES.map((t) => (
               <button
@@ -315,6 +318,7 @@ export default function AccountPage() {
               </button>
             ))}
           </div>
+          <BackgroundPicker />
         </CardContent>
       </Card>
 
@@ -446,5 +450,56 @@ function RestorePoints({ initialPolicy }: { initialPolicy: string }) {
         {msg && <p className="text-xs text-muted-foreground">{msg}</p>}
       </CardContent>
     </Card>
+  );
+}
+
+/** "Use my own picture…" / "Reset to theme picture", under the theme swatches. */
+function BackgroundPicker() {
+  const { custom } = useBackground();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function pick() {
+    setBusy(true);
+    setError("");
+    try {
+      const r = await window.anchor.pickBackground();
+      if (r.ok) await refreshBackground();
+      else if (r.message && r.message !== "Cancelled.") setError(r.message);
+    } catch (e) {
+      setError(`Couldn't set that picture: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reset() {
+    setBusy(true);
+    setError("");
+    try {
+      await window.anchor.resetBackground();
+      await refreshBackground();
+    } catch (e) {
+      setError(`Couldn't reset the picture: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="outline" disabled={busy} onClick={pick}>
+          <ImageIcon /> Use my own picture…
+        </Button>
+        {custom && (
+          <Button size="sm" variant="ghost" disabled={busy} onClick={reset}>
+            <RotateCcw /> Reset to theme picture
+          </Button>
+        )}
+        <span className="text-xs text-muted-foreground">PNG, JPG or WebP, up to 15 MB.</span>
+      </div>
+      {error && <p role="alert" className="text-xs text-red-400">{error}</p>}
+    </div>
   );
 }

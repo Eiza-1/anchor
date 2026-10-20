@@ -60,6 +60,9 @@ contextBridge.exposeInMainWorld("anchor", {
   // account
   loadProfile: () => call("profile:load"),
   saveProfile: (p) => call("profile:save", p),
+  pickBackground: () => call("bg:pick"),
+  getBackground: () => call("bg:get"),
+  resetBackground: () => call("bg:reset"),
   signIn: (provider) => call("auth:signIn", provider),
   authConfigured: () => call("auth:configured"),
   authProviders: () => call("auth:providers"),

@@ -10,6 +10,7 @@ import { applyTheme, initUpdates, useUpdateState } from "@/lib/store";
 import { prefetch } from "@/lib/queries";
 import { navigate, useNav } from "@/lib/nav";
 import { Toaster } from "@/components/Toaster";
+import { AppBackground } from "@/components/AppBackground";
 import { MotionConfig } from "framer-motion";
 import { SPRING } from "@/lib/motion";
 
@@ -127,7 +128,9 @@ export default function App() {
 
   return (
     <MotionConfig reducedMotion="user" transition={SPRING}>
-      <div className="flex h-full bg-background">
+      {/* transparent shell over the picture; body keeps the solid theme colour as a fallback */}
+      <div className="flex h-full">
+        <AppBackground mode={active === "home" ? "home" : "page"} />
         {/* Sidebar */}
         <aside className="flex w-56 shrink-0 flex-col border-r bg-card/40">
           <div className="flex h-10 items-center gap-2 px-4" style={{ WebkitAppRegion: "drag" } as React.CSSProperties}>

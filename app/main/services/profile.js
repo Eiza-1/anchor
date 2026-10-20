@@ -21,6 +21,8 @@ const DEFAULTS = {
   // Start with Windows and watch what else starts (see services/bootwatch.js)
   bootWatch: false,
   theme: "dark",
+  // Your own background picture, copied into userData (e.g. "background.jpg"); "" = theme picture.
+  background: "",
   // Supabase session, kept so mail preferences can be saved to your account.
   userId: "",
   accessToken: "",

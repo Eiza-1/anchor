@@ -64,6 +64,9 @@ export interface AnchorApi {
 
   loadProfile(): Promise<Profile>;
   saveProfile(p: Partial<Profile>): Promise<Profile>;
+  pickBackground(): Promise<{ ok: boolean; message?: string }>;
+  getBackground(): Promise<string | null>;
+  resetBackground(): Promise<void>;
   signIn(provider: string): Promise<{
     ok: boolean;
     user?: { name: string; email: string; userId: string; accessToken: string };
@@ -184,6 +187,7 @@ export interface Profile {
   restorePolicy: "weekly" | "monthly" | "always";
   bootWatch: boolean;
   theme: string;
+  background: string;
   userId: string;
   accessToken: string;
 }
