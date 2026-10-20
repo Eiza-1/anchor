@@ -62,6 +62,7 @@ export function Sidebar({
   // After closing with the button the cursor is still over the sidebar; don't
   // peek straight back open until it has left once.
   const suppress = useRef(false);
+  const hovered = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const running = useRunningSections();
 
@@ -76,17 +77,20 @@ export function Sidebar({
     writeOpen(next);
     clearTimeout(timer.current);
     setPeek(false);
-    if (!next) suppress.current = true;
+    // only when the pointer is actually over it (not a keyboard close)
+    if (!next && hovered.current) suppress.current = true;
   }
 
   // small hover intent on the way in (no peek when the cursor merely crosses),
   // a short grace on the way out (no snap shut when it slips off the edge)
   function enter() {
+    hovered.current = true;
     if (open || suppress.current) return;
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setPeek(true), 70);
   }
   function leave() {
+    hovered.current = false;
     suppress.current = false;
     clearTimeout(timer.current);
     if (!open) timer.current = setTimeout(() => setPeek(false), 120);
@@ -224,6 +228,7 @@ function NavItem({
       onClick={() => navigate({ section: item.id })}
       aria-current={active ? "page" : undefined}
       aria-label={running ? `${item.label} (task running)` : undefined}
+      title={expanded ? undefined : item.label}
       initial="rest"
       animate="rest"
       whileHover="hover"
@@ -278,7 +283,7 @@ function RunDot({ className }: { className?: string }) {
       animate={{ scale: 1, opacity: 1 }}
       transition={ICON_SPRING}
     >
-      <span className="absolute size-[7px] animate-ping rounded-full bg-primary/60" />
+      <span className="absolute size-[7px] motion-safe:animate-ping rounded-full bg-primary/60" />
       <motion.span
         className="size-[7px] rounded-full bg-primary shadow-[0_0_6px_hsl(var(--primary)/0.9)]"
         animate={{ opacity: [1, 0.45, 1], scale: [1, 0.75, 1] }}

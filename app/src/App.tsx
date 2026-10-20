@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Home, Eraser, Gauge, Newspaper, Rocket, Trash2, HardDrive, User, Download, X, Sparkles, RefreshCw,
 } from "lucide-react";
@@ -7,7 +7,7 @@ import { Button, Tabs } from "@/components/ui";
 import { WhatsNew } from "@/components/WhatsNew";
 import { applyTheme, initUpdates, useUpdateState } from "@/lib/store";
 import { prefetch } from "@/lib/queries";
-import { getNav, navigate, useNav } from "@/lib/nav";
+import { navigate, useNav } from "@/lib/nav";
 import { Toaster } from "@/components/Toaster";
 import { AppBackground } from "@/components/AppBackground";
 import { Sidebar } from "@/components/Sidebar";
@@ -83,10 +83,9 @@ const ACCOUNT: Section = { id: "account", label: "Account", icon: User, page: Ac
 function SectionView({ section, tabId }: { section: Section; tabId?: string }) {
   const tabs = section.tabs!;
   const tab = tabs.find((t) => t.id === tabId) ?? tabs[0];
-  // record the default tab in nav so isViewing({ section, tab }) is accurate.
-  // The page renders a deferred nav, so only do this while nav is still here.
+  // record the default tab in nav so isViewing({ section, tab }) is accurate
   useEffect(() => {
-    if (tabId !== tab.id && getNav().section === section.id) navigate({ section: section.id, tab: tab.id });
+    if (tabId !== tab.id) navigate({ section: section.id, tab: tab.id });
   }, [tabId, tab.id, section.id]);
   const Page = tab.page;
   return (
@@ -109,11 +108,7 @@ function SectionView({ section, tabId }: { section: Section; tabId?: string }) {
 }
 
 export default function App() {
-  const live = useNav();
-  // The sidebar follows nav at once; the page renders a deferred copy, so the
-  // highlight starts gliding before a heavy page mounts (React renders the
-  // deferred page in the background, yielding to animation frames).
-  const shown = useDeferredValue(live);
+  const nav = useNav();
   const [version, setVersion] = useState("");
   const [whatsNew, setWhatsNew] = useState(false);
   const [dismissed, setDismissed] = useState(false);
@@ -131,16 +126,15 @@ export default function App() {
 
   const updateReady = update.status === "available" || update.status === "downloaded";
 
-  const find = (id: string) => [...NAV, ACCOUNT].find((n) => n.id === id) ?? NAV[0];
-  const current = find(shown.section);
+  const current = [...NAV, ACCOUNT].find((n) => n.id === nav.section) ?? NAV[0];
   const Page = current.page;
 
   return (
     <MotionConfig reducedMotion="user" transition={SPRING}>
       {/* transparent shell over the picture; body keeps the solid theme colour as a fallback */}
       <div className="flex h-full">
-        <AppBackground mode={live.section === "home" ? "home" : "page"} />
-        <Sidebar items={NAV} account={ACCOUNT} active={find(live.section).id} version={version} />
+        <AppBackground mode={nav.section === "home" ? "home" : "page"} />
+        <Sidebar items={NAV} account={ACCOUNT} active={current.id} version={version} />
 
         {/* Main */}
         <div className="flex min-w-0 flex-1 flex-col">
@@ -191,7 +185,7 @@ export default function App() {
             {/* enters on every section change; tab changes enter inside SectionView.
                 No exit, so the new page never waits for the old one. */}
             <motion.div key={current.id} {...enter}>
-              {Page ? <Page /> : <SectionView section={current} tabId={shown.tab} />}
+              {Page ? <Page /> : <SectionView section={current} tabId={nav.tab} />}
             </motion.div>
           </main>
         </div>
