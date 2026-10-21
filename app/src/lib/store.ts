@@ -80,43 +80,56 @@ function setJob(job: "boost" | "trim", next: BoostState) {
  * everything — the main reason the app felt slow. Results are kept here with a
  * TTL, so returning to a page is instant and only stale data is re-requested.
  *
- * Results are also saved to localStorage, so a fresh launch paints every page
- * from last time's data at once. Saved entries load as stale: the first visit
- * shows them immediately and refreshes them in the background.               */
-type Entry = { value: unknown; at: number; inflight?: Promise<unknown> };
+ * Results are also saved to localStorage with the time they were fetched, so
+ * a fresh launch paints every page from last time's data at once, and only
+ * data older than its TTL is re-requested (the release calendar keeps its
+ * one-request-per-24 h budget across launches). Infinity-TTL data is fetched
+ * once per session: a saved copy paints first but is always re-read.         */
+type Entry = { value: unknown; at: number; inflight?: Promise<unknown>; fromDisk?: boolean };
 const cache = new Map<string, Entry>();
-const STORE_PREFIX = "anchor:cache:";
+const CACHE_ROOT = "anchor:cache:";
+const STORE_PREFIX = CACHE_ROOT + "v1:"; // bump when the saved shape changes
 
-function save(key: string, value: unknown) {
-  try { localStorage.setItem(STORE_PREFIX + key, JSON.stringify(value)); } catch { /* full or unavailable */ }
+function save(key: string, value: unknown, at: number) {
+  try { localStorage.setItem(STORE_PREFIX + key, JSON.stringify({ value, at })); } catch { /* full or unavailable */ }
 }
 try {
+  const stale: string[] = [];
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if (!k?.startsWith(STORE_PREFIX)) continue;
-    const raw = localStorage.getItem(k);
-    if (raw != null) cache.set(k.slice(STORE_PREFIX.length), { value: JSON.parse(raw), at: 0 });
+    if (!k?.startsWith(CACHE_ROOT)) continue;
+    if (!k.startsWith(STORE_PREFIX)) { stale.push(k); continue; } // older format
+    try {
+      const saved = JSON.parse(localStorage.getItem(k) ?? "null");
+      if (saved && "value" in saved) {
+        const at = typeof saved.at === "number" && saved.at <= Date.now() ? saved.at : 0;
+        cache.set(k.slice(STORE_PREFIX.length), { value: saved.value, at, fromDisk: true });
+      }
+    } catch { /* corrupt entry — skip it */ }
   }
-} catch { /* corrupt entry — start empty */ }
+  stale.forEach((k) => localStorage.removeItem(k));
+} catch { /* unavailable — start empty */ }
 
 export async function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
   const hit = cache.get(key);
   if (hit) {
     if (hit.inflight) return hit.inflight as Promise<T>;
-    if (hit.value !== undefined && Date.now() - hit.at < ttlMs) return hit.value as T;
+    const age = hit.fromDisk && ttlMs === Infinity ? Infinity : Date.now() - hit.at;
+    if (hit.value !== undefined && age < ttlMs) return hit.value as T;
   }
   const inflight = fn()
     .then((value) => {
-      cache.set(key, { value, at: Date.now() });
-      save(key, value);
+      const at = Date.now();
+      cache.set(key, { value, at });
+      save(key, value, at);
       return value;
     })
     .catch((e) => {
-      if (hit?.value !== undefined) cache.set(key, { value: hit.value, at: hit.at });
+      if (hit?.value !== undefined) cache.set(key, { value: hit.value, at: hit.at, fromDisk: hit.fromDisk });
       else cache.delete(key);
       throw e;
     });
-  cache.set(key, { value: hit?.value, at: hit?.at ?? 0, inflight });
+  cache.set(key, { value: hit?.value, at: hit?.at ?? 0, fromDisk: hit?.fromDisk, inflight });
   return inflight as Promise<T>;
 }
 
@@ -128,8 +141,9 @@ export function peek<T>(key: string): T | undefined {
 /** Write a page's current view back (e.g. after a toggle) without resetting its age. */
 export function remember<T>(key: string, value: T) {
   const hit = cache.get(key);
-  cache.set(key, { ...hit, value, at: hit?.at ?? 0 });
-  save(key, value);
+  const at = hit?.at ?? 0;
+  cache.set(key, { ...hit, value, at });
+  save(key, value, at);
 }
 
 /** Marks entries stale: the next read refetches, but peek() keeps showing the
@@ -137,7 +151,7 @@ export function remember<T>(key: string, value: T) {
 export function invalidate(...keys: string[]) {
   keys.forEach((k) => {
     const hit = cache.get(k);
-    if (hit && !hit.inflight) cache.set(k, { value: hit.value, at: 0 });
+    if (hit && !hit.inflight) cache.set(k, { value: hit.value, at: -Infinity }); // stale even for Infinity TTLs
   });
 }
 
