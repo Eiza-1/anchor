@@ -19,6 +19,26 @@ function validateBackground(file, sizeBytes) {
   return null;
 }
 
+/** What the file really is, from its first 12 bytes — the extension alone
+ *  would accept a renamed non-picture, which then shows as a blank background. */
+function imageKind(head) {
+  const b = Buffer.from(head ?? []);
+  if (b.length >= 8 && b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return "png";
+  if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "jpeg";
+  if (b.length >= 12 && b.toString("latin1", 0, 4) === "RIFF" && b.toString("latin1", 8, 12) === "WEBP") return "webp";
+  return null;
+}
+
+function readHead(file) {
+  const fd = fs.openSync(file, "r");
+  try {
+    const head = Buffer.alloc(12);
+    return head.subarray(0, fs.readSync(fd, head, 0, 12, 0));
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
 const userDir = () => require("electron").app.getPath("userData");
 const profile = () => require("./profile");
 
@@ -38,6 +58,9 @@ function setBackgroundFrom(src) {
   try { size = fs.statSync(src).size; } catch { return { ok: false, message: "Couldn't read that picture." }; }
   const err = validateBackground(src, size);
   if (err) return { ok: false, message: err };
+  let kind = null;
+  try { kind = imageKind(readHead(src)); } catch { return { ok: false, message: "Couldn't read that picture." }; }
+  if (!kind) return { ok: false, message: "That file isn't a PNG, JPG or WebP picture." };
   const name = "background" + path.extname(src).toLowerCase();
   const dest = path.join(userDir(), name);
   try {
@@ -66,13 +89,15 @@ async function pickBackground(win) {
   return setBackgroundFrom(filePaths[0]);
 }
 
-/** The saved background as a data: URL, or null when there is none (or it went missing). */
+/** The saved background's bytes and type, or null when there is none (or it
+ *  went missing). Raw bytes cross IPC smaller than a base64 data: URL; the
+ *  renderer shows them through a short blob: URL. */
 async function getBackground() {
   const name = profile().loadProfile().background;
   if (!name || !SAVED_NAME.test(name)) return null;
   try {
-    const buf = await fs.promises.readFile(path.join(userDir(), name));
-    return `data:${MIME[path.extname(name).toLowerCase()]};base64,${buf.toString("base64")}`;
+    const bytes = await fs.promises.readFile(path.join(userDir(), name));
+    return { type: MIME[path.extname(name).toLowerCase()], bytes };
   } catch {
     return null;
   }
@@ -83,4 +108,4 @@ function resetBackground() {
   profile().saveProfile({ background: "" });
 }
 
-module.exports = { validateBackground, setBackgroundFrom, pickBackground, getBackground, resetBackground };
+module.exports = { validateBackground, imageKind, setBackgroundFrom, pickBackground, getBackground, resetBackground };

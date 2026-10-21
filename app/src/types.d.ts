@@ -83,7 +83,7 @@ export interface AnchorApi {
   loadProfile(): Promise<Profile>;
   saveProfile(p: Partial<Profile>): Promise<Profile>;
   pickBackground(): Promise<{ ok: boolean; message?: string }>;
-  getBackground(): Promise<string | null>;
+  getBackground(): Promise<{ type: string; bytes: Uint8Array<ArrayBuffer> } | null>;
   resetBackground(): Promise<void>;
   signIn(provider: string): Promise<{
     ok: boolean;

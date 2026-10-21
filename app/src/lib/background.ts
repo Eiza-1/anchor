@@ -60,13 +60,20 @@ export function useBackground(): Bg {
   return useSyncExternalStore(subscribe, getBackgroundSnapshot, getBackgroundSnapshot);
 }
 
-/** Re-reads the user's own picture from main (after picking or resetting one). */
+/** Re-reads the user's own picture from main (after picking or resetting one).
+ *  It's shown through a blob: URL, so the store, the React key and both <img>s
+ *  hold a short string instead of a 20 MB data: URL. */
 export async function refreshBackground(): Promise<void> {
+  let next: string | null = null;
   try {
-    custom = (await window.anchor.getBackground()) || null;
+    const pic = await window.anchor.getBackground();
+    if (pic) next = URL.createObjectURL(new Blob([pic.bytes], { type: pic.type }));
   } catch {
-    custom = null; // unreadable: fall back to the theme picture
+    next = null; // unreadable: fall back to the theme picture
   }
+  // already-decoded <img>s (the fading-out layer) keep painting after a revoke
+  if (custom) URL.revokeObjectURL(custom);
+  custom = next;
   recompute();
 }
 
