@@ -9,13 +9,21 @@
 //    non-ASCII output (device and process names) survive intact.
 //  - runPS (actions whose exit code decides success) keeps one process per
 //    call, so its exit-code semantics are exactly PowerShell's own.
+//  - runPSJson(cmd, { long: true }) is for scripts that run for minutes
+//    (Windows Update search, disk benchmark, cleanup deletes). They get their
+//    own process, so they never tie up a pooled host while pages wait for
+//    reads, and they have no timeout — killing a delete half-way is worse.
 const { spawn } = require("child_process");
 
 const PS_ARGS = ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass"];
 
 function runPS(command) {
+  return spawnPS(["-Command", command]);
+}
+
+function spawnPS(args) {
   return new Promise((resolve) => {
-    const p = spawn("powershell.exe", [...PS_ARGS, "-Command", command], { windowsHide: true });
+    const p = spawn("powershell.exe", [...PS_ARGS, ...args], { windowsHide: true });
     let out = "", err = "";
     p.stdout.on("data", (d) => (out += d));
     p.stderr.on("data", (d) => (err += d));
@@ -140,8 +148,15 @@ function runPooled(command) {
   });
 }
 
-async function runPSJson(command) {
-  const { out } = await runPooled(command);
+// Encoded, so quotes and line breaks reach PowerShell intact; UTF-8 output, so
+// non-ASCII text (update titles) survives as it does through the pool.
+function runOneOff(command) {
+  const script = "[Console]::OutputEncoding = [Text.Encoding]::UTF8\n" + command;
+  return spawnPS(["-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")]);
+}
+
+async function runPSJson(command, { long = false } = {}) {
+  const { out } = await (long ? runOneOff(command) : runPooled(command));
   if (!out) return null;
   // A cmdlet may print a warning before the JSON — start at the first { or [.
   const start = out.search(/[[{]/);

@@ -40,7 +40,7 @@ try {
   }
   [PSCustomObject]@{pending=$result.Updates.Count; titles=$titles; last=$last} | ConvertTo-Json -Compress
 } catch { [PSCustomObject]@{error=$_.Exception.Message} | ConvertTo-Json -Compress }
-`);
+`, { long: true }); // a Windows Update search can take minutes
   return r ?? { error: "Windows Update Agent unavailable." };
 }
 

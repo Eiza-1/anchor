@@ -247,7 +247,7 @@ ${chosen.some((t) => t.id === "thumbcache") ? "Stop-Process -Name explorer -Forc
 [PSCustomObject]@{ done = $true } | ConvertTo-Json -Compress
 `;
 
-  await runPSJson(script);
+  await runPSJson(script, { long: true }); // a big Windows.old delete runs for minutes
   const after = await measure(chosen);
   const freed = chosen.reduce((sum, t) => sum + Math.max(0, before[t.id] - after[t.id]), 0);
   return { freed, cleaned: chosen.map((t) => t.name) };

@@ -131,7 +131,7 @@ try {
   rndReadIOPS  = [int]($results.rndRead  * 1MB / 4096)
   rndWriteIOPS = [int]($results.rndWrite * 1MB / 4096)
 } | ConvertTo-Json -Compress
-`);
+`, { long: true });
 
   return result ?? { error: "The benchmark could not be run." };
 }
