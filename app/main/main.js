@@ -76,7 +76,8 @@ function createWindow() {
     if (!app.isQuitting && tray) { e.preventDefault(); win.hide(); }
   });
   // Safety net: never leave the user staring at nothing if the page is slow or fails.
-  setTimeout(() => { if (!win.isDestroyed() && !win.isVisible()) win.show(); }, 4000);
+  // A login launch stays in the tray — the user hasn't asked to see the window.
+  if (!startedHidden) setTimeout(() => { if (!win.isDestroyed() && !win.isVisible()) win.show(); }, 4000);
 
   win.webContents.on("did-fail-load", (_e, code, desc, url) => {
     win.show();
