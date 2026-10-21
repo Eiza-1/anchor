@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { onTaskFinished, type Task } from "@/lib/tasks";
-import { isViewing, navigate, type NavTarget } from "@/lib/nav";
+import { announce, navigate, type NavTarget } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { SPRING } from "@/lib/motion";
 
@@ -17,16 +17,17 @@ export function Toaster() {
   const dismiss = useCallback((id: number) => setToasts((l) => l.filter((t) => t.id !== id)), []);
 
   useEffect(() => onTaskFinished((t: Task) => {
-    if (t.silent || isViewing(t.where)) return;
+    if (t.silent) return;
+    const { toast, notify } = announce(t.where, document.hasFocus());
     const ok = t.status !== "error";
     const title = `${t.label} ${ok ? "finished" : "failed"}`;
     const body = t.summary ?? t.error ?? "";
-    setToasts((l) => [...l, { id: nextId++, title, body, ok, target: t.where }].slice(-MAX));
-    window.anchor.notify({ title, body, target: t.where }).catch(() => {});
+    if (toast) setToasts((l) => [...l, { id: nextId++, title, body, ok, target: t.where }].slice(-MAX));
+    if (notify) window.anchor.notify({ title, body, target: t.where }).catch(() => {});
   }), []);
 
   return (
-    <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-80 flex-col gap-2">
+    <div role="status" aria-live="polite" className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-80 flex-col gap-2">
       <AnimatePresence initial={false}>
         {toasts.map((t) => (
           <ToastCard key={t.id} toast={t} onDismiss={dismiss} />
@@ -68,7 +69,7 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number)
       <Icon className={cn("mt-0.5 size-4 shrink-0", toast.ok ? "text-emerald-500" : "text-red-500")} />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">{toast.title}</span>
-        {toast.body && <span className="mt-0.5 block text-xs text-muted-foreground">{toast.body}</span>}
+        {toast.body && <span className="mt-0.5 line-clamp-3 text-xs text-muted-foreground">{toast.body}</span>}
       </span>
     </motion.button>
   );

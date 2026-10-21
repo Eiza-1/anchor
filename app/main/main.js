@@ -22,6 +22,32 @@ let win;
 let tray = null;
 // Launched by Windows at login (see setLoginItemSettings) — start in the tray.
 const startedHidden = process.argv.includes("--startup");
+// Windows matches toasts to the installer's shortcut by this id.
+if (process.platform === "win32" && app.isPackaged) app.setAppUserModelId("com.eiza.anchor");
+
+/** Shows the window, un-minimizing it first (show() alone leaves it minimized). */
+function bringToFront() {
+  if (!win || win.isDestroyed()) return false;
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+  return true;
+}
+
+// Shown notifications are held here — one only kept in a local can be
+// garbage-collected, and its click never fires. Kept past "close" too, since
+// Windows closes a toast when it times out into Action Center, where it can
+// still be clicked; the oldest are let go after a few.
+const notes = new Set();
+const MAX_NOTES = 10;
+function showNote({ title, body }, onClick) {
+  const note = new Notification({ title, body, icon: path.join(__dirname, "..", "build", "icon.ico") });
+  notes.add(note);
+  if (notes.size > MAX_NOTES) notes.delete(notes.values().next().value);
+  note.on("click", () => { notes.delete(note); if (bringToFront()) onClick?.(); });
+  note.on("failed", () => notes.delete(note));
+  note.show();
+}
 
 function createWindow() {
   win = new BrowserWindow({
@@ -79,12 +105,12 @@ function createTray() {
   tray.setToolTip("Anchor — watching startup activity");
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: "Open Anchor", click: () => { win?.show(); win?.focus(); } },
+      { label: "Open Anchor", click: bringToFront },
       { type: "separator" },
       { label: "Quit", click: () => { app.isQuitting = true; app.quit(); } },
     ])
   );
-  tray.on("double-click", () => { win?.show(); win?.focus(); });
+  tray.on("double-click", bringToFront);
 }
 
 app.whenReady().then(async () => {
@@ -102,13 +128,10 @@ app.whenReady().then(async () => {
       const findings = await bootwatch.scanPersistence();
       const risky = findings.filter((f) => f.level === "high");
       if (risky.length && Notification.isSupported()) {
-        const n = new Notification({
+        showNote({
           title: `Anchor found ${risky.length} suspicious startup item${risky.length === 1 ? "" : "s"}`,
           body: risky.slice(0, 2).map((f) => f.name).join(", ") + " — click to review.",
-          icon: path.join(__dirname, "..", "build", "icon.ico"),
         });
-        n.on("click", () => { win?.show(); win?.focus(); });
-        n.show();
       }
     }
   }
@@ -303,16 +326,8 @@ handle("app:openExternal", (url) => {
 handle("app:notify", (n) => {
   if (!win || win.isDestroyed() || win.isFocused() || !Notification.isSupported()) return;
   if (!n || typeof n.title !== "string") return;
-  const note = new Notification({
-    title: n.title,
-    body: typeof n.body === "string" ? n.body : "",
-    icon: path.join(__dirname, "..", "build", "icon.ico"),
-  });
-  note.on("click", () => {
-    if (!win || win.isDestroyed()) return;
-    win.show();
-    win.focus();
-    win.webContents.send("nav:go", n.target);
-  });
-  note.show();
+  showNote(
+    { title: n.title, body: typeof n.body === "string" ? n.body : "" },
+    () => win.webContents.send("nav:go", n.target),
+  );
 });

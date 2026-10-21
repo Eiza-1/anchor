@@ -33,3 +33,11 @@ export function navigate(t: NavTarget) {
 export function isViewing(t: NavTarget): boolean {
   return nav.section === t.section && (t.tab === undefined || t.tab === nav.tab);
 }
+
+/** How a finished task is announced: an in-app toast unless its page is on
+ *  screen, and a Windows notification too when Anchor isn't focused — a page
+ *  left open behind another window doesn't count as seen. Main re-checks focus. */
+export function announce(t: NavTarget, focused: boolean): { toast: boolean; notify: boolean } {
+  const viewing = isViewing(t);
+  return { toast: !viewing, notify: !viewing || !focused };
+}

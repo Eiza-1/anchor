@@ -43,4 +43,14 @@ describe("nav", () => {
     nav.navigate({ section: "home" });
     expect(l).toHaveBeenCalledTimes(1);
   });
+
+  it("announces a finished task by toast off-page, and by Windows notification when unfocused", () => {
+    nav.navigate({ section: "system", tab: "drives" });
+    const here = { section: "system", tab: "drives" };
+    const away = { section: "home" };
+    expect(nav.announce(here, true)).toEqual({ toast: false, notify: false });
+    expect(nav.announce(here, false)).toEqual({ toast: false, notify: true });
+    expect(nav.announce(away, true)).toEqual({ toast: true, notify: true }); // main drops it while focused
+    expect(nav.announce(away, false)).toEqual({ toast: true, notify: true });
+  });
 });
