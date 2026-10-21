@@ -5,6 +5,7 @@ import { runTask, useBlockedBy, useTask } from "@/lib/tasks";
 import { Q } from "@/lib/queries";
 
 type Tweak = { id: string; name: string; desc: string; applied: boolean };
+const PRIVACY_WHERE = { section: "debloat", tab: "privacy" };
 
 export default function PrivacyPage() {
   const [tweaks, setTweaks] = useState<Tweak[] | null>(peek<Tweak[]>("privacy") ?? null);
@@ -26,7 +27,7 @@ export default function PrivacyPage() {
       `privacy:${t.id}`,
       {
         label: "Privacy setting",
-        where: { section: "debloat", tab: "privacy" },
+        where: PRIVACY_WHERE,
         group: "change",
         isError: (r: { ok: boolean; error: string }) => (r.ok ? null : r.error || "Couldn't change this setting"),
         summarize: () => `${t.name} ${on ? "turned on" : "turned off"}`,
@@ -54,7 +55,7 @@ export default function PrivacyPage() {
           loading={creating}
           disabled={!!restoreBlocker}
           title={restoreBlocker ? `${restoreBlocker.label} is already running` : undefined}
-          onClick={() => { setRestoreNote(""); runRestorePoint("Anchor privacy changes"); }}
+          onClick={() => { setRestoreNote(""); runRestorePoint("Anchor privacy changes", PRIVACY_WHERE); }}
         >
           Create restore point
         </Button>

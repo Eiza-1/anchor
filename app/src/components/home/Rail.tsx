@@ -1,6 +1,7 @@
 // One Home row: a heading with filter chips, and a horizontally scrolling track
 // with arrows outside its edges. The arrows scroll ±360px on a spring; trackpads
-// and Shift+wheel scroll it natively (the scrollbar is hidden).
+// and Shift+wheel scroll it natively (the scrollbar is hidden), and a plain mouse
+// wheel scrolls it sideways until it reaches an end, then the page scrolls on.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { animate, motion, type AnimationPlaybackControls } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -91,10 +92,25 @@ export function Rail<T extends string>({
     });
   };
 
-  // a wheel or trackpad scroll takes over from an arrow's spring
-  const onWheel = () => {
-    if (anim.current) { anim.current.stop(); anim.current = null; }
-  };
+  // A wheel or trackpad scroll takes over from an arrow's spring. A plain
+  // vertical wheel is turned sideways; it needs a non-passive listener to stop
+  // the page scrolling too, which React's onWheel can't provide.
+  useEffect(() => {
+    const el = track.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (anim.current) { anim.current.stop(); anim.current = null; }
+      if (e.shiftKey || e.ctrlKey || Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
+      const dy = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaY; // lines → px
+      const max = el.scrollWidth - el.clientWidth;
+      if ((dy < 0 && el.scrollLeft <= 0) || (dy > 0 && el.scrollLeft >= max - 1)) return; // at an end: page scrolls
+      e.preventDefault();
+      el.scrollLeft += dy;
+      target.current = el.scrollLeft;
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
 
   return (
     <section>
@@ -138,7 +154,6 @@ export function Rail<T extends string>({
         <div
           ref={track}
           onScroll={measure}
-          onWheel={onWheel}
           className="no-scrollbar -mx-2 flex gap-3 overflow-x-auto px-2 pb-4 pt-3"
         >
           {children}

@@ -4,6 +4,7 @@
 import { useSyncExternalStore } from "react";
 import { formatBytes } from "@/lib/utils";
 import { runTask } from "@/lib/tasks";
+import type { NavTarget } from "@/lib/nav";
 
 export type HealthStatus = "ok" | "warn" | "bad" | "info" | "tip";
 export type HealthIcon =
@@ -260,13 +261,14 @@ export async function ensureRestorePoint(description: string) {
 }
 
 /** Manual restore point, tracked so it survives page switches. Returns undefined
- *  when one is already running or a change is in progress. */
-export function runRestorePoint(description: string) {
+ *  when one is already running or a change is in progress. `where` is the page
+ *  it was started from, which its pop-up and sidebar dot point to. */
+export function runRestorePoint(description: string, where: NavTarget = { section: "account" }) {
   return runTask(
     "restore:create",
     {
       label: "Restore point",
-      where: { section: "account" },
+      where,
       group: "restore",
       isError: (r: { ok: boolean; message: string }) => (r.ok ? null : r.message),
       summarize: (r) => r.message,

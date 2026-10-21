@@ -7,7 +7,7 @@ import { Q } from "@/lib/queries";
 import { peek } from "@/lib/store";
 import { setHeroArt } from "@/lib/background";
 import { dayMonth, filterByPlatform, localToday, rawgImage, releaseCountdown } from "@/lib/games";
-import { SPRING, SPRING_SOFT } from "@/lib/motion";
+import { INSTANT, SPRING, SPRING_SOFT, useReduceMotion } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { Rail, RailNotice, type ChipOption } from "@/components/home/Rail";
 import type { GameRelease, Platform } from "@/types";
@@ -49,12 +49,24 @@ function heroLeave() {
   leaveTimer = setTimeout(() => { if (hovered === null) setHeroArt(null); }, 120);
 }
 
+/** Today's date, rolling over at midnight while Home stays open. */
+function useToday() {
+  const [today, setToday] = useState(localToday);
+  useEffect(() => {
+    const now = new Date();
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const timer = setTimeout(() => setToday(localToday()), midnight.getTime() - now.getTime() + 1000);
+    return () => clearTimeout(timer);
+  }, [today]);
+  return today;
+}
+
 /* --------------------------------- rail ----------------------------------- */
 export function ReleaseRail() {
   const [list, setList] = useState<GameRelease[] | undefined>(() => peek<GameRelease[]>("games:releases"));
   const [reason, setReason] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
-  const today = useMemo(localToday, []);
+  const today = useToday();
 
   useEffect(() => {
     let live = true;
@@ -131,6 +143,7 @@ function ReleaseCard({ game: g, today, index }: { game: GameRelease; today: stri
   const isToday = g.released === today;
   const lit = open && !!img; // the cover is showing: text turns white over it
   const delay = Math.min(index, 14) * 0.03;
+  const reduce = useReduceMotion();
 
   return (
     <motion.button
@@ -139,12 +152,12 @@ function ReleaseCard({ game: g, today, index }: { game: GameRelease; today: stri
       onClick={() => window.anchor.openExternal(g.url)}
       onHoverStart={() => { setOpen(true); heroEnter(img); }}
       onHoverEnd={() => { setOpen(false); heroLeave(); }}
-      onFocus={() => setOpen(true)}
-      onBlur={() => setOpen(false)}
+      onFocus={() => { setOpen(true); heroEnter(img); }}
+      onBlur={() => { setOpen(false); heroLeave(); }}
       initial={{ opacity: 0, y: 14, flexBasis: `${W_CLOSED}px` }}
       animate={{ opacity: 1, y: open ? -6 : 0, flexBasis: `${open ? W_OPEN : W_CLOSED}px` }}
       transition={{
-        flexBasis: OPEN_SPRING,
+        flexBasis: reduce ? INSTANT : OPEN_SPRING,
         y: entered.current ? SPRING : { ...SPRING_SOFT, delay },
         opacity: { duration: 0.35, ease: "easeOut", delay: entered.current ? 0 : delay },
       }}
@@ -240,13 +253,14 @@ function ReleaseCard({ game: g, today, index }: { game: GameRelease; today: stri
 }
 
 function ReleaseSkeleton({ index }: { index: number }) {
+  const reduce = useReduceMotion();
   return (
     <motion.div
       className="glass cut-corner shrink-0 overflow-hidden rounded-[3px] p-2.5 pt-3"
       style={{ width: W_CLOSED, height: H, background: "hsl(var(--glass-home))" }}
       initial={{ opacity: 0 }}
-      animate={{ opacity: [0.5, 1, 0.5] }}
-      transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut", delay: index * 0.08 }}
+      animate={{ opacity: reduce ? 0.75 : [0.5, 1, 0.5] }}
+      transition={reduce ? INSTANT : { duration: 1.6, repeat: Infinity, ease: "easeInOut", delay: index * 0.08 }}
     >
       <div className="h-2.5 w-4/5 rounded bg-foreground/15" />
       <div className="mt-1.5 h-2.5 w-3/5 rounded bg-foreground/15" />
