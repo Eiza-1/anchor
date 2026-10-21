@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { SPRING_SOFT } from "@/lib/motion";
+import { INSTANT, SPRING_SOFT, useReduceMotion } from "@/lib/motion";
 import { formatBytes } from "@/lib/utils";
 import type { VolumeStats } from "@/lib/drives";
 
@@ -11,18 +11,24 @@ const C = 2 * Math.PI * R;
 export function DiskRing({ stats, label }: { stats: VolumeStats; label: string }) {
   const color =
     stats.level === "critical" ? "rgb(248 113 113)" : stats.level === "low" ? "rgb(251 191 36)" : "hsl(var(--primary))";
-  const target = C * (1 - Math.min(Math.max(stats.usedPct, 0), 100) / 100);
+  const pct = Math.min(Math.max(stats.usedPct, 0), 100);
+  const target = C * (1 - pct / 100);
+  const reduce = useReduceMotion();
   return (
     <div className="flex items-center gap-4">
       <div className="relative shrink-0" style={{ width: SIZE, height: SIZE }}>
         <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} className="-rotate-90" role="img"
           aria-label={`${label} ${Math.round(stats.usedPct)}% used`}>
           <circle cx={SIZE / 2} cy={SIZE / 2} r={R} fill="none" stroke="hsl(var(--muted))" strokeWidth={STROKE} />
-          <motion.circle
-            cx={SIZE / 2} cy={SIZE / 2} r={R} fill="none" stroke={color} strokeWidth={STROKE}
-            strokeLinecap="round" strokeDasharray={C}
-            initial={{ strokeDashoffset: C }} animate={{ strokeDashoffset: target }} transition={SPRING_SOFT}
-          />
+          {/* nothing used: no arc, or its round cap would draw a dot */}
+          {pct > 0 && (
+            <motion.circle
+              cx={SIZE / 2} cy={SIZE / 2} r={R} fill="none" stroke={color} strokeWidth={STROKE}
+              strokeLinecap="round" strokeDasharray={C}
+              initial={{ strokeDashoffset: C }} animate={{ strokeDashoffset: target }}
+              transition={reduce ? INSTANT : SPRING_SOFT}
+            />
+          )}
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center leading-tight">
           <span className="text-xl font-semibold">{Math.round(stats.usedPct)}%</span>

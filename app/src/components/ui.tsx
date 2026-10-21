@@ -6,7 +6,7 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { SPRING, SPRING_SOFT } from "@/lib/motion";
+import { INSTANT, SPRING, SPRING_SOFT, useReduceMotion } from "@/lib/motion";
 import { Check, Loader2 } from "lucide-react";
 
 /* ---------------- Button ---------------- */
@@ -201,13 +201,14 @@ export const Select = ({ className, children, ...props }: React.SelectHTMLAttrib
 
 /* ---------------- Progress ---------------- */
 export function Progress({ value, className }: { value: number; className?: string }) {
+  const reduce = useReduceMotion();
   return (
     <div className={cn("relative h-2 w-full overflow-hidden rounded-full bg-foreground/10", className)}>
       <motion.div
         className="h-full rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary)/0.6)]"
         initial={false}
         animate={{ width: `${Math.min(100, Math.max(0, value || 0))}%` }}
-        transition={SPRING_SOFT}
+        transition={reduce ? INSTANT : SPRING_SOFT}
       />
     </div>
   );

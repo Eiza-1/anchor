@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, type Variants } from "framer-motion";
 import { Anchor as AnchorIcon, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SPRING } from "@/lib/motion";
+import { INSTANT, SPRING, useReduceMotion } from "@/lib/motion";
 import { navigate } from "@/lib/nav";
 import { useRunningSections } from "@/lib/tasks";
 
@@ -69,6 +69,7 @@ export function Sidebar({
   useEffect(() => () => clearTimeout(timer.current), []);
 
   const expanded = open || peek;
+  const reduce = useReduceMotion();
   const peeking = !open && peek;
 
   function toggle() {
@@ -112,7 +113,7 @@ export function Sidebar({
       className="relative h-full shrink-0"
       initial={false}
       animate={{ width: open ? OPEN_W : CLOSED_W }}
-      transition={SPRING}
+      transition={reduce ? INSTANT : SPRING}
     >
       <motion.aside
         aria-label="Main navigation"
@@ -127,7 +128,7 @@ export function Sidebar({
         )}
         initial={false}
         animate={{ width: expanded ? OPEN_W : CLOSED_W }}
-        transition={SPRING}
+        transition={reduce ? INSTANT : SPRING}
       >
         {/* light catching the glass edge */}
         <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-white/20 via-white/5 to-transparent" />
@@ -275,6 +276,7 @@ function NavItem({
 }
 
 function RunDot({ className }: { className?: string }) {
+  const reduce = useReduceMotion();
   return (
     <motion.span
       aria-hidden
@@ -286,8 +288,8 @@ function RunDot({ className }: { className?: string }) {
       <span className="absolute size-[7px] animate-ping [.reduce-motion_&]:animate-none rounded-full bg-primary/60" />
       <motion.span
         className="size-[7px] rounded-full bg-primary shadow-[0_0_6px_hsl(var(--primary)/0.9)]"
-        animate={{ opacity: [1, 0.45, 1], scale: [1, 0.75, 1] }}
-        transition={{ duration: 1.3, repeat: Infinity, ease: "easeInOut" }}
+        animate={reduce ? { opacity: 1, scale: 1 } : { opacity: [1, 0.45, 1], scale: [1, 0.75, 1] }}
+        transition={reduce ? INSTANT : { duration: 1.3, repeat: Infinity, ease: "easeInOut" }}
       />
     </motion.span>
   );

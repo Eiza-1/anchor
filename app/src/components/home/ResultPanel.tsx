@@ -8,7 +8,7 @@ import { HealthList } from "@/components/HealthList";
 import { Progress } from "@/components/ui";
 import { useAppState } from "@/lib/store";
 import { useTask } from "@/lib/tasks";
-import { SPRING, SPRING_SOFT } from "@/lib/motion";
+import { INSTANT, SPRING, SPRING_SOFT, useReduceMotion } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 // Which runs were dismissed, by their start time. Module-level so it survives
@@ -20,6 +20,7 @@ export function ResultPanel() {
   const healthTask = useTask("home:health");
   const boostTask = useTask("home:boost");
   const [, rerender] = useState(0);
+  const reduce = useReduceMotion();
 
   // only runs from this session: a check saved from last launch is the header's summary
   const showHealth = !!healthTask && dismissed.health !== healthTask.startedAt;
@@ -45,7 +46,7 @@ export function ResultPanel() {
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
           exit={{ opacity: 0, height: 0 }}
-          transition={SPRING_SOFT}
+          transition={reduce ? INSTANT : SPRING_SOFT}
           className="overflow-hidden"
         >
           <AutoHeight>
@@ -118,6 +119,7 @@ export function ResultPanel() {
 function AutoHeight({ children }: { children: React.ReactNode }) {
   const inner = useRef<HTMLDivElement>(null);
   const [h, setH] = useState<number | "auto">("auto");
+  const reduce = useReduceMotion();
   useLayoutEffect(() => {
     const el = inner.current;
     if (!el) return;
@@ -126,7 +128,7 @@ function AutoHeight({ children }: { children: React.ReactNode }) {
     return () => ro.disconnect();
   }, []);
   return (
-    <motion.div initial={false} animate={{ height: h }} transition={SPRING_SOFT} className="overflow-hidden">
+    <motion.div initial={false} animate={{ height: h }} transition={reduce ? INSTANT : SPRING_SOFT} className="overflow-hidden">
       <div ref={inner}>{children}</div>
     </motion.div>
   );

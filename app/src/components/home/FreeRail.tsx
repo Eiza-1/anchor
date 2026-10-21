@@ -8,7 +8,7 @@ import { Gift } from "lucide-react";
 import { Q } from "@/lib/queries";
 import { peek } from "@/lib/store";
 import { dayMonth } from "@/lib/games";
-import { SPRING_SOFT, useReduceMotion } from "@/lib/motion";
+import { INSTANT, SPRING_SOFT, useReduceMotion } from "@/lib/motion";
 import { Rail, RailNotice, type ChipOption } from "@/components/home/Rail";
 import type { FreeGame } from "@/types";
 
@@ -148,13 +148,14 @@ function FreeCard({ game: g, index }: { game: FreeGame; index: number }) {
 }
 
 function FreeSkeleton({ index }: { index: number }) {
+  const reduce = useReduceMotion();
   return (
     <motion.div
       className="glass cut-corner shrink-0 rounded-md"
       style={{ width: W, height: H }}
       initial={{ opacity: 0 }}
-      animate={{ opacity: [0.45, 0.9, 0.45] }}
-      transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut", delay: index * 0.1 }}
+      animate={{ opacity: reduce ? 0.7 : [0.45, 0.9, 0.45] }}
+      transition={reduce ? INSTANT : { duration: 1.6, repeat: Infinity, ease: "easeInOut", delay: index * 0.1 }}
     />
   );
 }

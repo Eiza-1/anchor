@@ -10,6 +10,10 @@ export const SPRING = { type: "spring", stiffness: 420, damping: 32, mass: 0.9 }
 /** Softer, for large movements and backgrounds. */
 export const SPRING_SOFT = { type: "spring", stiffness: 260, damping: 26 } as const;
 
+/** "Reduce animations" for what MotionConfig's reducedMotion leaves moving (it
+ *  only drops transform and layout): sizes, strokes and endless pulses. */
+export const INSTANT = { duration: 0 } as const;
+
 /** Page and panel entry. No exit, so new content never waits. */
 export const enter = { initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 } };
 
