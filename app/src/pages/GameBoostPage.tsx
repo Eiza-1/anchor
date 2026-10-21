@@ -4,7 +4,7 @@ import {
   Alert, Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle,
   Select, Skeleton, Switch,
 } from "@/components/ui";
-import { formatBytes } from "@/lib/utils";
+import { countSummary, formatBytes } from "@/lib/utils";
 import { ensureRestorePoint, invalidate, peek, remember } from "@/lib/store";
 import { Q } from "@/lib/queries";
 import { runTask, useBlockedBy, useTask } from "@/lib/tasks";
@@ -91,7 +91,7 @@ export default function GameBoostPage() {
         group: "perf",
         isError: (r: Array<{ id: string; ok: boolean }>) =>
           r.length > 0 && r.every((x) => !x.ok) ? "None of the tweaks could be applied" : null,
-        summarize: (r) => `Applied ${r.filter((x) => x.ok).length} tweaks`,
+        summarize: (r) => countSummary("Applied", r.filter((x) => x.ok).length, r.length, "tweak"),
       },
       async () => {
         await ensureRestorePoint("Anchor performance tweaks");

@@ -128,6 +128,6 @@ export async function runTask<R>(
     final = { ...base, status: "error", finishedAt: Date.now(), error: e instanceof Error ? e.message : String(e) };
   }
   setTask(final);
-  finishListeners.forEach((cb) => cb(final));
+  finishListeners.forEach((cb) => { try { cb(final); } catch { /* one listener can't break the rest */ } });
   return value;
 }

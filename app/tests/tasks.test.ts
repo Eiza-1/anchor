@@ -143,6 +143,14 @@ describe("observers", () => {
     expect(cb).toHaveBeenCalledTimes(2);
   });
 
+  it("a throwing finish listener doesn't stop later listeners or make runTask reject", async () => {
+    const later = vi.fn();
+    t.onTaskFinished(() => { throw new Error("listener"); });
+    t.onTaskFinished(later);
+    await expect(t.runTask("k", { label: "K", where }, async () => 5)).resolves.toBe(5);
+    expect(later).toHaveBeenCalledTimes(1);
+  });
+
   it("restore then change: a change waits for a running restore point", async () => {
     const d = deferred<string>();
     const restore = t.runTask("restore:create", { label: "Restore point", where, group: "restore" }, () => d.promise);

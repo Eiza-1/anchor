@@ -3,6 +3,7 @@ import { Badge, Button, Card, CardContent, Checkbox, Dialog, Skeleton } from "@/
 import { ensureRestorePoint, invalidate, peek } from "@/lib/store";
 import { Q } from "@/lib/queries";
 import { runTask, useBlockedBy, useTask } from "@/lib/tasks";
+import { countSummary } from "@/lib/utils";
 
 type RemoveResult = Array<{ name: string; ok: boolean; error: string }>;
 
@@ -54,7 +55,7 @@ export default function BloatwarePage() {
         group: "change",
         isError: (r: RemoveResult) =>
           r.length > 0 && r.every((x) => !x.ok) ? `Couldn't remove: ${r.map((x) => x.name).join(", ")}` : null,
-        summarize: (r) => { const n = r.filter((x) => x.ok).length; return `Removed ${n} app${n === 1 ? "" : "s"}`; },
+        summarize: (r) => countSummary("Removed", r.filter((x) => x.ok).length, r.length, "app"),
       },
       async () => {
         await ensureRestorePoint("Anchor bloatware removal");
