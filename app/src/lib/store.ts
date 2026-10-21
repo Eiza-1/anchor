@@ -5,6 +5,7 @@ import { useSyncExternalStore } from "react";
 import { formatBytes } from "@/lib/utils";
 import { runTask } from "@/lib/tasks";
 import type { NavTarget } from "@/lib/nav";
+import { THEME_KEY } from "@/lib/theme-boot";
 
 export type HealthStatus = "ok" | "warn" | "bad" | "info" | "tip";
 export type HealthIcon =
@@ -296,6 +297,7 @@ export const THEMES = [
 export function applyTheme(id: string) {
   const known = THEMES.some((t) => t.id === id) ? id : "dark";
   document.documentElement.dataset.theme = known;
+  try { localStorage.setItem(THEME_KEY, known); } catch { /* ignore */ } // for theme-boot.ts on next launch
   // keep the native title-bar buttons readable on light themes
   const light = known === "light";
   document.documentElement.classList.toggle("dark", !light);

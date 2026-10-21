@@ -22,14 +22,15 @@ export function themeBackground(theme: string): string {
 /* ------------------------------- store ------------------------------------ */
 type Bg = { url: string; custom: boolean };
 
+const currentTheme = () =>
+  (typeof document !== "undefined" && document.documentElement.dataset.theme) || "dark";
+
 let custom: string | null = null;
-let snapshot: Bg = { url: themeBackground("dark"), custom: false };
+let snapshot: Bg = { url: themeBackground(currentTheme()), custom: false }; // theme-boot.ts has set the saved theme
 let loaded = false;
 let observer: MutationObserver | null = null;
 const listeners = new Set<() => void>();
 
-const currentTheme = () =>
-  (typeof document !== "undefined" && document.documentElement.dataset.theme) || "dark";
 
 function recompute() {
   const next: Bg = custom ? { url: custom, custom: true } : { url: themeBackground(currentTheme()), custom: false };
@@ -53,10 +54,10 @@ function subscribe(l: () => void) {
   return () => void listeners.delete(l);
 }
 
-const getSnapshot = () => snapshot;
+export const getBackgroundSnapshot = () => snapshot;
 
 export function useBackground(): Bg {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  return useSyncExternalStore(subscribe, getBackgroundSnapshot, getBackgroundSnapshot);
 }
 
 /** Re-reads the user's own picture from main (after picking or resetting one). */

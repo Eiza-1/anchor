@@ -1,3 +1,4 @@
+import "./lib/theme-boot"; // first: sets the saved theme before any module reads it
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
