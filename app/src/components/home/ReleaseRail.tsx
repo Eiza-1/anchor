@@ -1,5 +1,6 @@
-// "Game Releases": upcoming games from RAWG as frosted cards. Hovering a card
-// springs it open, fades its cover in and hands the art to the app background.
+// "Game Releases": upcoming games from RAWG as cover-art cards (frosted glass
+// for a game with no art). Hovering a card springs it open, shows its details
+// and hands the art to the app background.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { CalendarX2 } from "lucide-react";
@@ -138,10 +139,12 @@ export function ReleaseRail() {
 function ReleaseCard({ game: g, today, index }: { game: GameRelease; today: string; index: number }) {
   const [open, setOpen] = useState(false);
   const entered = useRef(false);
-  const img = rawgImage(g.image, 640);
+  // a small copy for the card, the bigger one only for the full-window background
+  const img = rawgImage(g.image, 420);
+  const hero = rawgImage(g.image, 640);
   const { day, month } = dayMonth(g.released);
   const isToday = g.released === today;
-  const lit = open && !!img; // the cover is showing: text turns white over it
+  const lit = !!img; // text sits on the cover: white, over a dark fade
   const delay = Math.min(index, 14) * 0.03;
   const reduce = useReduceMotion();
 
@@ -150,9 +153,9 @@ function ReleaseCard({ game: g, today, index }: { game: GameRelease; today: stri
       type="button"
       title={g.name}
       onClick={() => window.anchor.openExternal(g.url)}
-      onHoverStart={() => { setOpen(true); heroEnter(img); }}
+      onHoverStart={() => { setOpen(true); heroEnter(hero); }}
       onHoverEnd={() => { setOpen(false); heroLeave(); }}
-      onFocus={() => { setOpen(true); heroEnter(img); }}
+      onFocus={() => { setOpen(true); heroEnter(hero); }}
       onBlur={() => { setOpen(false); heroLeave(); }}
       initial={{ opacity: 0, y: 14, flexBasis: `${W_CLOSED}px` }}
       animate={{ opacity: 1, y: open ? -6 : 0, flexBasis: `${open ? W_OPEN : W_CLOSED}px` }}
@@ -164,7 +167,9 @@ function ReleaseCard({ game: g, today, index }: { game: GameRelease; today: stri
       onAnimationComplete={() => { entered.current = true; }}
       style={{ height: H, background: "hsl(var(--glass-home))", willChange: "transform" }}
       className={cn(
-        "glass-blur cut-corner group relative flex shrink-0 grow-0 flex-col overflow-hidden rounded-[3px] px-2.5 pb-2.5 text-left outline-none",
+        // the cover hides what's behind the card, so only art-less cards pay for a live blur
+        img ? "glass" : "glass-blur",
+        "cut-corner group relative flex shrink-0 grow-0 flex-col overflow-hidden rounded-[3px] px-2.5 pb-2.5 text-left outline-none",
         "transition-colors duration-300 focus-visible:ring-1 focus-visible:ring-primary",
         isToday ? "pt-4" : "pt-3",
         lit ? "text-white" : "text-foreground",
@@ -178,12 +183,14 @@ function ReleaseCard({ game: g, today, index }: { game: GameRelease; today: stri
             loading="lazy"
             decoding="async"
             draggable={false}
-            className="absolute inset-0 -z-10 size-full object-cover transition-[opacity,transform] duration-500 ease-spring"
-            style={{ opacity: open ? 1 : 0, transform: open ? "scale(1)" : "scale(1.08)" }}
+            onLoad={(e) => { e.currentTarget.style.opacity = "1"; }}
+            className="absolute inset-0 -z-10 size-full object-cover opacity-0 transition-[opacity,transform] duration-500 ease-spring"
+            style={{ transform: open ? "scale(1.06)" : "scale(1)" }}
           />
+          {/* darker while closed (more text over less card); lighter once it opens wide */}
           <div
-            className="absolute inset-0 -z-10 bg-gradient-to-b from-black/25 via-black/45 to-black/85 transition-opacity duration-500"
-            style={{ opacity: open ? 1 : 0 }}
+            className="absolute inset-0 -z-10 bg-gradient-to-b from-black/45 via-black/40 to-black/85 transition-opacity duration-500"
+            style={{ opacity: open ? 0.85 : 1 }}
           />
         </>
       )}
