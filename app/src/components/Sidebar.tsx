@@ -133,10 +133,13 @@ export function Sidebar({
         {/* light catching the glass edge */}
         <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-white/20 via-white/5 to-transparent" />
 
-        {/* brand row (draggable title bar) with the open/close arrow */}
+        {/* brand row (draggable title bar) with the open/close arrow. Not draggable
+            while peeking: Electron reports the pointer entering a drag region as a
+            mouseleave, so the peek would shut on the way to the Keep open button.
+            no-drag here also masks the page's title strip underneath the peek. */}
         <div
           className="flex h-12 shrink-0 items-center gap-2.5 pl-6 pr-3"
-          style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
+          style={{ WebkitAppRegion: peeking ? "no-drag" : "drag" } as React.CSSProperties}
         >
           <AnchorIcon className="size-4 shrink-0 text-primary drop-shadow-[0_0_6px_hsl(var(--primary)/0.6)]" />
           <motion.span
