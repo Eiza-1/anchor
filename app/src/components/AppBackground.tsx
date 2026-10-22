@@ -1,8 +1,10 @@
 // Full-bleed picture behind the whole app. Home shows it crisp under a light
 // scrim; every other page shows it blurred and darker (lighter on Light) so
 // the semi-transparent cards stay readable without their own backdrop-filter.
-// Only opacity animates; the blur is static on its own layer.
+// Only opacity animates. Both blurs are drawn once into a canvas (BlurredImage),
+// so nothing re-blurs while the page scrolls or a card animates over them.
 import { AnimatePresence, motion } from "framer-motion";
+import { BlurredImage } from "@/components/BlurredImage";
 import { SPRING_SOFT } from "@/lib/motion";
 import { useBackground, useHeroArt } from "@/lib/background";
 
@@ -36,16 +38,15 @@ export function AppBackground({ mode }: { mode: "home" | "page" }) {
             animate={{ opacity: home ? 1 : 0 }}
             transition={SPRING_SOFT}
           />
-          <motion.img
-            src={url}
-            alt=""
-            draggable={false}
-            className={fill}
-            style={{ filter: "blur(var(--bg-blur-page))", willChange: "opacity" }}
+          <motion.div
+            className="absolute inset-0"
+            style={{ scale: 1.08, willChange: "opacity" }}
             initial={false}
-            animate={{ opacity: home ? 0 : 1, scale: 1.08 }}
+            animate={{ opacity: home ? 0 : 1 }}
             transition={SPRING_SOFT}
-          />
+          >
+            <BlurredImage src={url} blur="--bg-blur-page" className={fill} />
+          </motion.div>
         </motion.div>
       </AnimatePresence>
 
@@ -53,18 +54,17 @@ export function AppBackground({ mode }: { mode: "home" | "page" }) {
           cross-fades A→B; the outgoing layer fades on its own, never delaying B. */}
       <AnimatePresence initial={false}>
         {hero && (
-          <motion.img
+          <motion.div
             key={hero}
-            src={hero}
-            alt=""
-            draggable={false}
-            className="absolute -inset-[30px] h-[calc(100%+60px)] w-[calc(100%+60px)] max-w-none object-cover"
-            style={{ filter: "blur(18px) saturate(1.2)" }}
+            className="absolute inset-0"
+            style={{ willChange: "opacity" }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 0.55 }}
             exit={{ opacity: 0, transition: { duration: 0.45, ease: "easeOut" } }}
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-          />
+          >
+            <BlurredImage src={hero} blur={18} saturate={1.2} className={fill} />
+          </motion.div>
         )}
       </AnimatePresence>
 
