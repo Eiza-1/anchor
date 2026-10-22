@@ -35,6 +35,10 @@ const PAGES = {
   tools: () => import("@/pages/ToolsPage"),
   account: () => import("@/pages/AccountPage"),
 };
+/** framer-motion moves these from JavaScript, frame by frame; without a layer of
+ *  their own Chromium re-rasterises the whole page on every one of those frames. */
+const LAYER = { willChange: "transform, opacity" } as const;
+
 const loadPages = () => Object.values(PAGES).forEach((load) => load().catch(() => {}));
 
 const BoostPage = lazy(PAGES.boost);
@@ -122,7 +126,7 @@ function SectionView({ section, tabId }: { section: Section; tabId?: string }) {
         <p className="text-sm text-foreground/80 dark:[text-shadow:0_1px_8px_rgb(0_0_0/0.5)]">{tab.intro}</p>
       </div>
       {/* the heading stays put (its tab pill glides); the tab's content enters */}
-      <motion.div key={tab.id} {...enter}>
+      <motion.div key={tab.id} {...enter} style={LAYER}>
         <Suspense fallback={null}>
           <Page />
         </Suspense>
@@ -219,10 +223,10 @@ export default function App() {
           )}
 
           <main className="flex-1 overflow-y-auto overflow-x-hidden px-8 pb-10">
-            <motion.div ref={content} style={{ x: shift }}>
+            <motion.div ref={content} style={{ x: shift, willChange: "transform" }}>
               {/* enters on every section change; tab changes enter inside SectionView.
                   No exit, so the new page never waits for the old one. */}
-              <motion.div key={current.id} {...enter}>
+              <motion.div key={current.id} {...enter} style={LAYER}>
                 <Suspense fallback={null}>
                   {Page ? <Page /> : <SectionView section={current} tabId={nav.tab} />}
                 </Suspense>
