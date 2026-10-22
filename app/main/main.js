@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, Tray, Menu, Notification } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, dialog, Tray, Menu, Notification, protocol, net } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
@@ -20,6 +20,26 @@ const games = require("./services/games");
 
 let win;
 let tray = null;
+
+// anchor-img://fetch?u=<https url>: a news picture fetched by main, readable by
+// the page (feeds' image hosts send no CORS headers). The page shrinks it to
+// card size once (lib/thumbs.ts) instead of decoding multi-megapixel photos
+// while you scroll. Images only; anything else is refused.
+protocol.registerSchemesAsPrivileged([
+  { scheme: "anchor-img", privileges: { supportFetchAPI: true, corsEnabled: true, secure: true } },
+]);
+async function proxyImage(req) {
+  const target = new URL(req.url).searchParams.get("u") ?? "";
+  if (!target.startsWith("https://")) return new Response(null, { status: 400 });
+  try {
+    const res = await net.fetch(target, { headers: { "User-Agent": "Mozilla/5.0 Anchor" } });
+    const type = res.headers.get("content-type") ?? "";
+    if (!res.ok || !type.startsWith("image/")) return new Response(null, { status: 502 });
+    return new Response(res.body, { headers: { "content-type": type, "access-control-allow-origin": "*" } });
+  } catch {
+    return new Response(null, { status: 502 });
+  }
+}
 // Launched by Windows at login (see setLoginItemSettings) — start in the tray.
 const startedHidden = process.argv.includes("--startup");
 // Windows matches toasts to the installer's shortcut by this id.
@@ -115,6 +135,7 @@ function createTray() {
 }
 
 app.whenReady().then(async () => {
+  protocol.handle("anchor-img", proxyImage);
   createWindow();
   createTray();
   warmUp();                       // start the PowerShell host before it's needed

@@ -54,7 +54,8 @@ function decodeEntity(m) {
 
 function firstHttpsImage(...candidates) {
   for (const u of candidates) {
-    if (u && typeof u === "string" && u.startsWith("https://")) return u;
+    // some feeds leave the &amp; / &#038; of the URL's query string encoded
+    if (u && typeof u === "string" && u.startsWith("https://")) return u.replace(/&(amp|#0?38);/g, "&");
   }
   return null;
 }

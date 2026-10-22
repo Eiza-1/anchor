@@ -7,11 +7,15 @@ import { invalidate, peek } from "@/lib/store";
 import { articles as loadArticles, Q } from "@/lib/queries";
 import { SPRING } from "@/lib/motion";
 import { groupByDay, timeAgo } from "@/lib/spotlight";
+import { prepareThumbs, useThumb } from "@/lib/thumbs";
 import { cn } from "@/lib/utils";
 import type { NewsItem } from "@/types";
 
 type Mode = "articles" | "videos";
 const ALL = "All sources";
+/** Article picture widths (CSS px) they're shrunk to: the lead card, and a grid card with a little headroom. */
+const LEAD_W = 640;
+const CARD_W = 360;
 const HOVER = "cursor-pointer transition-[transform,background-color] duration-spring ease-spring hover:-translate-y-0.5 hover:bg-accent/70";
 const open = (item: NewsItem) => () => window.anchor.openExternal(item.link);
 
@@ -148,10 +152,15 @@ function ModeSwitch({ value, onChange }: { value: Mode; onChange: (m: Mode) => v
 
 function Articles({ items }: { items: NewsItem[] }) {
   const [lead, ...rest] = items;
+  // shrink every picture in list order now, so they're small before you scroll to them
+  useEffect(() => {
+    prepareThumbs([items[0]?.imageUrl ?? null], LEAD_W);
+    prepareThumbs(items.slice(1).map((a) => a.imageUrl), CARD_W);
+  }, [items]);
   return (
     <div className="space-y-7">
       <Card onClick={open(lead)} className={cn("group grid overflow-hidden md:grid-cols-[1.35fr_1fr]", HOVER)}>
-        <Thumb src={lead.imageUrl} className="aspect-video md:aspect-auto md:min-h-[280px]" width={640} height={360} />
+        <Thumb src={lead.imageUrl} shrink className="aspect-video md:aspect-auto md:min-h-[280px]" width={LEAD_W} height={360} />
         <div className="flex flex-col justify-center gap-2.5 p-6 md:p-7">
           <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-primary">
             Top story{lead.published ? ` · ${timeAgo(lead.published)}` : ""}
@@ -168,7 +177,7 @@ function Articles({ items }: { items: NewsItem[] }) {
           <CardGrid>
             {g.items.map((a) => (
               <Card key={a.link} onClick={open(a)} className={cn("offscreen-card group flex flex-col overflow-hidden", HOVER)}>
-                <Thumb src={a.imageUrl} className="aspect-video" width={320} height={180} />
+                <Thumb src={a.imageUrl} shrink className="aspect-video" width={CARD_W} height={203} />
                 <div className="flex flex-1 flex-col gap-1.5 p-3.5 pb-4">
                   <p className="line-clamp-3 text-sm font-semibold leading-snug">{a.title}</p>
                   {a.summary && <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">{a.summary}</p>}
@@ -338,12 +347,15 @@ const CardGrid = ({ children }: { children: React.ReactNode }) => (
   <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4">{children}</div>
 );
 
-function Thumb({ src, className, width, height }: { src: string | null; className?: string; width: number; height: number }) {
+/** `shrink`: show the picture scaled down to `width` (lib/thumbs) instead of the feed's full-size original. */
+function Thumb({ src, className, width, height, shrink }: { src: string | null; className?: string; width: number; height: number; shrink?: boolean }) {
+  const small = useThumb(shrink ? src : null, width);
+  const shown = shrink ? small : src;
   return (
     <div className={cn("overflow-hidden bg-foreground/[0.06]", className)}>
-      {src && (
+      {shown && (
         <img
-          src={src}
+          src={shown}
           className="size-full object-cover transition-transform duration-spring ease-spring group-hover:scale-[1.04]"
           loading="lazy"
           decoding="async"
