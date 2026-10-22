@@ -1,7 +1,10 @@
 // The app's sidebar: translucent glass over the background picture, a gliding
 // active highlight, and an open/closed state remembered across launches. When
 // closed it stays a 64px icon rail; hovering peeks it open OVER the page (the
-// layout slot stays 64px, so nothing behind it moves).
+// layout slot stays 64px, so nothing behind it moves). Opening or closing it for
+// good changes the slot's width in one step, never per frame: re-laying out the
+// whole page every frame is what made it judder. The panel itself still springs
+// (it's out of flow and contained), and App slides the page across to match.
 import { useEffect, useRef, useState } from "react";
 import { motion, type Variants } from "framer-motion";
 import { Anchor as AnchorIcon, ChevronLeft } from "lucide-react";
@@ -50,12 +53,14 @@ const iconVariants: Variants = {
 };
 
 export function Sidebar({
-  items, account, active, version,
+  items, account, active, version, onResize,
 }: {
   items: SidebarItem[];
   account: SidebarItem;
   active: string;
   version: string;
+  /** Runs `commit` (the open/closed change) so the page can measure around it. */
+  onResize?: (commit: () => void) => void;
 }) {
   const [open, setOpen] = useState(readOpen);
   const [peek, setPeek] = useState(false);
@@ -80,10 +85,11 @@ export function Sidebar({
 
   function toggle() {
     const next = !open;
-    setOpen(next);
+    const commit = () => { setOpen(next); setPeek(false); };
+    if (onResize) onResize(commit);
+    else commit();
     writeOpen(next);
     clearTimeout(timer.current);
-    setPeek(false);
     // only when the pointer is actually over it (not a keyboard close)
     if (!next && hovered.current) suppress.current = true;
   }
@@ -115,12 +121,7 @@ export function Sidebar({
 
   return (
     // layout slot: the only thing the page flows around
-    <motion.div
-      className="relative h-full shrink-0"
-      initial={false}
-      animate={{ width: open ? OPEN_W : CLOSED_W }}
-      transition={reduce ? INSTANT : SPRING}
-    >
+    <div className="relative h-full shrink-0" style={{ width: open ? OPEN_W : CLOSED_W }}>
       <motion.aside
         aria-label="Main navigation"
         onMouseEnter={enter}
@@ -132,6 +133,7 @@ export function Sidebar({
           "border-r border-[hsl(var(--glass-edge))] bg-[hsl(var(--glass))] backdrop-blur-xl backdrop-saturate-150",
           peeking ? "z-50" : "z-30"
         )}
+        style={{ contain: "layout paint" }}
         initial={false}
         animate={{ width: expanded ? OPEN_W : CLOSED_W }}
         transition={reduce ? INSTANT : SPRING}
@@ -203,7 +205,7 @@ export function Sidebar({
         animate={{ opacity: peeking ? 1 : 0 }}
         transition={FADE}
       />
-    </motion.div>
+    </div>
   );
 }
 
