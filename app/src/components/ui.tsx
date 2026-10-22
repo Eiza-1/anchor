@@ -271,6 +271,8 @@ export function Tabs({
             {on && (
               <motion.span
                 layoutId={pillId}
+                // only a tab change slides it; a kept-alive page coming back into view must not
+                layoutDependency={value}
                 transition={SPRING}
                 className="absolute -inset-px rounded-full border border-primary bg-primary shadow-[0_4px_14px_-4px_hsl(var(--primary)/0.5)] dark:bg-primary/15 dark:shadow-[inset_0_0_10px_hsl(var(--primary)/0.35),0_0_14px_hsl(var(--primary)/0.25)]"
               />

@@ -137,7 +137,7 @@ function ModeSwitch({ value, onChange }: { value: Mode; onChange: (m: Mode) => v
                 on ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {on && <motion.span layoutId="spotlight-mode" transition={SPRING} className="absolute inset-0 rounded-full bg-primary" />}
+              {on && <motion.span layoutId="spotlight-mode" layoutDependency={value} transition={SPRING} className="absolute inset-0 rounded-full bg-primary" />}
               <o.icon className="relative size-4" />
               <span className="relative">{o.label}</span>
             </button>

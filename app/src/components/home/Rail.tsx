@@ -138,6 +138,7 @@ export function Rail<T extends string>({
                 {on && (
                   <motion.span
                     layoutId={`chip-${id}`}
+                    layoutDependency={value}
                     transition={SPRING}
                     className="absolute -inset-px rounded border border-primary shadow-[inset_0_0_10px_hsl(var(--primary)/0.35)]"
                   />
