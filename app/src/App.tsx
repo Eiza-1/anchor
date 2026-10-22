@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import {
   Home, Eraser, Gauge, Newspaper, Rocket, Trash2, HardDrive, User, Download, X, Sparkles, RefreshCw,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Button, PageTitle, Tabs } from "@/components/ui";
 import { WhatsNew } from "@/components/WhatsNew";
 import { applyTheme, initUpdates, useUpdateState } from "@/lib/store";
@@ -140,25 +139,22 @@ export default function App() {
 
         {/* Main */}
         <div className="flex min-w-0 flex-1 flex-col">
-          {/* title bar strip: draggable, with the What's new tab pinned right */}
+          {/* title bar strip: draggable, with the update tab pinned right while an update is ready */}
           <div
             className="flex h-10 shrink-0 items-center justify-end px-8"
             style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
           >
-            <button
-              onClick={() => setWhatsNew(true)}
-              style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
-              className={cn(
-                "relative flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors",
-                updateReady
-                  ? "bg-primary/15 text-primary hover:bg-primary/25"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
-              )}
-            >
-              <Sparkles className="size-3.5" />
-              {updateReady ? `Update to ${update.version}` : "What's new"}
-              {updateReady && <span className="ml-0.5 size-1.5 rounded-full bg-primary" />}
-            </button>
+            {updateReady && (
+              <button
+                onClick={() => setWhatsNew(true)}
+                style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+                className="relative flex items-center gap-1.5 rounded-md bg-primary/15 px-2.5 py-1 text-xs text-primary transition-colors hover:bg-primary/25"
+              >
+                <Sparkles className="size-3.5" />
+                Update to {update.version}
+                <span className="ml-0.5 size-1.5 rounded-full bg-primary" />
+              </button>
+            )}
           </div>
 
           {updateReady && !dismissed && (

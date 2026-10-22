@@ -1,4 +1,4 @@
-// "Release calendar": upcoming games from RAWG as frosted cards. Hovering a card
+// "Game Releases": upcoming games from RAWG as frosted cards. Hovering a card
 // springs it open, fades its cover in and hands the art to the app background.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
@@ -93,7 +93,7 @@ export function ReleaseRail() {
     body = (
       <RailNotice
         height={H}
-        title="Release calendar unavailable"
+        title="Game releases unavailable"
         detail={REASONS[reason!] ?? REASONS.network}
         icon={<CalendarX2 className="size-5 shrink-0 text-muted-foreground" />}
       />
@@ -114,7 +114,7 @@ export function ReleaseRail() {
   return (
     <Rail
       id="releases"
-      title="Release calendar"
+      title="Game Releases"
       aside={
         <button
           type="button"
