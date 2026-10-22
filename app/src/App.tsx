@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import {
   Home, Eraser, Gauge, Newspaper, Rocket, Trash2, HardDrive, User, Download, X, Sparkles, RefreshCw,
@@ -38,6 +38,10 @@ const PAGES = {
 /** framer-motion moves these from JavaScript, frame by frame; without a layer of
  *  their own Chromium re-rasterises the whole page on every one of those frames. */
 const LAYER = { willChange: "transform, opacity" } as const;
+
+/** A page left for longer than this is unmounted, so coming back rebuilds it and
+ *  refetches its data as before; within it, switching back is instant. */
+const KEEP_ALIVE_MS = 3 * 60_000;
 
 const loadPages = () => Object.values(PAGES).forEach((load) => load().catch(() => {}));
 
@@ -106,13 +110,14 @@ const NAV: Section[] = [
 ];
 const ACCOUNT: Section = { id: "account", label: "Account", icon: User, page: AccountPage };
 
-function SectionView({ section, tabId }: { section: Section; tabId?: string }) {
+function SectionView({ section, tabId, active }: { section: Section; tabId?: string; active: boolean }) {
   const tabs = section.tabs!;
   const tab = tabs.find((t) => t.id === tabId) ?? tabs[0];
   // record the default tab in nav so isViewing({ section, tab }) is accurate
+  // (only while showing: a kept-alive section mustn't steer navigation)
   useEffect(() => {
-    if (tabId !== tab.id) navigate({ section: section.id, tab: tab.id });
-  }, [tabId, tab.id, section.id]);
+    if (active && tabId !== tab.id) navigate({ section: section.id, tab: tab.id });
+  }, [active, tabId, tab.id, section.id]);
   const Page = tab.page;
   return (
     <div>
@@ -135,6 +140,24 @@ function SectionView({ section, tabId }: { section: Section; tabId?: string }) {
   );
 }
 
+/** One section's page. The showing one enters (tab changes enter inside
+ *  SectionView; no exit, so the new page never waits for the old one). A kept
+ *  page is skipped by layout and paint (content-visibility) and can't be focused. */
+function PageSlot({ active, children }: { active: boolean; children: React.ReactNode }) {
+  return (
+    <motion.div
+      data-page-active={active || undefined}
+      {...(!active && { inert: "" })}
+      style={{ ...LAYER, contentVisibility: active ? "visible" : "hidden" }}
+      initial={enter.initial}
+      animate={active ? enter.animate : enter.initial}
+      transition={active ? undefined : { duration: 0 }}
+    >
+      <Suspense fallback={null}>{children}</Suspense>
+    </motion.div>
+  );
+}
+
 export default function App() {
   const nav = useNav();
   const [version, setVersion] = useState("");
@@ -144,6 +167,15 @@ export default function App() {
   // Anchor animates regardless of Windows' "Animation effects"; Account → Appearance can turn it down
   const reduceMotion = useReduceMotion();
   const content = useRef<HTMLDivElement>(null);
+  const scroller = useRef<HTMLElement>(null);
+
+  // Visited sections stay mounted (hidden) for KEEP_ALIVE_MS after you leave,
+  // so going back doesn't rebuild and re-lay out the whole page. Each keeps its
+  // own scroll position and last tab.
+  const [kept, setKept] = useState<Map<string, number>>(() => new Map());
+  const scrollOf = useRef(new Map<string, number>());
+  const tabOf = useRef(new Map<string, string | undefined>());
+  const shownId = useRef<string | null>(null);
   // the page's sideways offset while it slides into place after the sidebar opens or closes
   const shift = useMotionValue(0);
 
@@ -152,7 +184,8 @@ export default function App() {
    *  centred column was to where it now is. */
   function resizeSidebar(commit: () => void) {
     const el = content.current;
-    const column = el?.querySelector(".page-column") ?? el?.firstElementChild?.firstElementChild;
+    const page = el?.querySelector("[data-page-active]");
+    const column = page?.querySelector(".page-column") ?? page?.firstElementChild;
     const before = column?.getBoundingClientRect().left;
     flushSync(commit);
     if (reduceMotion || before === undefined || !column) return;
@@ -173,7 +206,39 @@ export default function App() {
   const updateReady = update.status === "available" || update.status === "downloaded";
 
   const current = [...NAV, ACCOUNT].find((n) => n.id === nav.section) ?? NAV[0];
-  const Page = current.page;
+  tabOf.current.set(current.id, nav.tab);
+
+  // on a section change: remember where the old page was scrolled, keep it alive,
+  // and drop pages left too long ago
+  useLayoutEffect(() => {
+    const prev = shownId.current;
+    shownId.current = current.id;
+    const main = scroller.current;
+    if (prev === current.id || !main) return;
+    if (prev) scrollOf.current.set(prev, main.scrollTop);
+    main.scrollTop = scrollOf.current.get(current.id) ?? 0;
+    const now = Date.now();
+    setKept((old) => {
+      const next = new Map([...old].filter(([id, left]) => now - left < KEEP_ALIVE_MS && id !== current.id));
+      if (prev) next.set(prev, now);
+      return next;
+    });
+  }, [current.id]);
+
+  // a page that just went past its keep-alive time is dropped even if you stay put
+  useEffect(() => {
+    if (!kept.size) return;
+    const t = setInterval(() => {
+      const now = Date.now();
+      setKept((old) => {
+        const next = new Map([...old].filter(([, left]) => now - left < KEEP_ALIVE_MS));
+        return next.size === old.size ? old : next;
+      });
+    }, 30_000);
+    return () => clearInterval(t);
+  }, [kept.size]);
+
+  const mounted = [...NAV, ACCOUNT].filter((n) => n.id === current.id || kept.has(n.id));
 
   return (
     <MotionConfig reducedMotion={reduceMotion ? "always" : "never"} transition={SPRING}>
@@ -222,15 +287,21 @@ export default function App() {
             </div>
           )}
 
-          <main className="flex-1 overflow-y-auto overflow-x-hidden px-8 pb-10">
+          <main ref={scroller} className="flex-1 overflow-y-auto overflow-x-hidden px-8 pb-10">
             <motion.div ref={content} style={{ x: shift, willChange: "transform" }}>
-              {/* enters on every section change; tab changes enter inside SectionView.
-                  No exit, so the new page never waits for the old one. */}
-              <motion.div key={current.id} {...enter} style={LAYER}>
-                <Suspense fallback={null}>
-                  {Page ? <Page /> : <SectionView section={current} tabId={nav.tab} />}
-                </Suspense>
-              </motion.div>
+              {mounted.map((section) => (
+                <PageSlot key={section.id} active={section.id === current.id}>
+                  {section.page ? (
+                    <section.page />
+                  ) : (
+                    <SectionView
+                      section={section}
+                      tabId={section.id === current.id ? nav.tab : tabOf.current.get(section.id)}
+                      active={section.id === current.id}
+                    />
+                  )}
+                </PageSlot>
+              ))}
             </motion.div>
           </main>
         </div>
