@@ -5,6 +5,8 @@ export interface NewsItem {
   published: number;
   summary: string;
   imageUrl: string | null;
+  /** Videos only: a YouTube Short (vertical clip) */
+  isShort?: boolean;
 }
 
 export type Platform = "pc" | "playstation" | "xbox" | "switch";

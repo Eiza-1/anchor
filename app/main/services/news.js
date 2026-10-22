@@ -36,8 +36,12 @@ const asArray = (x) => (x == null ? [] : Array.isArray(x) ? x : [x]);
 const text = (x) => (typeof x === "object" && x != null ? x["#text"] ?? "" : x ?? "");
 
 function strip(html) {
-  const t = String(html).replace(/<[^>]*>/g, " ").replace(/&#?\w+;/g, (m) => decodeEntity(m)).replace(/\s+/g, " ").trim();
-  return t.length > 220 ? t.slice(0, 220) + "…" : t;
+  const t = String(html).replace(/<[^>]*>/g, " ").replace(/&#?\w+;/g, (m) => decodeEntity(m)).replace(/\s+/g, " ").trim()
+    // tails feeds tack on: "The post … appeared first on …", "[…]", "Read more", "more…"
+    .replace(/\s*The post .* appeared first on .*$/i, "")
+    .replace(/\s*(\[(…|\.\.\.)\]|read more|continue reading|more\s*(…|\.\.\.))\s*$/i, "")
+    .trim();
+  return t.length > 220 ? t.slice(0, 220).trimEnd() + "…" : t;
 }
 const title = (x) => String(text(x)).replace(/&#?\w+;/g, (m) => decodeEntity(m)).trim() || "(untitled)";
 function decodeEntity(m) {
@@ -115,6 +119,22 @@ async function fetchArticles(sources) {
   return results.flat().sort((a, b) => b.published - a.published);
 }
 
+/** One YouTube feed entry → [item], or [] when it has no video id. Shorts link to /shorts/<id>. */
+function videoFromEntry(e, source) {
+  const vid = e["yt:videoId"];
+  if (!vid) return [];
+  const href = asArray(e.link).find((l) => l?.["@_rel"] === "alternate")?.["@_href"] ?? "";
+  return [{
+    title: title(e.title),
+    link: `https://www.youtube.com/watch?v=${vid}`,
+    source,
+    published: Date.parse(e.published ?? "") || 0,
+    summary: "",
+    imageUrl: `https://i.ytimg.com/vi/${vid}/mqdefault.jpg`,
+    isShort: href.includes("/shorts/"),
+  }];
+}
+
 async function fetchVideos() {
   const results = await Promise.all(
     Object.entries(VIDEO_CHANNELS).map(async ([name, id]) => {
@@ -123,18 +143,7 @@ async function fetchVideos() {
           headers: UA, signal: AbortSignal.timeout(8000),
         });
         const doc = parser.parse(await res.text());
-        return asArray(doc.feed?.entry).flatMap((e) => {
-          const vid = e["yt:videoId"];
-          if (!vid) return [];
-          return [{
-            title: title(e.title),
-            link: `https://www.youtube.com/watch?v=${vid}`,
-            source: name,
-            published: Date.parse(e.published ?? "") || 0,
-            summary: "",
-            imageUrl: `https://i.ytimg.com/vi/${vid}/mqdefault.jpg`,
-          }];
-        });
+        return asArray(doc.feed?.entry).flatMap((e) => videoFromEntry(e, name));
       } catch { return []; }
     })
   );
@@ -173,4 +182,4 @@ async function backfillImages(links, max = 40) {
   return out;
 }
 
-module.exports = { FEEDS, VIDEO_CHANNELS, fetchArticles, fetchVideos, backfillImages };
+module.exports = { FEEDS, VIDEO_CHANNELS, fetchArticles, fetchVideos, backfillImages, strip, videoFromEntry };
