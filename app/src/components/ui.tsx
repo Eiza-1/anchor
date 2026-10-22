@@ -67,36 +67,10 @@ export const CardHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDiv
 export const CardTitle = ({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
   <h3 className={cn("font-semibold leading-none tracking-tight", className)} {...props} />
 );
-/** One line by default; a "More" toggle appears only when the text overflows. */
-export function CardDescription({ className, children, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
-  const ref = React.useRef<HTMLParagraphElement>(null);
-  const [open, setOpen] = React.useState(false);
-  const [overflows, setOverflows] = React.useState(false);
-  React.useLayoutEffect(() => {
-    const el = ref.current;
-    if (el && !open) setOverflows(el.scrollWidth > el.clientWidth + 1);
-  });
-  return (
-    <div className="flex min-w-0 items-baseline gap-2">
-      <p
-        ref={ref}
-        className={cn("min-w-0 flex-1 text-sm text-muted-foreground", !open && "truncate", className)}
-        {...props}
-      >
-        {children}
-      </p>
-      {(overflows || open) && (
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="shrink-0 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-        >
-          {open ? "Less" : "More"}
-        </button>
-      )}
-    </div>
-  );
-}
+/** Full text, wrapping as needed: nothing hidden behind a toggle. */
+export const CardDescription = ({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) => (
+  <p className={cn("text-sm text-muted-foreground", className)} {...props} />
+);
 export const CardContent = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div className={cn("p-6 pt-0", className)} {...props} />
 );

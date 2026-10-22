@@ -46,7 +46,7 @@ export default function UpdatesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 py-6">
+    <div className="page-column space-y-6 py-6">
       <div>
         <PageTitle>Windows Update</PageTitle>
         <p className="mt-1 text-sm text-foreground/80 dark:[text-shadow:0_1px_8px_rgb(0_0_0/0.5)]">

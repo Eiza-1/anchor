@@ -43,7 +43,7 @@ export default function StartupPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 py-6">
+    <div className="page-column space-y-6 py-6">
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="outline" size="sm" onClick={() => load(true)} loading={loading}>

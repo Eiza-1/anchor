@@ -80,7 +80,7 @@ export default function DiagnosticsPage() {
   } as const;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 py-6">
+    <div className="page-column space-y-6 py-6">
 
       {/* uptime verdict */}
       <div className={cn("glass cut-corner rounded-lg p-4", TONE[advice.level])}>

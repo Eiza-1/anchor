@@ -56,7 +56,7 @@ export default function DrivesPage() {
   useEffect(() => { scan(); }, []);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 py-6">
+    <div className="page-column space-y-6 py-6">
 
       <Button variant="outline" size="sm" onClick={() => scan(true)} loading={loading}>
         {!loading && <RefreshCw />} Scan drives

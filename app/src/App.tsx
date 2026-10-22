@@ -89,7 +89,7 @@ function SectionView({ section, tabId }: { section: Section; tabId?: string }) {
   const Page = tab.page;
   return (
     <div>
-      <div className="mx-auto max-w-4xl space-y-3 pt-6">
+      <div className="page-column space-y-3 pt-6">
         <PageTitle>{section.label}</PageTitle>
         <Tabs
           value={tab.id}

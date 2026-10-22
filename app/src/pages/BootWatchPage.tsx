@@ -59,7 +59,7 @@ export default function BootWatchPage() {
   const shown = showAll ? findings ?? [] : suspicious;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 py-6">
+    <div className="page-column space-y-6 py-6">
 
       <Card>
         <CardHeader>

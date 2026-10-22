@@ -314,6 +314,10 @@
 /* Glass surfaces. No backdrop-filter on .glass: cards sit over an already
    blurred background, so only .glass-blur (a handful of elements) pays for it. */
 @layer components {
+  /* every page but Home: one centered column, so pages line up when you switch */
+  .page-column {
+    @apply mx-auto w-full max-w-5xl;
+  }
   .glass,
   .glass-strong,
   .glass-blur {
