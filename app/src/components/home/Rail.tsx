@@ -151,10 +151,13 @@ export function Rail<T extends string>({
 
       <div className="relative">
         <Arrow side="left" shown={edges.left} onClick={() => scroll(-1)} />
+        {/* contained: a card springing open re-lays out and repaints this row
+            only, not the rest of the page (the track clips its overflow anyway) */}
         <div
           ref={track}
           onScroll={measure}
           className="no-scrollbar -mx-2 flex gap-3 overflow-x-auto px-2 pb-4 pt-3"
+          style={{ contain: "layout paint" }}
         >
           {children}
         </div>

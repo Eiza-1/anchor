@@ -178,10 +178,11 @@ export function Progress({ value, className }: { value: number; className?: stri
   const reduce = useReduceMotion();
   return (
     <div className={cn("relative h-2 w-full overflow-hidden rounded-full bg-foreground/10", className)}>
+      {/* full width, slid in from the left: a transform, so a moving bar never re-lays out the page */}
       <motion.div
-        className="h-full rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary)/0.6)]"
+        className="h-full w-full rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary)/0.6)]"
         initial={false}
-        animate={{ width: `${Math.min(100, Math.max(0, value || 0))}%` }}
+        animate={{ x: `${Math.min(100, Math.max(0, value || 0)) - 100}%` }}
         transition={reduce ? INSTANT : SPRING_SOFT}
       />
     </div>
