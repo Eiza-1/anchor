@@ -115,6 +115,15 @@ export function ReleaseRail() {
     <Rail
       id="releases"
       title="Game Releases"
+      aside={
+        <button
+          type="button"
+          onClick={() => window.anchor.openExternal("https://rawg.io")}
+          className="text-[11px] text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
+        >
+          Data from RAWG
+        </button>
+      }
       chips={CHIPS}
       value={filter}
       onChange={setFilter}
