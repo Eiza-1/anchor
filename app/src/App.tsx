@@ -139,11 +139,9 @@ export default function App() {
 
         {/* Main */}
         <div className="flex min-w-0 flex-1 flex-col">
-          {/* title bar strip: draggable, with the update tab pinned right while an update is ready */}
-          <div
-            className="flex h-10 shrink-0 items-center justify-end px-8"
-            style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
-          >
+          {/* title bar strip: draggable (except under a peeked sidebar), with the
+              update tab pinned right while an update is ready */}
+          <div className="title-drag flex h-10 shrink-0 items-center justify-end px-8">
             {updateReady && (
               <button
                 onClick={() => setWhatsNew(true)}

@@ -72,6 +72,12 @@ export function Sidebar({
   const reduce = useReduceMotion();
   const peeking = !open && peek;
 
+  // lets the page's title strip stop being a drag region under the peek (index.css .title-drag)
+  useEffect(() => {
+    document.documentElement.toggleAttribute("data-sidebar-peek", peeking);
+    return () => document.documentElement.removeAttribute("data-sidebar-peek");
+  }, [peeking]);
+
   function toggle() {
     const next = !open;
     setOpen(next);

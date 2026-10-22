@@ -314,6 +314,16 @@
 /* Glass surfaces. No backdrop-filter on .glass: cards sit over an already
    blurred background, so only .glass-blur (a handful of elements) pays for it. */
 @layer components {
+  /* The page's title strip. Electron applies drag regions in document order,
+     not stacking order, so this strip (after the sidebar in the DOM) would turn
+     the peeked sidebar's top row, Keep open button included, into a drag
+     region; entering one reads as mouseleave and shuts the peek. */
+  .title-drag {
+    -webkit-app-region: drag;
+  }
+  :root[data-sidebar-peek] .title-drag {
+    -webkit-app-region: no-drag;
+  }
   /* every page but Home: one centered column, so pages line up when you switch */
   .page-column {
     @apply mx-auto w-full max-w-5xl;
