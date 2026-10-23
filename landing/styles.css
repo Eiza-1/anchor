@@ -120,6 +120,14 @@ html { scrollbar-color: var(--steel-2) transparent; }
   backdrop-filter: blur(10px);
 }
 .top__gh:hover { border-color: var(--steel-1); }
+.motion-toggle {
+  width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line);
+  background: rgba(13, 19, 33, 0.5); cursor: pointer; display: grid; place-items: center; backdrop-filter: blur(10px); color: var(--steel-1);
+}
+.motion-toggle svg { width: 18px; height: 18px; }
+.motion-toggle__slash { opacity: 0; }
+.motion-toggle[aria-pressed="true"] .motion-toggle__slash { opacity: 1; }
+.motion-toggle:hover { color: var(--foam); border-color: var(--steel-1); }
 .sound {
   width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line);
   background: rgba(13, 19, 33, 0.5); cursor: pointer; display: grid; place-items: center; backdrop-filter: blur(10px);
@@ -510,12 +518,11 @@ body::after { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events
 }
 
 /* ---------- reduced motion ---------- */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.001s !important; animation-iteration-count: 1 !important; transition-duration: 0.001s !important; scroll-behavior: auto !important; }
-  .junk__item { animation: none !important; }
-  .bed__anchor { transform: translate(-50%, 0); opacity: 1; }
-  .cursor { display: none !important; }
-}
+/* the header's motion switch (html.reduce-motion), not the OS setting; see main.js */
+.reduce-motion *, .reduce-motion *::before, .reduce-motion *::after { animation-duration: 0.001s !important; animation-iteration-count: 1 !important; transition-duration: 0.001s !important; scroll-behavior: auto !important; }
+.reduce-motion .junk__item { animation: none !important; }
+.reduce-motion .bed__anchor { transform: translate(-50%, 0); opacity: 1; }
+.reduce-motion .cursor { display: none !important; }
 
 /* ---------- Konami: Windows 95 ---------- */
 .win95 { --bg: #008080 !important; --buoy: #000080; --foam: #000; --steel-1: #222; --steel-2: #333; --line: #808080; --panel: #C0C0C0; --panel-solid: #C0C0C0; --sans: "MS Sans Serif", Tahoma, "Segoe UI", sans-serif; --mono: "Courier New", monospace; }

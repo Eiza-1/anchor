@@ -25,6 +25,15 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      # Pages lets browsers cache files for 10 minutes. Stamping the commit onto the
+      # CSS/JS links makes every deploy fetch matching files, never new HTML with old CSS.
+      - name: Version asset links
+        run: |
+          v="${GITHUB_SHA::8}"
+          sed -i -e "s#href=\"styles.css\"#href=\"styles.css?v=$v\"#" \
+                 -e "s#src=\"content.js\"#src=\"content.js?v=$v\"#" \
+                 -e "s#src=\"main.js\"#src=\"main.js?v=$v\"#" landing/index.html
+          grep -c "?v=$v" landing/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
