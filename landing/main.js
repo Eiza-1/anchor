@@ -549,7 +549,7 @@
       sg.strokeStyle = "rgba(169,180,198,.16)"; sg.lineWidth = dpr;
       [0.25, 0.5, 0.75, 1].forEach((k) => { sg.beginPath(); sg.arc(c, c, R * k, 0, TAU); sg.stroke(); });
       sg.beginPath(); sg.moveTo(c - R, c); sg.lineTo(c + R, c); sg.moveTo(c, c - R); sg.lineTo(c, c + R); sg.stroke();
-      sg.fillStyle = "rgba(169,180,198,.55)"; sg.font = `${9 * dpr}px "JetBrains Mono", monospace`;
+      sg.fillStyle = "rgba(169,180,198,.55)"; sg.font = `${11 * dpr}px "JetBrains Mono", monospace`;
       sg.textAlign = "left"; sg.textBaseline = "alphabetic";
       [250, 500, 750].forEach((m, i) => sg.fillText(`${m} m`, c + 4 * dpr, c - R * (i + 1) * 0.25 - 4 * dpr));
       // bearing ring: a tick every 5°, numbered every 30°
