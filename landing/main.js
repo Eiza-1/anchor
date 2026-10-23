@@ -538,42 +538,95 @@
   }
 
   /* ---------------- ambient sound (off by default) ---------------- */
-  // The music from content.js, in a small visible YouTube player that opens from the
-  // sound button. It loops, and gets quieter the deeper you scroll.
+  // An underwater soundscape generated in the browser: a deep current, slow swells,
+  // a low hum and the odd stream of bubbles. Deeper = quieter and more muffled.
+  // If content.js sets music.src, that audio file plays instead.
   var sound = (() => {
-    const M = C.music, btn = $(".sound"), card = $(".player");
-    let player = null, ready = false, on = false, depthT = 0;
-    $(".player__title").textContent = M.title;
-    Object.assign($(".player__channel"), { textContent: M.channel, href: M.channelUrl, target: "_blank", rel: "noopener" });
-    const volume = () => Math.round(M.volume.surface + (M.volume.seabed - M.volume.surface) * depthT);
-    function loadApi() {
-      return new Promise((resolve) => {
-        if (window.YT?.Player) return resolve();
-        window.onYouTubeIframeAPIReady = resolve;
-        document.head.append(el("script", { src: "https://www.youtube.com/iframe_api" }));
-      });
+    const M = C.music, btn = $(".sound");
+    let ctx, master, muffle, bus, file = null, on = false, depthT = 0, bubbleTimer;
+    const vol = () => M.volume.surface + (M.volume.seabed - M.volume.surface) * depthT;
+
+    function noise(kind) {
+      const len = ctx.sampleRate * 6, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+      let last = 0, b0 = 0, b1 = 0, b2 = 0;
+      for (let i = 0; i < len; i++) {
+        const w = Math.random() * 2 - 1;
+        if (kind === "brown") { last = (last + 0.02 * w) / 1.02; d[i] = last * 3.5; }
+        else { b0 = 0.997 * b0 + w * 0.029591; b1 = 0.985 * b1 + w * 0.032534; b2 = 0.95 * b2 + w * 0.048056; d[i] = (b0 + b1 + b2 + w * 0.05) * 0.9; }
+      }
+      const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.start();
+      return src;
     }
-    async function start() {
-      await loadApi();
-      player = new YT.Player("player-frame", {
-        width: 256, height: 200, videoId: M.youtubeId,
-        playerVars: { autoplay: 1, loop: 1, playlist: M.youtubeId, controls: 1, modestbranding: 1, playsinline: 1, rel: 0 },
-        events: {
-          onReady: (e) => { ready = true; e.target.setVolume(volume()); if (on) e.target.playVideo(); },
-        },
-      });
+    const lfo = (rate, depth, target) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.value = rate; g.gain.value = depth; o.connect(g).connect(target); o.start();
+    };
+    function build() {
+      ctx = new AudioContext();
+      master = ctx.createGain(); master.gain.value = 0;
+      muffle = ctx.createBiquadFilter(); muffle.type = "lowpass"; muffle.frequency.value = 1400;
+      muffle.connect(master).connect(ctx.destination);
+      if (M.src) {
+        file = new Audio(M.src); file.loop = true;
+        ctx.createMediaElementSource(file).connect(muffle);
+        return;
+      }
+      // a little space: a dark feedback echo
+      bus = ctx.createGain();
+      const delay = ctx.createDelay(1), fb = ctx.createGain(), dark = ctx.createBiquadFilter(), wet = ctx.createGain();
+      delay.delayTime.value = 0.27; fb.gain.value = 0.38; dark.type = "lowpass"; dark.frequency.value = 900; wet.gain.value = 0.35;
+      bus.connect(muffle); bus.connect(delay); delay.connect(dark).connect(fb).connect(delay); delay.connect(wet).connect(muffle);
+      // deep current
+      const current = ctx.createBiquadFilter(), cg = ctx.createGain();
+      current.type = "lowpass"; current.frequency.value = 320; current.Q.value = 0.5; cg.gain.value = 0.9;
+      noise("brown").connect(current).connect(cg).connect(bus);
+      lfo(0.05, 120, current.frequency);
+      // slow swells
+      const swell = ctx.createBiquadFilter(), sg = ctx.createGain();
+      swell.type = "bandpass"; swell.frequency.value = 450; swell.Q.value = 0.8; sg.gain.value = 0.12;
+      noise("pink").connect(swell).connect(sg).connect(bus);
+      lfo(0.07, 0.1, sg.gain);
+      lfo(0.031, 180, swell.frequency);
+      // low hum
+      const hum = ctx.createGain(), humLp = ctx.createBiquadFilter();
+      hum.gain.value = 0.05; humLp.type = "lowpass"; humLp.frequency.value = 200;
+      [49, 73.5].forEach((f) => { const o = ctx.createOscillator(); o.frequency.value = f; o.connect(humLp); o.start(); });
+      humLp.connect(hum).connect(bus);
+      lfo(0.13, 0.02, hum.gain);
     }
-    function set(next) {
-      on = next;
+    function bubbles() {
+      if (!on || !bus) return;
+      const t = ctx.currentTime, n = 1 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < n; i++) {
+        const at = t + i * (0.05 + Math.random() * 0.12), f0 = 300 + Math.random() * 500;
+        const o = ctx.createOscillator(), g = ctx.createGain(), pan = ctx.createStereoPanner();
+        o.frequency.setValueAtTime(f0, at);
+        o.frequency.exponentialRampToValueAtTime(f0 * (2 + Math.random()), at + 0.07);
+        g.gain.setValueAtTime(0, at);
+        g.gain.linearRampToValueAtTime(0.02 + Math.random() * 0.05, at + 0.005);
+        g.gain.exponentialRampToValueAtTime(0.0001, at + 0.12);
+        pan.pan.value = Math.random() * 1.6 - 0.8;
+        o.connect(g).connect(pan).connect(bus);
+        o.start(at); o.stop(at + 0.15);
+      }
+      bubbleTimer = setTimeout(bubbles, 900 + Math.random() * 3500);
+    }
+    function apply() {
+      const now = ctx.currentTime;
+      master.gain.setTargetAtTime(on ? vol() : 0, now, 0.6);
+      muffle.frequency.setTargetAtTime(1400 - 1000 * depthT, now, 0.8);
+    }
+    btn.addEventListener("click", async () => {
+      on = !on;
       btn.setAttribute("aria-pressed", String(on));
-      card.hidden = !on;
-      root.classList.toggle("player-open", on);
-      if (on && !player) start();
-      else if (ready) on ? player.playVideo() : player.pauseVideo();
-    }
-    btn.addEventListener("click", () => set(!on));
-    $(".player__close").addEventListener("click", () => { set(false); btn.focus(); });
-    return { depth(t) { depthT = t; if (ready && on) player.setVolume(volume()); } };
+      if (!ctx) build();
+      await ctx.resume();
+      if (file) on ? file.play().catch(() => {}) : file.pause();
+      clearTimeout(bubbleTimer);
+      if (on) bubbles();
+      apply();
+    });
+    return { depth(t) { depthT = t; if (ctx) apply(); } };
   })();
 
   /* ---------------- easter eggs ---------------- */

@@ -18,14 +18,12 @@ window.ANCHOR = {
     zipArm64: /^Anchor-[\d.]+-arm64-win\.zip$/,
   },
 
-  /* Ambient sound: a YouTube video played in a small visible player (YouTube's terms
-     don't allow hidden, audio-only playback). Volume fades from surface to seabed. */
+  /* Ambient sound. Leave src empty for the built-in underwater soundscape
+     (generated in the browser), or point it at an audio file you have the
+     rights to, e.g. "assets/ambience.mp3". Volume fades from surface to seabed. */
   music: {
-    youtubeId: "la_AEFO8m7U",
-    title: "Peaceful underwater sounds",
-    channel: "Asleep In Perfection",
-    channelUrl: "https://www.youtube.com/@AsleepInPerfection",
-    volume: { surface: 55, seabed: 20 },
+    src: "",
+    volume: { surface: 0.55, seabed: 0.22 },
   },
 
   /* The depth gauge: one stop per section, top to bottom. */
