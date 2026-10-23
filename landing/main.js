@@ -525,18 +525,133 @@
     bar.addEventListener("pointerup", end); bar.addEventListener("pointercancel", end);
   })();
 
+  /* ---------------- 700 m: the radar ---------------- */
+  // A live sonar scope. The beam sweeps clockwise and leaves a fading phosphor
+  // trail; faint background contacts drift; contributors light up and are
+  // identified as the beam passes, then fade.
+  const radar = (() => {
+    const fig = $(".radar"), cv = $(".radar__scope", fig), list = $(".radar__contacts", fig);
+    const brgEl = $("[data-brg]", fig), countEl = $("[data-contacts]", fig);
+    const g = cv.getContext("2d"), still = document.createElement("canvas"), trail = document.createElement("canvas");
+    const sg = still.getContext("2d"), tg = trail.getContext("2d");
+    const PERIOD = 5200, TAU = Math.PI * 2;
+    let S = 0, dpr = 1, contacts = [], running = false, lastBrg = -1;
+    const t0 = performance.now();
+    const ghosts = Array.from({ length: 8 }, () => ({ b: Math.random() * TAU, r: 0.2 + Math.random() * 0.7, v: (Math.random() - 0.5) * 0.0006 }));
+    const pos = (b, r) => [S / 2 + Math.sin(b) * r * S * 0.42, S / 2 - Math.cos(b) * r * S * 0.42];
+
+    function drawStill() {
+      const c = S / 2, R = S * 0.42;
+      sg.clearRect(0, 0, S, S);
+      const bg = sg.createRadialGradient(c, c, 0, c, c, S / 2);
+      bg.addColorStop(0, "#0d1d2a"); bg.addColorStop(0.75, "#081420"); bg.addColorStop(1, "#050b14");
+      sg.fillStyle = bg; sg.beginPath(); sg.arc(c, c, S / 2, 0, TAU); sg.fill();
+      sg.strokeStyle = "rgba(169,180,198,.16)"; sg.lineWidth = dpr;
+      [0.25, 0.5, 0.75, 1].forEach((k) => { sg.beginPath(); sg.arc(c, c, R * k, 0, TAU); sg.stroke(); });
+      sg.beginPath(); sg.moveTo(c - R, c); sg.lineTo(c + R, c); sg.moveTo(c, c - R); sg.lineTo(c, c + R); sg.stroke();
+      sg.fillStyle = "rgba(169,180,198,.55)"; sg.font = `${11 * dpr}px "JetBrains Mono", monospace`;
+      sg.textAlign = "left"; sg.textBaseline = "alphabetic";
+      [250, 500, 750].forEach((m, i) => sg.fillText(`${m} m`, c + 4 * dpr, c - R * (i + 1) * 0.25 - 4 * dpr));
+      // bearing ring: a tick every 5°, numbered every 30°
+      for (let d = 0; d < 360; d += 5) {
+        const a = (d * Math.PI) / 180, long = d % 30 === 0;
+        const r0 = R + 4 * dpr, r1 = R + (long ? 12 : 7) * dpr;
+        sg.strokeStyle = long ? "rgba(169,180,198,.5)" : "rgba(169,180,198,.22)";
+        sg.beginPath(); sg.moveTo(c + Math.sin(a) * r0, c - Math.cos(a) * r0); sg.lineTo(c + Math.sin(a) * r1, c - Math.cos(a) * r1); sg.stroke();
+        if (long) {
+          const rt = R + 22 * dpr;
+          sg.fillStyle = "rgba(169,180,198,.6)"; sg.textAlign = "center"; sg.textBaseline = "middle";
+          sg.fillText(String(d).padStart(3, "0"), c + Math.sin(a) * rt, c - Math.cos(a) * rt);
+        }
+      }
+    }
+    function size() {
+      dpr = Math.min(2, devicePixelRatio || 1);
+      S = Math.max(1, Math.round(fig.clientWidth * dpr));
+      [cv, still, trail].forEach((k) => { k.width = k.height = S; });
+      drawStill();
+      if (!running) frame(performance.now());
+    }
+    function place() {
+      list.replaceChildren(...contacts.map((c, i) => {
+        // the maintainer sits north-east at mid range; others spiral out by the golden angle
+        c.b = i === 0 ? 0.9 : (0.9 + i * 2.39996) % TAU;
+        c.r = i === 0 ? 0.55 : 0.3 + ((i * 0.37) % 0.55);
+        const li = el("li", { style: `--x:${50 + Math.sin(c.b) * c.r * 42}%;--y:${50 - Math.cos(c.b) * c.r * 42}%` },
+          el("a", { href: c.url, target: "_blank", rel: "noopener", ariaLabel: `${c.login}, ${c.role}` },
+            el("img", { src: c.avatar, alt: "", width: 38, height: 38, loading: "lazy" })),
+          el("span", { className: "radar__label", ariaHidden: "true" }, c.login, el("small", { textContent: c.role })));
+        c.el = li; c.lit = -1;
+        return li;
+      }));
+      countEl.textContent = `${contacts.length} CONTACT${contacts.length === 1 ? "" : "S"}`;
+      if (reduced) contacts.forEach((c) => c.el.style.setProperty("--lit", 1));
+    }
+    function frame(now) {
+      if (!S) return;
+      const beam = (((now - t0) % PERIOD) / PERIOD) * TAU, c = S / 2, R = S * 0.42;
+      // phosphor: fade the trail a little each frame, then paint the beam's leading edge
+      tg.globalCompositeOperation = "destination-out";
+      tg.fillStyle = "rgba(0,0,0,0.045)"; tg.fillRect(0, 0, S, S);
+      tg.globalCompositeOperation = "lighter";
+      tg.fillStyle = "rgba(255,90,31,0.10)";
+      tg.beginPath(); tg.moveTo(c, c); tg.arc(c, c, R, beam - Math.PI / 2 - 0.06, beam - Math.PI / 2); tg.closePath(); tg.fill();
+      for (const gst of ghosts) {
+        gst.b = (gst.b + gst.v + TAU) % TAU;
+        const diff = (beam - gst.b + TAU) % TAU;
+        if (diff < 0.07) {
+          const [x, y] = pos(gst.b, gst.r);
+          tg.fillStyle = "rgba(255,150,90,0.55)"; tg.beginPath(); tg.arc(x, y, 2.4 * dpr, 0, TAU); tg.fill();
+        }
+      }
+      g.clearRect(0, 0, S, S);
+      g.drawImage(still, 0, 0);
+      g.save(); g.beginPath(); g.arc(c, c, R, 0, TAU); g.clip(); g.drawImage(trail, 0, 0); g.restore();
+      const [bx, by] = pos(beam, 1);
+      const lg = g.createLinearGradient(c, c, bx, by);
+      lg.addColorStop(0, "rgba(255,122,51,0.1)"); lg.addColorStop(1, "rgba(255,122,51,0.95)");
+      g.strokeStyle = lg; g.lineWidth = 1.6 * dpr; g.beginPath(); g.moveTo(c, c); g.lineTo(bx, by); g.stroke();
+      g.fillStyle = "#FF5A1F"; g.beginPath(); g.arc(c, c, 3 * dpr, 0, TAU); g.fill();
+      if (!reduced) {
+        // contacts brighten as the beam crosses them, then decay over most of a turn
+        for (const k of contacts) {
+          const since = ((beam - k.b + TAU) % TAU) / TAU;
+          const lit = Math.exp(-since * 3.2);
+          if (Math.abs(lit - k.lit) > 0.015) { k.lit = lit; k.el.style.setProperty("--lit", lit.toFixed(3)); }
+        }
+        const brg = Math.floor((beam / TAU) * 360);
+        if (brg !== lastBrg && brg % 3 === 0) { lastBrg = brg; brgEl.textContent = `BRG ${String(brg).padStart(3, "0")}°`; }
+      }
+      if (running) requestAnimationFrame(frame);
+    }
+    const start = () => { if (!running && !document.hidden) { running = true; requestAnimationFrame(frame); } };
+    size();
+    addEventListener("resize", size);
+    if (!reduced) {
+      new IntersectionObserver(([e]) => { if (e.isIntersecting) start(); else running = false; }).observe(fig);
+      document.addEventListener("visibilitychange", () => { if (document.hidden) running = false; else if (fig.getBoundingClientRect().top < innerHeight) start(); });
+    }
+    return { setContacts(next) { contacts = next; place(); } };
+  })();
+
   /* ---------------- 700 m: GitHub (live, cached, quiet on failure) ---------------- */
-  async function gh(path, ttl = 10 * 60 * 1000) {
+  // GitHub allows 60 unauthenticated requests an hour per visitor. Answers are kept for
+  // an hour across tabs, and if GitHub refuses, the last good answer is used instead.
+  async function gh(path, ttl = 60 * 60 * 1000) {
     const key = `anchor-gh:${path}`;
+    let hit = null;
+    try { hit = JSON.parse(localStorage.getItem(key) || "null"); } catch { /* storage unavailable */ }
+    if (hit && Date.now() - hit.at < ttl) return hit.data;
     try {
-      const hit = JSON.parse(sessionStorage.getItem(key) || "null");
-      if (hit && Date.now() - hit.at < ttl) return hit.data;
-    } catch { /* storage unavailable */ }
-    const res = await fetch(`${repoApi}${path}`, { headers: { Accept: "application/vnd.github+json" } });
-    if (!res.ok) throw new Error(`GitHub ${res.status}`);
-    const data = await res.json();
-    try { sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), data })); } catch { /* full or unavailable */ }
-    return data;
+      const res = await fetch(`${repoApi}${path}`, { headers: { Accept: "application/vnd.github+json" } });
+      if (!res.ok) throw new Error(`GitHub ${res.status}`);
+      const data = await res.json();
+      try { localStorage.setItem(key, JSON.stringify({ at: Date.now(), data })); } catch { /* full or unavailable */ }
+      return data;
+    } catch (e) {
+      if (hit) return hit.data;
+      throw e;
+    }
   }
   const fmtDate = (s) => new Date(s).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   const setStat = (k, v) => {
@@ -553,17 +668,15 @@
     $$("[data-stars]").forEach((s) => { s.textContent = r.stargazers_count.toLocaleString("en"); s.hidden = false; });
   }).catch(() => { $("[data-stats]").hidden = true; });
 
+  const owner = C.maintainer;
+  const ownerContact = { login: owner.login, url: owner.url, avatar: owner.avatar, role: owner.role };
+  radar.setContacts([ownerContact]);
   gh("/contributors?per_page=12").then((list) => {
     setStat("contributors", list.length.toLocaleString("en"));
-    const blips = $(".sonar__blips");
-    list.forEach((c, i) => {
-      const a = (i * 137.5 * Math.PI) / 180, r = 18 + ((i * 23) % 26);   // golden-angle spiral
-      const li = el("li", { style: `--x:${50 + r * Math.cos(a)}%;--y:${50 + r * Math.sin(a)}%;--d:${(i * 0.3).toFixed(1)}s` },
-        el("a", { href: c.html_url, target: "_blank", rel: "noopener", ariaLabel: c.login }, el("img", { src: `${c.avatar_url}&s=68`, alt: "", loading: "lazy", width: 34, height: 34 })),
-        el("span", { className: "tip", textContent: c.login }));
-      blips.append(li);
-    });
-  }).catch(() => { setStat("contributors", "—"); });
+    const rest = list.filter((c) => c.login.toLowerCase() !== owner.login.toLowerCase())
+      .map((c) => ({ login: c.login, url: c.html_url, avatar: `${c.avatar_url}&s=80`, role: "contributor" }));
+    radar.setContacts([ownerContact, ...rest]);
+  }).catch(() => { setStat("contributors", "1"); });
 
   /* ---------------- download: always the latest installer ---------------- */
   const ua = navigator.userAgent;
@@ -770,7 +883,7 @@
     root.classList.add("motion");
     const groups = [
       [".layer__head"], [".sim__items .toggle-row", true], [".sim__readout"], [".module", true], [".safety"],
-      [".dock"], [".stats"], [".sonar"], [".term"], [".manifesto li", true], [".faq details", true], [".seabed__inner > *", true],
+      [".dock"], [".stats"], [".radar"], [".term"], [".manifesto li", true], [".faq details", true], [".seabed__inner > *", true],
     ];
     const io = new IntersectionObserver((entries) => entries.forEach((e) => {
       if (!e.isIntersecting) return;
