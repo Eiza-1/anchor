@@ -22,6 +22,15 @@ const { seasonFor } = require("./services/season");
 let win;
 let tray = null;
 
+// One Anchor per user: a second launch (shortcut clicked while Anchor sits in
+// the tray, or a login launch on top of an open one) hands over and exits, so
+// there's never a second tray icon or a second set of PowerShell processes.
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) app.exit(0);
+app.on("second-instance", (_e, argv) => {
+  if (!argv.includes("--startup")) openWindow();
+});
+
 // The logo dresses up for Halloween unless Account → Appearance → "Seasonal
 // logos" is off. Other seasons are ready but switched off (ACTIVE in
 // services/season.js). The icons ship under main/ because build/ is not
@@ -77,22 +86,57 @@ function bringToFront() {
   return true;
 }
 
+/** Shows the window, loading it again if it was released while in the tray,
+ *  then goes to `target` (a page) if given. */
+function openWindow(target) {
+  if (bringToFront()) {
+    if (target) win.webContents.send("nav:go", target);
+    return;
+  }
+  createWindow({ show: true });
+  const contents = win.webContents;
+  if (target) contents.once("did-finish-load", () => contents.send("nav:go", target));
+}
+
+// In the tray, the hidden window is released (its page, GPU and renderer
+// processes, ~300 MB) once nothing is running; opening Anchor loads it again.
+// The UI reports running tasks, so a cleanup or update is never cut off.
+const RELEASE_MS = 60_000;
+let uiBusy = false;
+let releaseTimer = null;
+function scheduleRelease() {
+  clearTimeout(releaseTimer);
+  releaseTimer = setTimeout(() => {
+    if (!win || win.isDestroyed() || win.isVisible() || uiBusy) return;
+    monitor.stop(); // its only viewer is the page
+    win.releasing = true;
+    win.destroy();
+  }, RELEASE_MS);
+}
+ipcMain.on("app:busy", (_e, busy) => {
+  uiBusy = !!busy;
+  if (!uiBusy && win && !win.isDestroyed() && !win.isVisible()) scheduleRelease();
+});
+const currentContents = () => (win && !win.isDestroyed() ? win.webContents : null);
+
 // Shown notifications are held here — one only kept in a local can be
 // garbage-collected, and its click never fires. Kept past "close" too, since
 // Windows closes a toast when it times out into Action Center, where it can
 // still be clicked; the oldest are let go after a few.
 const notes = new Set();
 const MAX_NOTES = 10;
-function showNote({ title, body }, onClick) {
+function showNote({ title, body }, target) {
   const note = new Notification({ title, body, icon: appIcon() });
   notes.add(note);
   if (notes.size > MAX_NOTES) notes.delete(notes.values().next().value);
-  note.on("click", () => { notes.delete(note); if (bringToFront()) onClick?.(); });
+  note.on("click", () => { notes.delete(note); openWindow(target); });
   note.on("failed", () => notes.delete(note));
   note.show();
 }
 
-function createWindow() {
+function createWindow({ show }) {
+  clearTimeout(releaseTimer);
+  uiBusy = false;
   win = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -112,21 +156,24 @@ function createWindow() {
     },
   });
 
-  win.once("ready-to-show", () => { if (!startedHidden) win.show(); });
+  const w = win;
+  w.once("ready-to-show", () => { if (show) w.show(); });
 
   // Closing to the tray keeps Boot Watch running; Quit from the tray exits.
-  win.on("close", (e) => {
-    if (!app.isQuitting && tray) { e.preventDefault(); win.hide(); }
+  w.on("close", (e) => {
+    if (!app.isQuitting && tray) { e.preventDefault(); w.hide(); scheduleRelease(); }
   });
+  w.on("show", () => clearTimeout(releaseTimer));
+  w.on("closed", () => { if (win === w) win = null; });
   // Safety net: never leave the user staring at nothing if the page is slow or fails.
-  // A login launch stays in the tray — the user hasn't asked to see the window.
-  if (!startedHidden) setTimeout(() => { if (!win.isDestroyed() && !win.isVisible()) win.show(); }, 4000);
+  if (show) setTimeout(() => { if (!w.isDestroyed() && !w.isVisible()) w.show(); }, 4000);
 
   win.webContents.on("did-fail-load", (_e, code, desc, url) => {
-    win.show();
+    w.show();
     dialog.showErrorBox("Anchor couldn't load its interface", `${desc} (${code})\n${url}`);
   });
   win.webContents.on("render-process-gone", (_e, details) => {
+    if (w.releasing) return;
     dialog.showErrorBox("Anchor's interface crashed", JSON.stringify(details));
   });
   // Open DevTools in a packaged build with:  Anchor.exe --debug
@@ -148,27 +195,32 @@ function createTray() {
   tray.setToolTip("Anchor — watching startup activity");
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: "Open Anchor", click: bringToFront },
+      { label: "Open Anchor", click: () => openWindow() },
       { type: "separator" },
       { label: "Quit", click: () => { app.isQuitting = true; app.quit(); } },
     ])
   );
-  tray.on("double-click", bringToFront);
+  tray.on("double-click", () => openWindow());
 }
 
 app.whenReady().then(async () => {
+  if (!gotLock) return;
   protocol.handle("anchor-img", proxyImage);
-  createWindow();
+  // A login launch waits in the tray without loading the window — the user
+  // hasn't asked to see it, and an unopened window still costs ~300 MB.
+  if (!startedHidden) {
+    createWindow({ show: true });
+    warmUp();                     // start the PowerShell host before it's needed
+  }
   createTray();
-  warmUp();                       // start the PowerShell host before it's needed
   setInterval(refreshSeason, 60 * 60 * 1000);   // seasons start and end at midnight; an hour late is fine
-  updater.init(win.webContents);
+  updater.init(currentContents);
 
   // Boot Watch: if the user enabled it, watch process starts and, when launched
   // at login, scan persistence and notify about anything suspicious.
   const prof = profile.loadProfile();
   if (prof.bootWatch) {
-    bootwatch.watchProcesses(win.webContents);
+    bootwatch.watchProcesses(currentContents);
     if (startedHidden) {
       const findings = await bootwatch.scanPersistence();
       const risky = findings.filter((f) => f.level === "high");
@@ -180,9 +232,7 @@ app.whenReady().then(async () => {
       }
     }
   }
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
+  app.on("activate", () => openWindow());
 });
 
 app.on("window-all-closed", () => { if (!tray) app.quit(); });
@@ -208,6 +258,7 @@ handle("boost:ensureRestorePoint", (desc, minDays) =>
 );
 handle("boost:lastRestorePoint", () => boost.lastRestorePointAgeDays());
 handle("boost:trim", () => boost.trimMemory());
+handle("boost:system", () => boost.boostSystem());
 handle("cleanup:scan", () => cleanup.scan());
 handle("cleanup:run", (ids) => cleanup.clean(ids ?? []));
 handle("cleanup:quick", () => cleanup.quickClean());
@@ -315,6 +366,8 @@ handle("perf:applyRecommended", async () => {
 handle("perf:powerPlan", () => perf.getPowerPlan());
 handle("perf:setPowerPlan", (guid) => perf.setPowerPlan(guid));
 handle("perf:addUltimatePlan", () => perf.addUltimatePlan());
+handle("perf:removeDuplicateUltimate", () => perf.removeDuplicateUltimate());
+handle("perf:revertAll", () => perf.revertAll());
 handle("perf:gpuPrefs", () => perf.listAppGpuPreferences());
 handle("perf:setGpuPref", (path, high) => perf.setAppGpuPreference(path, high));
 handle("perf:gpuInfo", () => perf.gpuInfo());
@@ -354,7 +407,7 @@ handle("bootwatch:setEnabled", (on) => {
     path: process.execPath,
     args: ["--startup"],
   });
-  if (on) bootwatch.watchProcesses(win.webContents);
+  if (on) bootwatch.watchProcesses(currentContents);
   else bootwatch.stopWatching();
   return { ok: true };
 });
@@ -374,8 +427,5 @@ handle("app:openExternal", (url) => {
 handle("app:notify", (n) => {
   if (!win || win.isDestroyed() || win.isFocused() || !Notification.isSupported()) return;
   if (!n || typeof n.title !== "string") return;
-  showNote(
-    { title: n.title, body: typeof n.body === "string" ? n.body : "" },
-    () => win.webContents.send("nav:go", n.target),
-  );
+  showNote({ title: n.title, body: typeof n.body === "string" ? n.body : "" }, n.target);
 });

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Badge, Button, Card, CardContent, Checkbox, Dialog, Skeleton } from "@/components/ui";
-import { ensureRestorePoint, invalidate, peek } from "@/lib/store";
+import { invalidate, peek } from "@/lib/store";
 import { Q } from "@/lib/queries";
 import { runTask, useBlockedBy, useTask } from "@/lib/tasks";
 import { countSummary } from "@/lib/utils";
@@ -58,7 +58,6 @@ export default function BloatwarePage() {
         summarize: (r) => countSummary("Removed", r.filter((x) => x.ok).length, r.length, "app"),
       },
       async () => {
-        await ensureRestorePoint("Anchor bloatware removal");
         const r = await window.anchor.bloatwareRemove(pkgs);
         invalidate("bloatware"); // stale now, even if this page is closed: the next visit refetches
         return r;
@@ -77,7 +76,7 @@ export default function BloatwarePage() {
   }, [removeTask?.finishedAt]);
 
   const removeLine = removing
-    ? "Creating a restore point if needed, then removing…"
+    ? "Removing…"
     : removeTask?.status === "error" && !removeTask.result
     ? `Removal failed: ${removeTask.error}`
     : removeTask?.result
@@ -127,11 +126,11 @@ export default function BloatwarePage() {
         open={confirm}
         onClose={() => setConfirm(false)}
         title={`Remove ${chosen.length} app(s)?`}
-        description="A System Restore point will be created first. Removed apps can be reinstalled from the Microsoft Store."
+        description="Removed apps can be reinstalled from the Microsoft Store."
         footer={
           <>
             <Button variant="outline" onClick={() => setConfirm(false)}>Cancel</Button>
-            <Button onClick={remove}>Create restore point & remove</Button>
+            <Button onClick={remove}>Remove</Button>
           </>
         }
       >

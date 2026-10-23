@@ -1,6 +1,6 @@
 import { createRequire } from "module";
 import { EventEmitter } from "events";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const require = createRequire(import.meta.url);
 const cp = require("child_process") as { spawn: unknown };
@@ -18,7 +18,8 @@ interface FakeProc extends EventEmitter {
   args: string[];
   stdout: EventEmitter & { setEncoding(): void };
   stderr: EventEmitter;
-  stdin: { write(line: string): void };
+  stdin: { write(line: string): void; end(): void };
+  ended: boolean;
   kill(): void;
 }
 let procs: FakeProc[];
@@ -35,7 +36,10 @@ function fakeSpawn(_exe: string, args: string[]) {
       const json = Buffer.from(JSON.stringify({ out: '{"read":true}', err: "" }), "utf8").toString("base64");
       setTimeout(() => proc.stdout.emit("data", `@@ANCHOR@@${json}\n`), 0);
     },
+    // closing stdin ends the host's read loop, so it exits
+    end() { proc.ended = true; setTimeout(() => proc.emit("exit", 0), 0); },
   };
+  proc.ended = false;
   proc.kill = () => proc.emit("exit", 1);
   procs.push(proc);
   if (isHost) setTimeout(() => proc.stdout.emit("data", "@@ANCHOR@@READY\n"), 0);
@@ -75,5 +79,28 @@ describe("runPSJson", () => {
     // the long lane parses JSON the same way as the pool
     oneOff.forEach((p, i) => { p.stdout.emit("data", Buffer.from(`WARNING: x\n{"n":${i}}`)); p.emit("close", 0); });
     expect(await Promise.all(long)).toEqual([{ n: 0 }, { n: 1 }, { n: 2 }, { n: 3 }]);
+  });
+});
+
+describe("host pool", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("lets idle hosts exit, and starts one again for the next read", async () => {
+    vi.useFakeTimers();
+    const first = ps.runPSJson("Get-Something");
+    await vi.advanceTimersByTimeAsync(10);
+    expect(await first).toEqual({ read: true });
+    const hosts = () => procs.filter((p) => !isOneOff(p.args));
+    expect(hosts().filter((p) => !p.ended)).toHaveLength(1);
+
+    await vi.advanceTimersByTimeAsync(59_000);
+    expect(hosts()[0].ended).toBe(false);   // still warm for a while after use
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(hosts().every((p) => p.ended)).toBe(true);
+
+    const again = ps.runPSJson("Get-Something");
+    await vi.advanceTimersByTimeAsync(10);
+    expect(await again).toEqual({ read: true });
+    expect(hosts()).toHaveLength(2);
   });
 });

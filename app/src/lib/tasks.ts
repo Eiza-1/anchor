@@ -47,12 +47,19 @@ const subscribe = (l: () => void) => {
   return () => void listeners.delete(l);
 };
 
+let reportedBusy = false;
 function commit(nextTasks: Map<string, Task>) {
   tasks = nextTasks;
   // a new Set only when the running sections actually changed
   const next = new Set<string>();
   tasks.forEach((x) => x.status === "running" && next.add(x.where.section));
   if (next.size !== sections.size || [...next].some((s) => !sections.has(s))) sections = next;
+  // the main process keeps the window alive in the tray while something runs
+  const busy = next.size > 0;
+  if (busy !== reportedBusy) {
+    reportedBusy = busy;
+    if (typeof window !== "undefined") window.anchor?.setBusy?.(busy);
+  }
   listeners.forEach((l) => l());
 }
 const setTask = (t: Task) => commit(new Map(tasks).set(t.key, t));

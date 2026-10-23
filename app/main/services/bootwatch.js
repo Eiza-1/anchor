@@ -245,7 +245,8 @@ while ($true) {
 `;
 
 /** Streams process starts. Only interesting ones are forwarded to the UI. */
-function watchProcesses(webContents) {
+/** getContents returns the window's current webContents, or null while it's released. */
+function watchProcesses(getContents) {
   if (watcher) return;
   watcher = spawn(
     "powershell.exe",
@@ -274,6 +275,7 @@ function watchProcesses(webContents) {
       });
       if (verdict.score < 20) continue;                     // ignore benign noise
 
+      const webContents = getContents();
       if (webContents && !webContents.isDestroyed())
         webContents.send("bootwatch:process", { ...ev, ...verdict });
     }

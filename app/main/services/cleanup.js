@@ -220,7 +220,7 @@ async function scan() {
 /** Deletes the chosen targets. Returns how much was actually freed. */
 async function clean(ids = []) {
   const chosen = TARGETS.filter((t) => ids.includes(t.id));
-  if (chosen.length === 0) return { freed: 0, cleaned: [] };
+  if (chosen.length === 0) return { freed: 0, cleaned: [], items: [] };
 
   // Freed = measured before minus measured after, so files that were in use
   // and couldn't be deleted aren't counted.
@@ -249,8 +249,9 @@ ${chosen.some((t) => t.id === "thumbcache") ? "Stop-Process -Name explorer -Forc
 
   await runPSJson(script, { long: true }); // a big Windows.old delete runs for minutes
   const after = await measure(chosen);
-  const freed = chosen.reduce((sum, t) => sum + Math.max(0, before[t.id] - after[t.id]), 0);
-  return { freed, cleaned: chosen.map((t) => t.name) };
+  const items = chosen.map((t) => ({ name: t.name, freed: Math.max(0, before[t.id] - after[t.id]) }));
+  const freed = items.reduce((sum, i) => sum + i.freed, 0);
+  return { freed, cleaned: chosen.map((t) => t.name), items };
 }
 
 /** One-click Boost: the default selection, without a scan first. */

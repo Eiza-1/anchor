@@ -4,6 +4,15 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 const call = (channel, ...args) => ipcRenderer.invoke(channel, ...args);
 
+// A notification click can reopen a released window and ask it to navigate
+// before the UI has subscribed, so the target waits here until it does.
+let navListener = null;
+let pendingNav = null;
+ipcRenderer.on("nav:go", (_e, target) => {
+  if (navListener) navListener(target);
+  else pendingNav = target;
+});
+
 contextBridge.exposeInMainWorld("anchor", {
   // window
   minimize: () => call("win:minimize"),
@@ -22,6 +31,7 @@ contextBridge.exposeInMainWorld("anchor", {
   ensureRestorePoint: (desc, minDays) => call("boost:ensureRestorePoint", desc, minDays),
   lastRestorePoint: () => call("boost:lastRestorePoint"),
   trimMemory: () => call("boost:trim"),
+  boostSystem: () => call("boost:system"),
   cleanupScan: () => call("cleanup:scan"),
   cleanupRun: (ids) => call("cleanup:run", ids),
   cleanupQuick: () => call("cleanup:quick"),
@@ -87,6 +97,8 @@ contextBridge.exposeInMainWorld("anchor", {
   powerPlan: () => call("perf:powerPlan"),
   setPowerPlan: (guid) => call("perf:setPowerPlan", guid),
   addUltimatePlan: () => call("perf:addUltimatePlan"),
+  removeDuplicateUltimate: () => call("perf:removeDuplicateUltimate"),
+  perfRevertAll: () => call("perf:revertAll"),
   gpuPrefs: () => call("perf:gpuPrefs"),
   setGpuPref: (path, high) => call("perf:setGpuPref", path, high),
   pickExe: () => call("perf:pickExe"),
@@ -132,9 +144,10 @@ contextBridge.exposeInMainWorld("anchor", {
   },
   openExternal: (url) => call("app:openExternal", url),
   notify: (n) => call("app:notify", n),
+  setBusy: (busy) => ipcRenderer.send("app:busy", !!busy),
   onNavigate: (cb) => {
-    const handler = (_e, target) => cb(target);
-    ipcRenderer.on("nav:go", handler);
-    return () => ipcRenderer.removeListener("nav:go", handler);
+    navListener = cb;
+    if (pendingNav) { cb(pendingNav); pendingNav = null; }
+    return () => { if (navListener === cb) navListener = null; };
   },
 });

@@ -3,6 +3,7 @@
 // with cut corners, glowing primary buttons, chip tabs and spring motion.
 // Glass utilities (.glass, .glass-strong, .cut-corner, .glow) live in index.css.
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { cva, type VariantProps } from "class-variance-authority";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -304,7 +305,10 @@ export function Dialog({
   children?: React.ReactNode;
   footer?: React.ReactNode;
 }) {
-  return (
+  // Portaled to <body>: pages sit in transformed layers, and a transformed
+  // ancestor turns `fixed` into "fixed to that layer", so on a long scrolled
+  // page the dialog would center on the whole page instead of the window.
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -331,6 +335,7 @@ export function Dialog({
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }

@@ -5,6 +5,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, Stethoscope, X, Zap } from "lucide-react";
 import { HealthList } from "@/components/HealthList";
+import { BoostSummary } from "@/components/home/BoostSummary";
 import { Progress } from "@/components/ui";
 import { useAppState } from "@/lib/store";
 import { useTask } from "@/lib/tasks";
@@ -34,6 +35,7 @@ export function ResultPanel() {
 
   const healthPct = health.total ? (health.done / health.total) * 100 : 0;
   const boostRunning = boostTask?.status === "running" || boost.running;
+  const showItems = showBoost && !boostRunning && (!!boost.items?.length || !!boost.system);
   const boostText = boostTask?.status === "error"
     ? `Boost failed: ${boostTask.error ?? "something went wrong"}`
     : boost.message || (boostRunning ? "Boosting…" : boostTask?.summary ?? "");
@@ -61,7 +63,7 @@ export function ResultPanel() {
               </button>
 
               {showBoost && (
-                <div className={cn("flex items-center gap-3", showHealth && "mb-5")}>
+                <div className={cn("flex items-center gap-3", showHealth && !showItems && "mb-5")}>
                   <span className="grid size-8 shrink-0 place-items-center rounded-md bg-primary/15 text-primary">
                     {boostRunning ? <Loader2 className="size-4 animate-spin" /> : <Zap className="size-4" />}
                   </span>
@@ -73,6 +75,7 @@ export function ResultPanel() {
                   </div>
                 </div>
               )}
+              {showItems && <BoostSummary boost={boost} className={cn(showHealth && "mb-5")} />}
 
               {showHealth && (
                 <div>
