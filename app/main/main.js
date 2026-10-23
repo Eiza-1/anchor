@@ -258,6 +258,7 @@ handle("boost:ensureRestorePoint", (desc, minDays) =>
 );
 handle("boost:lastRestorePoint", () => boost.lastRestorePointAgeDays());
 handle("boost:trim", () => boost.trimMemory());
+handle("boost:system", () => boost.boostSystem());
 handle("cleanup:scan", () => cleanup.scan());
 handle("cleanup:run", (ids) => cleanup.clean(ids ?? []));
 handle("cleanup:quick", () => cleanup.quickClean());

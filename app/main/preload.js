@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld("anchor", {
   ensureRestorePoint: (desc, minDays) => call("boost:ensureRestorePoint", desc, minDays),
   lastRestorePoint: () => call("boost:lastRestorePoint"),
   trimMemory: () => call("boost:trim"),
+  boostSystem: () => call("boost:system"),
   cleanupScan: () => call("cleanup:scan"),
   cleanupRun: (ids) => call("cleanup:run", ids),
   cleanupQuick: () => call("cleanup:quick"),

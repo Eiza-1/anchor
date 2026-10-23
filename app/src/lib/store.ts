@@ -35,6 +35,10 @@ export interface BoostState {
   finishedAt: number | null;
   /** What each location freed, biggest first (Boost only). */
   items?: Array<{ name: string; freed: number }>;
+  /** Disk space the cleanup freed (Boost only). */
+  cleaned?: number;
+  /** Memory trim and background-CPU pass (Boost only); null if it failed. */
+  system?: import("@/types").BoostSystemResult | null;
 }
 
 interface AppState {
@@ -487,8 +491,9 @@ async function healthJob(): Promise<HealthLine[]> {
 }
 
 /* --------------------------------- Boost --------------------------------- */
-/** One-click Boost: clears the Cleanup page's default locations. Only caches
- *  and leftovers — nothing that needs rolling back — so no restore point. */
+/** One-click Boost: clears the Cleanup page's default locations (only caches
+ *  and leftovers — nothing that needs rolling back — so no restore point),
+ *  then trims memory if it's short and lowers background CPU hogs' priority. */
 export async function runBoost() {
   if (state.boost.running) return;
   await runTask(
@@ -500,15 +505,20 @@ export async function runBoost() {
       summarize: (r: { freed: number }) => `Freed ${formatBytes(r.freed)}`,
     },
     async () => {
-      setJob("boost", { ...idle, running: true, message: "Boosting…" });
+      setJob("boost", { ...idle, running: true, message: "Cleaning up…" });
       try {
         const r = await window.anchor.cleanupQuick();
         invalidate("cleanup:scan");
+        setJob("boost", { ...idle, running: true, message: "Checking memory and background apps…" });
+        // the cleanup's result stands even if this part fails
+        const system = await window.anchor.boostSystem().catch(() => null);
         setJob("boost", {
           ...idle,
           finishedAt: Date.now(),
-          message: `Freed ${formatBytes(r.freed)} from ${r.cleaned.length} location${r.cleaned.length === 1 ? "" : "s"}.`,
+          message: "Boost complete.",
           items: [...(r.items ?? [])].sort((a, b) => b.freed - a.freed),
+          cleaned: r.freed,
+          system,
         });
         return r;
       } catch (e) {

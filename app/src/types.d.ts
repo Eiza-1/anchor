@@ -39,6 +39,7 @@ export interface AnchorApi {
   ensureRestorePoint(desc: string, minDays: number): Promise<{ ok: boolean; skipped?: boolean; message: string }>;
   lastRestorePoint(): Promise<{ days: number; description: string | null }>;
   trimMemory(): Promise<{ trimmed: number; freedBytes: number; skipped: string[] }>;
+  boostSystem(): Promise<BoostSystemResult>;
 
   cleanupScan(): Promise<Array<{
     id: string; name: string; detail: string;
@@ -170,6 +171,13 @@ export interface AnchorApi {
   notify(n: { title: string; body: string; target: import("@/lib/nav").NavTarget }): Promise<void>;
   setBusy(busy: boolean): void;
   onNavigate(cb: (t: import("@/lib/nav").NavTarget) => void): () => void;
+}
+
+export interface BoostSystemResult {
+  /** ran = memory was short enough to be worth trimming */
+  trim: { ran: boolean; availPctBefore: number | null; availPctAfter: number | null; freedBytes: number; count: number };
+  /** background apps using notable CPU, grouped by name; lowered = set to Below Normal priority */
+  hogs: Array<{ name: string; cpu: number; lowered: boolean }>;
 }
 
 export interface PerfTweak {

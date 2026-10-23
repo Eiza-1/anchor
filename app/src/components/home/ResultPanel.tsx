@@ -5,11 +5,12 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, Stethoscope, X, Zap } from "lucide-react";
 import { HealthList } from "@/components/HealthList";
+import { BoostSummary } from "@/components/home/BoostSummary";
 import { Progress } from "@/components/ui";
 import { useAppState } from "@/lib/store";
 import { useTask } from "@/lib/tasks";
 import { INSTANT, SPRING, SPRING_SOFT, useReduceMotion } from "@/lib/motion";
-import { cn, formatBytes } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 // Which runs were dismissed, by their start time. Module-level so it survives
 // page switches; a new run has a new start time and shows again.
@@ -34,7 +35,7 @@ export function ResultPanel() {
 
   const healthPct = health.total ? (health.done / health.total) * 100 : 0;
   const boostRunning = boostTask?.status === "running" || boost.running;
-  const showItems = showBoost && !boostRunning && !!boost.items?.length;
+  const showItems = showBoost && !boostRunning && (!!boost.items?.length || !!boost.system);
   const boostText = boostTask?.status === "error"
     ? `Boost failed: ${boostTask.error ?? "something went wrong"}`
     : boost.message || (boostRunning ? "Boosting…" : boostTask?.summary ?? "");
@@ -74,18 +75,7 @@ export function ResultPanel() {
                   </div>
                 </div>
               )}
-              {showItems && (
-                <ul className={cn("ml-11 mt-3 max-w-md space-y-1 text-xs", showHealth && "mb-5")}>
-                  {boost.items!.map((i) => (
-                    <li key={i.name} className="flex justify-between gap-4">
-                      <span className="truncate text-foreground/85">{i.name}</span>
-                      <span className={cn("shrink-0 tabular-nums", i.freed > 0 ? "text-foreground" : "text-muted-foreground")}>
-                        {i.freed > 0 ? formatBytes(i.freed) : "already clean"}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {showItems && <BoostSummary boost={boost} className={cn(showHealth && "mb-5")} />}
 
               {showHealth && (
                 <div>
