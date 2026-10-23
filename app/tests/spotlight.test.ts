@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupByDay, timeAgo } from "../src/lib/spotlight";
+import { groupByDay, timeAgo, mergeVideos } from "../src/lib/spotlight";
 
 // Oct 22 2026, 15:00 local time
 const NOW = new Date(2026, 9, 22, 15, 0).getTime();
@@ -42,5 +42,20 @@ describe("groupByDay", () => {
 
   it("puts undated items under Earlier", () => {
     expect(groupByDay([item(0)], NOW)[0].label).toBe("Earlier");
+  });
+});
+
+describe("mergeVideos", () => {
+  const v = (source: string, link: string, published: number) => ({ source, link, published });
+
+  it("keeps a failed channel's last videos and replaces the ones that answered", () => {
+    const prev = [v("Vex", "old-vex", 1), v("MKBHD", "old-mkbhd", 2)];
+    const fresh = [v("MKBHD", "new-mkbhd", 5)];
+    expect(mergeVideos(fresh, prev, ["Vex", "MKBHD"]).map((x) => x.link)).toEqual(["new-mkbhd", "old-vex"]);
+  });
+
+  it("drops channels that are no longer in the list", () => {
+    const prev = [v("Gone", "gone", 9)];
+    expect(mergeVideos([v("Vex", "vex", 1)], prev, ["Vex"]).map((x) => x.link)).toEqual(["vex"]);
   });
 });

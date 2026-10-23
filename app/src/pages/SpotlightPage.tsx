@@ -29,6 +29,8 @@ export default function SpotlightPage() {
   );
   const [filter, setFilter] = useState(ALL);
   const [loading, setLoading] = useState(false);
+  // YouTube's feed server sometimes fails for every channel; the cache then keeps the last good list.
+  const [videosFailed, setVideosFailed] = useState(false);
 
   const load = useCallback(async (force = false) => {
     setLoading(true);
@@ -38,7 +40,10 @@ export default function SpotlightPage() {
     const showPartial = peek("news:articles") === undefined;
     await Promise.all([
       loadArticles(showPartial ? setArticles : undefined).then(setArticles, () => {}),
-      Q.videos().then(setVideos, () => {}),
+      Q.videos().then(
+        (v) => { setVideos(v); setVideosFailed(false); },
+        () => { setVideos(peek<NewsItem[]>("news:videos") ?? []); setVideosFailed(true); }
+      ),
     ]);
     setLoading(false);
   }, []);
@@ -87,9 +92,19 @@ export default function SpotlightPage() {
         </Button>
       </div>
 
+      {mode === "videos" && videosFailed && (videos?.length ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          YouTube's video feeds aren't responding right now, so these are the videos from last time.
+        </p>
+      ) : (
+        <Card role="status" className="p-10 text-center text-sm text-muted-foreground">
+          YouTube's video feeds aren't responding right now. That's on YouTube's side; Anchor tries again next time you open this page or press Refresh.
+        </Card>
+      ))}
+
       {filtered === null ? (
         <LoadingState />
-      ) : filtered.length === 0 ? (
+      ) : filtered.length === 0 && mode === "videos" && videosFailed ? null : filtered.length === 0 ? (
         <Card className="p-10 text-center text-sm text-muted-foreground">
           Nothing from {filter === ALL ? "these feeds" : filter} right now. Try Refresh.
         </Card>

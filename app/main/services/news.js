@@ -136,6 +136,9 @@ function videoFromEntry(e, source) {
   }];
 }
 
+// A channel that fails gives null, not []. When every channel fails (YouTube's
+// feed server goes down now and then), reject instead of returning an empty list,
+// so the cache keeps the last good videos and the page can say what happened.
 async function fetchVideos() {
   const results = await Promise.all(
     Object.entries(VIDEO_CHANNELS).map(async ([name, id]) => {
@@ -143,12 +146,14 @@ async function fetchVideos() {
         const res = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${id}`, {
           headers: UA, signal: AbortSignal.timeout(8000),
         });
+        if (!res.ok) return null;
         const doc = parser.parse(await res.text());
         return asArray(doc.feed?.entry).flatMap((e) => videoFromEntry(e, name));
-      } catch { return []; }
+      } catch { return null; }
     })
   );
-  return results.flat().sort((a, b) => b.published - a.published);
+  if (results.every((r) => r === null)) throw new Error("YouTube's video feeds aren't responding");
+  return results.flatMap((r) => r ?? []).sort((a, b) => b.published - a.published);
 }
 
 /// og:image backfill for articles whose feed shipped no image — reads only the
