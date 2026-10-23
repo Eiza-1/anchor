@@ -33,6 +33,75 @@
     }
   })();
 
+  /* ---------------- the ocean: light shafts and marine snow ---------------- */
+  // The page's focal motion. Particles drift slowly; scrolling down sends them
+  // rushing up past you, so scrolling feels like sinking. Light shafts sway near
+  // the surface and fade with depth; orange specks glow near the seabed.
+  const ocean = (() => {
+    const cv = $(".ocean"), api = { depth: 0, kick() {} };
+    if (!cv) return api;
+    const g = cv.getContext("2d");
+    let W = 0, H = 0, dpr = 1, vel = 0, running = false;
+    const parts = Array.from({ length: innerWidth < 720 ? 55 : 130 }, () => ({
+      x: Math.random(), y: Math.random(), z: 0.25 + Math.random() * 0.75, s: Math.random() * 6.28, glow: Math.random() < 0.2,
+    }));
+    function size() {
+      dpr = Math.min(1.5, devicePixelRatio || 1);   // soft specks need no more, and it halves raster cost on 4K
+      W = cv.width = innerWidth * dpr; H = cv.height = innerHeight * dpr;
+    }
+    function frame(ts) {
+      vel *= 0.9;
+      const d = api.depth;
+      g.clearRect(0, 0, W, H);
+      g.globalCompositeOperation = "lighter";
+      // light shafts from the surface
+      const rayA = Math.max(0, 1 - d / 0.4) * 0.11;
+      if (rayA > 0.002) {
+        for (let i = 0; i < 5; i++) {
+          const x = W * (0.1 + 0.2 * i) + Math.sin(ts / 5200 + i * 1.7) * 50 * dpr, w = (90 + i * 23 % 70) * dpr;
+          g.save(); g.translate(x, -40 * dpr); g.rotate(0.22 + Math.sin(ts / 7400 + i) * 0.035);
+          const lg = g.createLinearGradient(0, 0, 0, H * 0.95);
+          lg.addColorStop(0, `rgba(235,245,255,${rayA * 0.45 * (0.6 + 0.4 * Math.sin(ts / 3100 + i * 2.1))})`);
+          lg.addColorStop(1, "rgba(235,245,255,0)");
+          g.fillStyle = lg;
+          for (const k of [1, 0.62, 0.3]) g.fillRect((-w * k) / 2, 0, w * k, H * 0.95);   // stacked widths feather the edges
+          g.restore();
+        }
+      }
+      // marine snow
+      const glowA = Math.max(0, (d - 0.55) / 0.45);
+      for (const p of parts) {
+        p.y += 0.00018 * p.z - (vel * p.z * 0.6) / innerHeight;   // slow sink, plus parallax against the scroll
+        p.x += Math.sin(ts / 2600 + p.s) * 0.00008 * p.z;
+        if (p.y < -0.02) { p.y = 1.02; p.x = Math.random(); } else if (p.y > 1.02) { p.y = -0.02; p.x = Math.random(); }
+        const x = p.x * W, y = p.y * H, r = (0.5 + p.z * 1.5) * dpr;
+        if (p.glow && glowA > 0) {
+          const a = glowA * (0.35 + 0.35 * Math.sin(ts / 900 + p.s * 3));
+          g.fillStyle = `rgba(255,122,51,${a})`;
+          g.beginPath(); g.arc(x, y, r * 1.6, 0, 6.28); g.fill();
+        } else {
+          const a = 0.08 + 0.3 * p.z;
+          const streak = Math.min(34, Math.abs(vel) * p.z * 0.7) * dpr;
+          g.fillStyle = `rgba(230,238,248,${a})`;
+          g.strokeStyle = `rgba(230,238,248,${a * 0.55})`;   // streaks stay fainter than the specks
+          if (streak > 3) { g.lineWidth = r; g.lineCap = "round"; g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + streak * Math.sign(vel)); g.stroke(); }
+          else { g.beginPath(); g.arc(x, y, r, 0, 6.28); g.fill(); }
+        }
+      }
+      g.globalCompositeOperation = "source-over";
+      if (running) requestAnimationFrame(frame);
+    }
+    function play() { if (running || document.hidden) return; running = true; requestAnimationFrame(frame); }
+    size();
+    addEventListener("resize", size);
+    if (reduced) { requestAnimationFrame(frame); return api; }   // one still frame
+    document.addEventListener("visibilitychange", () => { if (document.hidden) running = false; else play(); });
+    play();
+    // jump scrolls (links, the drop) give a nudge, not a storm
+    api.kick = (dy) => { vel = Math.max(-45, Math.min(45, vel + Math.max(-60, Math.min(60, dy)) * 0.35)); };
+    return api;
+  })();
+
   /* ---------------- depth: gauge, chain, background ---------------- */
   const stops = C.depths;
   const sections = stops.map((s) => document.getElementById(s.id));
@@ -59,8 +128,12 @@
     tops = sections.map((s) => s.getBoundingClientRect().top + scrollY);
     docMax = Math.max(1, document.documentElement.scrollHeight - innerHeight);
   }
+  let lastY = scrollY, shownM = -1, shownMark = -1;
+  const progressBar = $(".progress span");
   function onScroll() {
     const y = scrollY, p = Math.min(1, y / docMax);
+    ocean.kick(y - lastY); lastY = y;
+    root.classList.toggle("scrolled", y > innerHeight * 0.55);
     // depth interpolates between section tops (measured at 40% of the viewport)
     const probe = y + innerHeight * 0.4;
     let i = 0;
@@ -70,12 +143,17 @@
     const k = i === next ? 0 : Math.min(1, Math.max(0, (probe - tops[i]) / span));
     depthM = p > 0.995 ? 1000 : Math.round(stops[i].m + (stops[next].m - stops[i].m) * k);
     const t = depthM / 1000;
-    root.style.setProperty("--bg", mix(t));
-    root.style.setProperty("--depth", t.toFixed(3));
-    root.style.setProperty("--p", p.toFixed(4));
-    gauge.style.setProperty("--gauge-p", t);
-    now.value = `${depthM.toLocaleString("en")} m`;
-    markLinks.forEach((a, j) => a.setAttribute("aria-current", j === i ? "true" : "false"));
+    // page-wide colour only changes when the depth moves a couple of metres
+    if (Math.abs(depthM - shownM) >= 2 || depthM === 0 || depthM === 1000) {
+      shownM = depthM;
+      root.style.setProperty("--bg", mix(t));
+      root.style.setProperty("--depth", t.toFixed(3));
+      gauge.style.setProperty("--gauge-p", t);
+      now.value = `${depthM.toLocaleString("en")} m`;
+    }
+    ocean.depth = t;
+    progressBar.style.setProperty("--p", p.toFixed(4));
+    if (i !== shownMark) { shownMark = i; markLinks.forEach((a, j) => a.setAttribute("aria-current", j === i ? "true" : "false")); }
     const h = Math.max(0, p * (innerHeight - 72 - 44));
     rope.setAttribute("height", h);
     chainAnchor.style.setProperty("--chain-y", `${h}px`);
@@ -274,7 +352,7 @@
       const on = sw.getAttribute("aria-checked") !== "true";
       sw.setAttribute("aria-checked", String(on));
       card.classList.toggle("is-on", on);
-      to.textContent = on ? m.after : m.before;
+      countTo(to, on ? m.after : m.before);
       $(".module__ticks", card).style.setProperty("--fill", on ? "88%" : "35%");
     });
     return card;
@@ -387,9 +465,26 @@
           el("div", { className: "app-row" }, el("div", {}, "Seagate HDD (example)", el("small", { textContent: "Healthy · 36 °C" })), ""))),
     ],
   };
+  // pages slide over (out fast, in with a soft landing); the tab marker glides to the new tab
+  let pageToken = 0;
+  const ind = el("span", { className: "win__ind", ariaHidden: "true" });
+  function moveIndicator() {
+    const b = $('button[aria-current="page"]', nav);
+    if (!b) return;
+    const row = getComputedStyle(nav).display === "flex";
+    ind.style.cssText = row
+      ? `width:${b.offsetWidth}px;height:${b.offsetHeight}px;transform:translate(${b.offsetLeft}px,${b.offsetTop}px)`
+      : `width:calc(100% - 16px);height:${b.offsetHeight}px;transform:translate(8px,${b.offsetTop}px)`;
+  }
   function showPage(id, focus) {
-    page.replaceChildren(...pages[id]());
+    const tok = ++pageToken, swap = () => { if (tok === pageToken) page.replaceChildren(...pages[id]()); };
     $$("button", nav).forEach((b) => (b.dataset.page === id ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current")));
+    moveIndicator();
+    if (reduced || !page.childElementCount) swap();
+    else page.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateX(-10px)" }], { duration: 130, easing: "cubic-bezier(.4,0,1,1)" }).finished.then(() => {
+      swap();
+      if (tok === pageToken) page.animate([{ opacity: 0, transform: "translateX(14px)" }, { opacity: 1, transform: "none" }], { duration: 340, easing: "cubic-bezier(.16,1,.3,1)" });
+    });
     if (focus) page.focus({ preventScroll: true });
   }
   D.nav.forEach((n) => {
@@ -399,7 +494,9 @@
     b.addEventListener("click", () => showPage(n.id, false));
     nav.append(b);
   });
+  nav.prepend(ind);
   showPage("home");
+  addEventListener("resize", moveIndicator);
   say(["Anchor demo ready. Nothing here touches your PC."]);
 
   // window controls
@@ -442,7 +539,12 @@
     return data;
   }
   const fmtDate = (s) => new Date(s).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-  const setStat = (k, v) => { const n = $(`[data-stat="${k}"]`); if (n) n.textContent = v; };
+  const setStat = (k, v) => {
+    const n = $(`[data-stat="${k}"]`);
+    if (!n) return;
+    if (n.closest(".in") || reduced) countTo(n, v, !["stars", "forks", "contributors"].includes(k));
+    else { n.dataset.pending = v; n.dataset.plain = String(!["stars", "forks", "contributors"].includes(k)); }
+  };
 
   gh("").then((r) => {
     setStat("stars", r.stargazers_count.toLocaleString("en"));
@@ -540,10 +642,10 @@
   /* ---------------- ambient sound (off by default) ---------------- */
   // An underwater soundscape generated in the browser: a deep current, slow swells,
   // a low hum and the odd stream of bubbles. Deeper = quieter and more muffled.
-  // If content.js sets music.src, that audio file plays instead.
+  // If content.js lists audio files in music.src, the first one the browser can play is used instead.
   var sound = (() => {
     const M = C.music, btn = $(".sound");
-    let ctx, master, muffle, bus, file = null, on = false, depthT = 0, bubbleTimer;
+    let ctx, master, muffle, bus, file = false, on = false, depthT = 0, bubbleTimer, sleepTimer;
     const vol = () => M.volume.surface + (M.volume.seabed - M.volume.surface) * depthT;
 
     function noise(kind) {
@@ -566,13 +668,22 @@
       master = ctx.createGain(); master.gain.value = 0;
       muffle = ctx.createBiquadFilter(); muffle.type = "lowpass"; muffle.frequency.value = 1400;
       muffle.connect(master).connect(ctx.destination);
-      if (M.src) {
-        file = new Audio(M.src); file.loop = true;
-        ctx.createMediaElementSource(file).connect(muffle);
+      const probe = document.createElement("audio");
+      const src = [].concat(M.src || []).find((f) => probe.canPlayType(f.endsWith(".webm") ? "audio/webm; codecs=opus" : f.endsWith(".m4a") ? "audio/mp4" : "audio/mpeg"));
+      if (src) {
+        // decoded into the graph so the loop repeats with no gap; generated sound if it fails
+        file = true;
+        fetch(src).then((r) => r.arrayBuffer()).then((b) => ctx.decodeAudioData(b)).then((buf) => {
+          const node = ctx.createBufferSource();
+          node.buffer = buf; node.loop = true; node.connect(muffle); node.start();
+        }).catch(() => { file = false; buildGenerated(); if (on) bubbles(); });
         return;
       }
+      buildGenerated();
+    }
+    function buildGenerated() {
       // a little space: a dark feedback echo
-      bus = ctx.createGain();
+      bus = ctx.createGain(); bus.gain.value = 0.5;   // level-matched to the audio file
       const delay = ctx.createDelay(1), fb = ctx.createGain(), dark = ctx.createBiquadFilter(), wet = ctx.createGain();
       delay.delayTime.value = 0.27; fb.gain.value = 0.38; dark.type = "lowpass"; dark.frequency.value = 900; wet.gain.value = 0.35;
       bus.connect(muffle); bus.connect(delay); delay.connect(dark).connect(fb).connect(delay); delay.connect(wet).connect(muffle);
@@ -621,13 +732,69 @@
       btn.setAttribute("aria-pressed", String(on));
       if (!ctx) build();
       await ctx.resume();
-      if (file) on ? file.play().catch(() => {}) : file.pause();
-      clearTimeout(bubbleTimer);
-      if (on) bubbles();
+      clearTimeout(bubbleTimer); clearTimeout(sleepTimer);
+      if (on && !file) bubbles();
       apply();
+      // after the fade-out, let the audio engine rest
+      if (!on) sleepTimer = setTimeout(() => { if (!on) ctx.suspend(); }, 3000);
     });
     return { depth(t) { depthT = t; if (ctx) apply(); } };
   })();
+
+  /* ---------------- motion: count-ups, reveals, pointer light ---------------- */
+  const EASE = (k) => 1 - Math.pow(1 - k, 4);
+  // Numbers roll from their current value to the new one; words cross-fade.
+  function countTo(node, text, plain) {
+    text = String(text);
+    const m = !plain && text.match(/^([^\d]*)([\d,]*\.?\d+)(.*)$/);
+    if (!m || reduced) {
+      node.textContent = text;
+      if (!reduced) node.animate([{ opacity: 0, transform: "translateY(0.3em)" }, { opacity: 1, transform: "none" }], { duration: 320, easing: "cubic-bezier(.16,1,.3,1)" });
+      return;
+    }
+    const [, pre, num, post] = m, dec = (num.split(".")[1] || "").length, commas = num.includes(",");
+    const target = parseFloat(num.replace(/,/g, ""));
+    const from = parseFloat((node.textContent.match(/[\d,]*\.?\d+/) || ["0"])[0].replace(/,/g, "")) || 0;
+    const start = performance.now(), dur = 750;
+    const fmt = (v) => (commas ? v.toLocaleString("en", { minimumFractionDigits: dec, maximumFractionDigits: dec }) : v.toFixed(dec));
+    const step = (now) => {
+      const k = Math.min(1, (now - start) / dur);
+      node.textContent = k < 1 ? pre + fmt(from + (target - from) * EASE(k)) + post : text;
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  // Sections surface as you reach them. Content is visible unless JS opts in (html.motion).
+  if (!reduced && "IntersectionObserver" in window) {
+    root.classList.add("motion");
+    const groups = [
+      [".layer__head"], [".sim__items .toggle-row", true], [".sim__readout"], [".module", true], [".safety"],
+      [".dock"], [".stats"], [".sonar"], [".term"], [".manifesto li", true], [".faq details", true], [".seabed__inner > *", true],
+    ];
+    const io = new IntersectionObserver((entries) => entries.forEach((e) => {
+      if (!e.isIntersecting) return;
+      e.target.classList.add("in");
+      io.unobserve(e.target);
+      $$("[data-pending]", e.target).forEach((n) => { countTo(n, n.dataset.pending, n.dataset.plain === "true"); delete n.dataset.pending; });
+    }), { threshold: 0.12, rootMargin: "0px 0px -6% 0px" });
+    groups.forEach(([sel, stagger]) => $$(sel).forEach((n, i) => {
+      n.classList.add("reveal");
+      if (stagger) n.style.setProperty("--i", i);
+      io.observe(n);
+    }));
+  } else {
+    $$("[data-pending]").forEach((n) => { n.textContent = n.dataset.pending; });
+  }
+
+  // a soft light follows the pointer across instrument panels
+  if (finePointer && !reduced) {
+    $$(".module, .sim__readout, .safety").forEach((p) => p.addEventListener("pointermove", (e) => {
+      const r = p.getBoundingClientRect();
+      p.style.setProperty("--px", `${e.clientX - r.left}px`);
+      p.style.setProperty("--py", `${e.clientY - r.top}px`);
+    }));
+  }
 
   /* ---------------- easter eggs ---------------- */
   // type "drop" anywhere: replay the anchor drop. Konami code: Windows 95.
@@ -654,8 +821,6 @@
       lenis.on("scroll", ScrollTrigger.update);
       gsap.ticker.add((t) => lenis.raf(t * 1000));
       gsap.ticker.lagSmoothing(0);
-      // gentle parallax: headings drift slower than the page
-      $$(".layer__head").forEach((h) => gsap.to(h, { yPercent: -12, ease: "none", scrollTrigger: { trigger: h.closest(".layer"), scrub: true } }));
     } else {
       const raf = (t) => { lenis.raf(t); requestAnimationFrame(raf); };
       requestAnimationFrame(raf);

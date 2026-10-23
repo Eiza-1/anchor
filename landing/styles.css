@@ -30,7 +30,9 @@
   --depth: 0;
   --gutter-l: max(16px, env(safe-area-inset-left, 0px));
   --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   color-scheme: dark;
+  interpolate-size: allow-keywords;
 }
 
 * { box-sizing: border-box; }
@@ -78,10 +80,12 @@ html { scrollbar-color: var(--steel-2) transparent; }
   transform: translate(var(--mx), var(--my));
   transition: background-color 0.2s, border-color 0.2s, box-shadow 0.25s, transform 0.25s cubic-bezier(.2,.8,.2,1);
 }
-.btn--primary { background: var(--buoy); color: var(--harbour); box-shadow: 0 10px 30px -10px var(--glow); }
-.btn--primary:hover { background: var(--flare); box-shadow: 0 14px 40px -8px var(--glow); }
+.btn--primary { position: relative; overflow: hidden; background: linear-gradient(180deg, var(--flare), var(--buoy) 60%); color: var(--harbour); box-shadow: inset 0 1px 0 rgba(255,255,255,.4), inset 0 -1px 0 rgba(0,0,0,.12), 0 10px 30px -10px var(--glow); }
+.btn--primary::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.38) 50%, transparent 70%); transform: translateX(-120%); transition: transform .8s var(--ease-out); pointer-events: none; }
+.btn--primary:hover { background: linear-gradient(180deg, #FF8A47, var(--flare) 60%); box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 16px 40px -10px var(--glow); }
+.btn--primary:hover::after { transform: translateX(120%); }
 .btn--primary:active { background: var(--ember); }
-.btn--ghost { border-color: rgba(247, 245, 242, 0.28); color: var(--foam); }
+.btn--ghost { border-color: rgba(247, 245, 242, 0.28); color: var(--foam); background: rgba(13, 19, 33, 0.25); backdrop-filter: blur(8px); }
 .btn--ghost:hover { border-color: var(--foam); background: rgba(247, 245, 242, 0.06); }
 .btn--drop {
   background: var(--foam); color: var(--harbour); min-height: 56px; padding: 0 30px; font-size: 1.08rem;
@@ -103,8 +107,11 @@ html { scrollbar-color: var(--steel-2) transparent; }
   display: flex; align-items: center; justify-content: space-between;
   padding: calc(14px + env(safe-area-inset-top, 0px)) calc(var(--gutter-r) + 8px) 14px calc(var(--gutter-l) + 52px);
   pointer-events: none;
+  border-bottom: 1px solid transparent;
+  transition: background-color .5s var(--ease-out), border-color .5s, backdrop-filter .5s;
 }
 .top > * { pointer-events: auto; }
+.scrolled .top { background: rgba(7, 11, 20, 0.55); backdrop-filter: blur(16px) saturate(1.3); border-bottom-color: var(--line); }
 .brand-lockup { height: 28px; width: auto; }
 .top__actions { display: flex; align-items: center; gap: 10px; }
 .top__gh {
@@ -403,6 +410,69 @@ main { position: relative; z-index: 1; }
 .cursor.is-hot { --cs: 1.7; background: rgba(255,90,31,.08); }
 .cursor-ping { position: fixed; z-index: 59; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; border: 1.5px solid var(--buoy); pointer-events: none; animation: cping .7s ease-out forwards; }
 @keyframes cping { from { transform: translate(var(--px), var(--py)) scale(.6); opacity: 1; } to { transform: translate(var(--px), var(--py)) scale(3); opacity: 0; } }
+
+/* ---------- atmosphere ---------- */
+.ocean { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+/* the edges darken as you go deeper */
+body::after { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none; background: radial-gradient(120% 90% at 50% 45%, transparent 55%, rgba(0, 0, 0, 0.55)); opacity: calc(0.25 + var(--depth) * 0.75); }
+/* a sounding line marks each change of depth */
+.layer + .layer::before {
+  content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: min(1180px, calc(100% - 32px)); height: 9px;
+  background: repeating-linear-gradient(90deg, rgba(169,180,198,.22) 0 1px, transparent 1px 48px) top / 100% 9px no-repeat,
+              linear-gradient(rgba(169,180,198,.2), rgba(169,180,198,.2)) top / 100% 1px no-repeat;
+  -webkit-mask: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+          mask: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+}
+/* panels: lit top edge and a soft drop into the dark */
+.module, .toggle-row, .sim__readout, .faq details, .term { box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 24px 60px -36px rgba(0,0,0,.7); }
+.win { box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 50px 120px -40px rgba(0,0,0,.8), 0 0 0 1px rgba(0,0,0,.4); }
+/* pointer light on instrument panels */
+.module::before, .sim__readout::before, .safety::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0;
+  background: radial-gradient(280px circle at var(--px, 50%) var(--py, -30%), rgba(255, 122, 51, 0.11), transparent 65%);
+  transition: opacity .4s var(--ease-out);
+}
+.sim__readout, .safety { position: relative; }
+.module:hover::before, .sim__readout:hover::before, .safety:hover::before { opacity: 1; }
+.module { transition: border-color .4s var(--ease-out), transform .5s var(--ease-out); }
+.module:hover { border-color: rgba(255, 122, 51, 0.32); }
+.module.is-on { border-color: rgba(255, 122, 51, 0.45); }
+.toggle-row:hover { border-color: rgba(169, 180, 198, 0.3); }
+/* caustic light rippling on the seabed */
+.bed { background:
+  radial-gradient(ellipse 70px 16px at 20% 78%, rgba(200,225,255,.06), transparent 70%),
+  radial-gradient(ellipse 90px 20px at 64% 84%, rgba(200,225,255,.05), transparent 70%),
+  radial-gradient(ellipse 60px 14px at 84% 72%, rgba(200,225,255,.05), transparent 70%);
+  background-size: 300px 120px, 380px 140px, 260px 110px;
+  animation: caustics 14s ease-in-out infinite alternate;
+  -webkit-mask: linear-gradient(transparent, #000 45%); mask: linear-gradient(transparent, #000 45%);
+}
+@keyframes caustics { to { background-position: 120px 10px, -160px -8px, 90px 14px; } }
+
+/* demo window: a marker that glides between tabs */
+.win__nav { position: relative; }
+.win__ind { position: absolute; left: 0; top: 0; border-radius: 6px; background: rgba(255,255,255,.08); pointer-events: none; transition: transform .45s var(--ease-out), width .45s var(--ease-out), height .45s var(--ease-out); }
+.win__ind::before { content: ""; position: absolute; left: -8px; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: var(--app-accent); }
+.win__nav button { position: relative; z-index: 1; }
+.win__nav button[aria-current="page"] { background: none; }
+.win__nav button[aria-current="page"]::before { content: none; }
+.app-btn, .app-row { transition: border-color .2s, background-color .2s, transform .2s var(--ease-out); }
+.app-btn:active { transform: scale(.97); }
+
+/* FAQ answers open and close smoothly where the browser supports it */
+.faq details::details-content { block-size: 0; overflow: hidden; transition: block-size .5s var(--ease-out), content-visibility .5s allow-discrete; }
+.faq details[open]::details-content { block-size: auto; }
+
+/* ---------- reveals (only when JS opts in with html.motion) ---------- */
+.motion .reveal { transition: opacity .9s var(--ease-out), transform .9s var(--ease-out), filter .9s var(--ease-out); transition-delay: calc(min(var(--i, 0), 6) * 70ms); }
+.motion .reveal:not(.in) { opacity: 0; transform: translate3d(0, 28px, 0); filter: blur(6px); }
+/* headings unveil top-down, like a waterline lowering */
+.motion .layer__head h2 { clip-path: inset(-10% -4% 105% -4%); transition: clip-path 1.1s var(--ease-out) .08s; }
+.motion .layer__head.in h2 { clip-path: inset(-10% -4% -25% -4%); }
+.motion .layer__head .depth-tag::before { transform: scaleX(0); transform-origin: left; transition: transform .9s var(--ease-out) .25s; }
+.motion .layer__head.in .depth-tag::before { transform: scaleX(1); }
+.motion .seabed__inner .depth-tag::before { transform-origin: center; }
 
 /* ---------- responsive ---------- */
 @media (max-width: 900px) {
