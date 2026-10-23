@@ -184,12 +184,53 @@
 
   /* ---------------- 0 m: junk and the drop ---------------- */
   const junk = $(".junk"), surface = $("#surface"), plunge = $(".plunge");
+  // Free-form app icons for the fake junk apps: each gets its own silhouette
+  // (cloud, flower, cog, blob) and a glyph drawn in one line style.
+  const SHAPES = {
+    cloud: '<circle cx="22" cy="22" r="15"/><circle cx="42" cy="22" r="15"/><circle cx="22" cy="42" r="15"/><circle cx="42" cy="42" r="15"/><rect x="18" y="18" width="28" height="28"/>',
+    flower8: Array.from({ length: 8 }, (_, i) => `<circle cx="${(32 + 17 * Math.cos(i * Math.PI / 4)).toFixed(1)}" cy="${(32 + 17 * Math.sin(i * Math.PI / 4)).toFixed(1)}" r="11"/>`).join("") + '<circle cx="32" cy="32" r="20"/>',
+    flower6: Array.from({ length: 6 }, (_, i) => `<circle cx="${(32 + 16 * Math.cos(i * Math.PI / 3 - Math.PI / 2)).toFixed(1)}" cy="${(32 + 16 * Math.sin(i * Math.PI / 3 - Math.PI / 2)).toFixed(1)}" r="13"/>`).join("") + '<circle cx="32" cy="32" r="18"/>',
+    cog: (() => {
+      const pts = [];
+      for (let i = 0; i < 20; i++) { const a = (i / 20) * Math.PI * 2, r = i % 2 ? 24 : 29.5; pts.push(`${(32 + r * Math.cos(a)).toFixed(1)},${(32 + r * Math.sin(a)).toFixed(1)}`); }
+      return `<polygon points="${pts.join(" ")}" stroke-width="5" stroke-linejoin="round"/>`;
+    })(),
+    blob: '<path d="M33 3c11 0 22 6 26 17s1 24-7 32-21 11-31 7S3 46 3 34 9 9 19 5c4-1.5 9-2 14-2z"/>',
+  };
+  const GLYPHS = {
+    gamepad: '<path d="M21 25h22a9 9 0 0 1 9 9v2.5a6.5 6.5 0 0 1-11.6 4L37 37H27l-3.4 3.5A6.5 6.5 0 0 1 12 36.5V34a9 9 0 0 1 9-9z"/><path d="M22 30.5v7M18.5 34h7"/><circle cx="39.5" cy="32" r="1.6" fill="#fff" stroke="none"/><circle cx="44" cy="35.5" r="1.6" fill="#fff" stroke="none"/>',
+    rocket: '<path d="M32 14c6.5 4.5 9.5 11.5 9.5 19l-4 6.5h-11l-4-6.5c0-7.5 3-14.5 9.5-19z"/><circle cx="32" cy="28" r="3.2"/><path d="M26.5 39.5 22 45M37.5 39.5 42 45M29.5 44.5q2.5 5.5 2.5 5.5t2.5-5.5"/>',
+    sync: '<path d="M21.5 30a11 11 0 0 1 19.5-6.5l3 3"/><path d="M44 20.5v6.5h-6.5"/><path d="M42.5 34a11 11 0 0 1-19.5 6.5l-3-3"/><path d="M20 43.5V37h6.5"/>',
+    terminal: '<path d="M22 24.5l7.5 7.5-7.5 7.5"/><path d="M33 40.5h10"/>',
+    update: '<path d="M32 17v19"/><path d="M24.5 29.5 32 37l7.5-7.5"/><path d="M19.5 41v3.5a3.5 3.5 0 0 0 3.5 3.5h18a3.5 3.5 0 0 0 3.5-3.5V41"/>',
+  };
+  const ICONS = {
+    gamepad: { shape: "cloud", from: "#8B6CFF", to: "#4B2BD6" },
+    rocket: { shape: "flower8", from: "#FF6FA3", to: "#E2366B" },
+    sync: { shape: "blob", from: "#3FD3C1", to: "#0F8E9E" },
+    terminal: { shape: "cog", from: "#6E7B8F", to: "#2D3646" },
+    update: { shape: "flower6", from: "#5AA9FF", to: "#2563EB" },
+  };
+  function iconSvg(name, badge, id) {
+    const ic = ICONS[name];
+    return `<svg class="junk__icon" viewBox="0 0 64 64" aria-hidden="true"><defs>
+      <linearGradient id="jg${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${ic.from}"/><stop offset="1" stop-color="${ic.to}"/></linearGradient>
+      <radialGradient id="jh${id}" cx=".3" cy=".22" r=".75"><stop offset="0" stop-color="#fff" stop-opacity=".42"/><stop offset=".6" stop-color="#fff" stop-opacity="0"/></radialGradient>
+      <clipPath id="jc${id}">${SHAPES[ic.shape]}</clipPath></defs>
+      <g fill="url(#jg${id})" stroke="url(#jg${id})">${SHAPES[ic.shape]}</g>
+      <rect width="64" height="64" fill="url(#jh${id})" clip-path="url(#jc${id})"/>
+      <g fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">${GLYPHS[name]}</g>
+      ${badge ? `<circle cx="52" cy="12" r="9" fill="#E5322D" stroke="#fff" stroke-width="2"/><text x="52" y="16" text-anchor="middle" font-size="11" font-weight="700" fill="#fff" font-family="Segoe UI, system-ui, sans-serif">${badge}</text>` : ""}
+    </svg>`;
+  }
+
   // Junk is placed by measuring: never over the headline, copy, buttons, header
   // or depth gauge, and never over another piece. A piece that doesn't fit is hidden.
-  const junkItems = C.hero.junk.map((j) => {
+  const junkItems = C.hero.junk.map((j, idx) => {
     const n = el("div", { className: `junk__item junk__${j.kind}` });
     if (j.kind === "toast") n.append(el("b", { textContent: j.text }), j.detail);
     else if (j.kind === "scare") n.append(j.text, el("small", { textContent: j.detail }));
+    else if (j.kind === "tile" && j.icon) { n.innerHTML = iconSvg(j.icon, j.badge, idx); n.append(el("span", { textContent: j.text })); }
     else n.textContent = j.text;
     junk.append(n);
     return n;
@@ -198,7 +239,7 @@
     let seed = 7;
     const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
     const box = surface.getBoundingClientRect(), W = box.width, H = box.height;
-    const DRIFT = 22;   // drift animation reach, kept as clearance
+    const DRIFT = 22;   // room for the idle bob and a nudge
     const rel = (r, pad) => ({ x0: r.left - box.left - pad, y0: r.top - box.top - pad, x1: r.right - box.left + pad, y1: r.bottom - box.top + pad });
     const blocked = $$(".surface__title, .surface__sub, .surface__cta").map((n) => rel(n.getBoundingClientRect(), 28));
     blocked.push({ x0: 0, y0: 0, x1: W, y1: 84 });                               // header
@@ -217,9 +258,107 @@
       }
       if (!spot) { n.hidden = true; return; }
       placed.push(spot.r);
-      n.style.cssText = `--x:${spot.x.toFixed(0)}px;--y:${spot.y.toFixed(0)}px;--r:${(rnd() * 6 - 3).toFixed(1)}deg;--dx:${(rnd() * 30 - 15).toFixed(0)}px;--dy:${(rnd() * 24 - 12).toFixed(0)}px;--dur:${(5 + rnd() * 5).toFixed(1)}s;--delay:-${(rnd() * 5).toFixed(1)}s;--sx:${(rnd() * 200 - 100).toFixed(0)}px;--sr:${(rnd() * 90 - 45).toFixed(0)}deg;--h:${Math.round(rnd() * 360)};transition-delay:${(rnd() * 0.25).toFixed(2)}s`;
+      n.style.cssText = `--x:${spot.x.toFixed(0)}px;--y:${spot.y.toFixed(0)}px`;
     });
+    physics.reset();
   }
+
+  /* Junk physics: every visible piece is a body on a spring anchored at its spot.
+     It bobs gently; the cursor pushes pieces away and the one under it lifts;
+     pieces can be grabbed and flung; they shove each other apart instead of
+     overlapping; on "Drop anchor" they sink under gravity, tumbling. */
+  const physics = (() => {
+    let bodies = [], running = false, sinking = false, last = 0, t = 0;
+    let px = -1e4, py = -1e4, held = null;
+    const K = 26, DAMP = 6.5, REPEL_R = 170, REPEL = 5200, GRAV = 2200;
+    function reset() {
+      sinking = false; held = null;
+      bodies = junkItems.filter((n) => !n.hidden).map((n, i) => {
+        const prev = bodies.find((b) => b.el === n);
+        return {
+          el: n, rx: n.offsetLeft, ry: n.offsetTop, w: n.offsetWidth, h: n.offsetHeight,
+          x: prev ? prev.x : 0, y: prev ? prev.y : 0, vx: 0, vy: 0, rot: (i % 5) - 2, vr: 0, base: (i % 5) - 2,
+          s: 1, phase: i * 1.7, op: 1,
+        };
+      });
+      bodies.forEach((b) => { b.el.style.opacity = ""; draw(b); });
+      if (!reduced) start();
+    }
+    const draw = (b) => { b.el.style.transform = `translate3d(${b.x.toFixed(2)}px,${b.y.toFixed(2)}px,0) rotate(${b.rot.toFixed(2)}deg) scale(${b.s.toFixed(3)})`; };
+    function step(now) {
+      const dt = Math.min(1 / 30, (now - last) / 1000 || 0); last = now; t += dt;
+      const box = surface.getBoundingClientRect(), mx = px - box.left, my = py - box.top;
+      for (const b of bodies) {
+        const cx = b.rx + b.x + b.w / 2, cy = b.ry + b.y + b.h / 2;
+        let ax = 0, ay = 0;
+        if (sinking) {
+          ay = GRAV * (0.6 + (b.phase % 1)); ax = -b.vx * 0.6; b.vr += (b.phase % 2 > 1 ? 120 : -120) * dt;
+          b.op = Math.max(0, b.op - dt * 0.9); b.el.style.opacity = b.op.toFixed(3);
+        } else if (b === held) {
+          const tx = mx - b.gx - b.rx, ty = my - b.gy - b.ry;
+          b.vx = (tx - b.x) / Math.max(dt, 0.001); b.vy = (ty - b.y) / Math.max(dt, 0.001);
+          b.x = tx; b.y = ty;
+        } else {
+          // spring home to a slowly bobbing anchor
+          const hx = Math.sin(t * 0.7 + b.phase) * 9, hy = Math.cos(t * 0.55 + b.phase) * 7;
+          ax = -K * (b.x - hx) - DAMP * b.vx;
+          ay = -K * (b.y - hy) - DAMP * b.vy;
+          // the cursor pushes pieces away
+          const dx = cx - mx, dy = cy - my, d = Math.hypot(dx, dy) || 1;
+          if (d < REPEL_R) { const f = REPEL * (1 - d / REPEL_R) ** 2; ax += (dx / d) * f; ay += (dy / d) * f; }
+        }
+        if (b !== held) { b.vx += ax * dt; b.vy += ay * dt; b.x += b.vx * dt; b.y += b.vy * dt; }
+        // lean into the motion, settle back to a resting tilt
+        if (!sinking) b.vr += (-(b.rot - (b.base + b.vx * 0.02)) * 30 - b.vr * 7) * dt;
+        b.rot += b.vr * dt;
+        const over = mx > b.rx + b.x && mx < b.rx + b.x + b.w && my > b.ry + b.y && my < b.ry + b.y + b.h;
+        b.s += (((over || b === held) && !sinking ? 1.08 : 1) - b.s) * Math.min(1, dt * 12);
+      }
+      // pieces shove each other apart (soft circles)
+      if (!sinking) for (let i = 0; i < bodies.length; i++) for (let j = i + 1; j < bodies.length; j++) {
+        const a = bodies[i], c = bodies[j];
+        const dx = (c.rx + c.x + c.w / 2) - (a.rx + a.x + a.w / 2), dy = (c.ry + c.y + c.h / 2) - (a.ry + a.y + a.h / 2);
+        const min = (Math.max(a.w, a.h) + Math.max(c.w, c.h)) * 0.38, d = Math.hypot(dx, dy) || 1;
+        if (d < min) {
+          const push = (min - d) * 0.5, ux = dx / d, uy = dy / d;
+          if (a !== held) { a.x -= ux * push; a.y -= uy * push; a.vx -= ux * push * 8; a.vy -= uy * push * 8; }
+          if (c !== held) { c.x += ux * push; c.y += uy * push; c.vx += ux * push * 8; c.vy += uy * push * 8; }
+        }
+      }
+      bodies.forEach(draw);
+      if (sinking && bodies.every((b) => b.op <= 0)) running = false;
+      if (running) requestAnimationFrame(step);
+    }
+    function start() { if (!running && !document.hidden) { running = true; last = performance.now(); requestAnimationFrame(step); } }
+    addEventListener("pointermove", (e) => { px = e.clientX; py = e.clientY; }, { passive: true });
+    document.addEventListener("pointerleave", () => { px = py = -1e4; });
+    junk.addEventListener("pointerdown", (e) => {
+      const b = bodies.find((k) => k.el.contains(e.target));
+      if (!b || reduced || sinking) return;
+      const box = surface.getBoundingClientRect();
+      held = b; b.gx = e.clientX - box.left - b.rx - b.x; b.gy = e.clientY - box.top - b.ry - b.y;
+      px = e.clientX; py = e.clientY;
+      b.el.setPointerCapture(e.pointerId); b.el.classList.add("is-held");
+      e.preventDefault();
+    });
+    const release = () => { if (held) { held.el.classList.remove("is-held"); held = null; } };
+    addEventListener("pointerup", release); addEventListener("pointercancel", release);
+    if (!reduced) {
+      new IntersectionObserver(([e]) => { if (e.isIntersecting) start(); else running = sinking ? running : false; }).observe(surface);
+      document.addEventListener("visibilitychange", () => { if (!document.hidden) start(); });
+    }
+    return {
+      reset,
+      sink() {
+        if (reduced) { junk.classList.add("is-sinking"); return; }
+        sinking = true; held = null;
+        bodies.forEach((b) => { b.vx = (Math.random() - 0.5) * 300; b.vy = -120 - Math.random() * 160; });
+        start();
+      },
+      surface() { junk.classList.remove("is-sinking"); reset(); },
+    };
+  })();
+
   layoutJunk();
   document.fonts?.ready.then(layoutJunk);
   let junkTimer;
@@ -237,7 +376,7 @@
       );
       surface.animate([{ transform: "translateY(0)" }, { transform: "translateY(5px)" }, { transform: "translateY(0)" }], { duration: 300, delay: 420 });
     }
-    junk.classList.add("is-sinking");
+    physics.sink();
     surface.classList.add("is-calm");
     await sleep(reduced ? 0 : 1100);
     plunge.style.opacity = "0";
@@ -245,7 +384,7 @@
     dropping = false;
   }
   async function replayDrop() {
-    junk.classList.remove("is-sinking");
+    physics.surface();
     surface.classList.remove("is-calm");
     plunge.getAnimations().forEach((a) => a.cancel());
     if (lenis) lenis.scrollTo(0, { immediate: true }); else scrollTo(0, 0);
