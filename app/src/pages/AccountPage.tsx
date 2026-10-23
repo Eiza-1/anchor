@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
-import { LogIn, LogOut, Mail, Pencil, UserRound } from "lucide-react";
+import { LogIn, LogOut, Mail, Pencil, ShieldCheck, UserRound } from "lucide-react";
 import {
-  Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label, Switch,
+  Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label, PageTitle, Select, Switch,
 } from "@/components/ui";
-import { Palette } from "lucide-react";
+import { ImageIcon, Palette, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { applyTheme, THEMES } from "@/lib/store";
+import { applyTheme, peek, runRestorePoint, THEMES } from "@/lib/store";
+import { refreshBackground, useBackground } from "@/lib/background";
+import { useBlockedBy, useTask } from "@/lib/tasks";
+import { Q } from "@/lib/queries";
+import { setReduceMotion, useReduceMotion } from "@/lib/motion";
 import { displayNameOf, greetingFor } from "@/lib/utils";
 import type { Profile } from "@/types";
 
@@ -127,15 +131,15 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 py-6">
-      <h1 className="text-3xl font-semibold tracking-tight">{greeting}</h1>
+    <div className="page-column space-y-6 py-6">
+      <PageTitle>{greeting}</PageTitle>
 
       {signedIn ? (
         <>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <UserRound className="size-4 text-sky-500" /> Signed in
+                <UserRound className="size-4 text-primary" /> Signed in
               </CardTitle>
               <CardDescription>
                 Your details are stored only on this PC and used for greetings and the mail preferences below.
@@ -158,7 +162,7 @@ export default function AccountPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Pencil className="size-4 text-sky-500" /> What should Anchor call you?
+                <Pencil className="size-4 text-primary" /> What should Anchor call you?
               </CardTitle>
               <CardDescription>
                 {p.displayName
@@ -228,7 +232,7 @@ export default function AccountPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Mail className="size-4 text-sky-500" /> Or use your email
+                <Mail className="size-4 text-primary" /> Or use your email
               </CardTitle>
               <CardDescription>
                 No account with those services? We'll email you a one-time code — no password to
@@ -283,11 +287,13 @@ export default function AccountPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Palette className="size-4 text-sky-500" /> Appearance
+            <Palette className="size-4 text-primary" /> Appearance
           </CardTitle>
-          <CardDescription>Dark is the default. Pick whichever is easiest on your eyes.</CardDescription>
+          <CardDescription>
+            Dark is the default. Pick whichever is easiest on your eyes. Each theme comes with its own background picture, or use one of yours.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {THEMES.map((t) => (
               <button
@@ -297,11 +303,11 @@ export default function AccountPage() {
                   await persist({ theme: t.id });
                 }}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-accent",
-                  (p.theme ?? "dark") === t.id && "border-primary ring-1 ring-primary"
+                  "glass cut-corner rounded-lg flex items-center gap-3 p-3 text-left transition-[transform,background-color,box-shadow] duration-spring ease-spring hover:-translate-y-px hover:bg-accent/70",
+                  (p.theme ?? "dark") === t.id && "shadow-[inset_0_0_0_1.5px_hsl(var(--primary)),0_0_18px_-4px_hsl(var(--primary)/0.6)]"
                 )}
               >
-                <span className="flex shrink-0 overflow-hidden rounded-md border">
+                <span className="flex shrink-0 overflow-hidden rounded-md ring-1 ring-foreground/15">
                   {t.swatch.map((c) => (
                     <span key={c} className="size-4" style={{ background: c }} />
                   ))}
@@ -313,13 +319,23 @@ export default function AccountPage() {
               </button>
             ))}
           </div>
+          <BackgroundPicker />
+          <ReduceMotionToggle />
+          <Toggle
+            label="Seasonal logos"
+            hint="Anchor's logo dresses up for Halloween, in the app and on the taskbar"
+            checked={p.seasonalLogos ?? true}
+            onChange={(v) => persist({ seasonalLogos: v })}
+          />
         </CardContent>
       </Card>
+
+      <RestorePoints initialPolicy={p.restorePolicy ?? "weekly"} />
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Mail className="size-4 text-sky-500" /> Email updates
+            <Mail className="size-4 text-primary" /> Email updates
           </CardTitle>
           <CardDescription>
             {signedIn
@@ -376,6 +392,135 @@ function Toggle({
         {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
       </div>
       <Switch checked={checked} onCheckedChange={onChange} disabled={disabled} />
+    </div>
+  );
+}
+
+/** Off by default: Anchor animates even when Windows' "Animation effects" is off. */
+function ReduceMotionToggle() {
+  const on = useReduceMotion();
+  return (
+    <Toggle
+      label="Reduce animations"
+      hint="Turns off Anchor's springs, slides and pulses. Anchor ignores Windows' animation setting, so use this instead."
+      checked={on}
+      onChange={setReduceMotion}
+    />
+  );
+}
+
+function describeAge(days: number) {
+  if (days > 9000) return "none found";
+  if (days < 1) return "earlier today";
+  const d = Math.round(days);
+  return `${d} day${d === 1 ? "" : "s"} ago`;
+}
+
+function RestorePoints({ initialPolicy }: { initialPolicy: string }) {
+  const [policy, setPolicy] = useState(initialPolicy);
+  const [last, setLast] = useState(() => {
+    const l = peek<{ days: number }>("restore:last");
+    return l ? describeAge(l.days) : "";
+  });
+  const task = useTask<{ ok: boolean; message: string }>("restore:create");
+  const blocker = useBlockedBy("restore");
+  const creating = task?.status === "running";
+  const blockedMsg = blocker && blocker.key !== "restore:create" ? `${blocker.label} is already running` : undefined;
+  const msg = creating ? "Creating restore point…" : task?.result?.message ?? task?.error ?? "";
+
+  useEffect(() => { Q.lastRestorePoint().then((l) => setLast(describeAge(l.days)), () => {}); }, [task?.finishedAt]);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <ShieldCheck className="size-4 text-emerald-500" /> Restore points
+        </CardTitle>
+        <CardDescription>
+          Created before changes that are hard to undo, such as removing apps or editing the registry. Windows deletes
+          the oldest to make room, so Anchor doesn't make one for every change.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <Select
+            className="w-48"
+            value={policy}
+            onChange={async (e) => {
+              setPolicy(e.target.value);
+              await window.anchor.saveProfile({ restorePolicy: e.target.value as "weekly" | "monthly" | "always" });
+            }}
+          >
+            <option value="weekly">At most weekly</option>
+            <option value="monthly">At most monthly</option>
+            <option value="always">Before every change</option>
+          </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            loading={creating}
+            disabled={!!blockedMsg}
+            title={blockedMsg}
+            onClick={() => { runRestorePoint("Anchor manual restore point"); }}
+          >
+            Create one now
+          </Button>
+        </div>
+        {last && <p className="text-xs text-muted-foreground">Most recent restore point: {last}</p>}
+        {blockedMsg && <p className="text-xs text-muted-foreground">{blockedMsg}</p>}
+        {msg && <p className="text-xs text-muted-foreground">{msg}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** "Use my own picture…" / "Reset to theme picture", under the theme swatches. */
+function BackgroundPicker() {
+  const { custom } = useBackground();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function pick() {
+    setBusy(true);
+    setError("");
+    try {
+      const r = await window.anchor.pickBackground();
+      if (r.ok) await refreshBackground();
+      else if (r.message && r.message !== "Cancelled.") setError(r.message);
+    } catch (e) {
+      setError(`Couldn't set that picture: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reset() {
+    setBusy(true);
+    setError("");
+    try {
+      await window.anchor.resetBackground();
+      await refreshBackground();
+    } catch (e) {
+      setError(`Couldn't reset the picture: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="outline" disabled={busy} onClick={pick}>
+          <ImageIcon /> Use my own picture…
+        </Button>
+        {custom && (
+          <Button size="sm" variant="ghost" disabled={busy} onClick={reset}>
+            <RotateCcw /> Reset to theme picture
+          </Button>
+        )}
+        <span className="text-xs text-muted-foreground">PNG, JPG or WebP, up to 15 MB.</span>
+      </div>
+      {error && <p role="alert" className="text-xs text-red-400">{error}</p>}
     </div>
   );
 }

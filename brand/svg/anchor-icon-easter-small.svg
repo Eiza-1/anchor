@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+<defs>
+    <linearGradient id="easters-bg" x1="0.15" y1="0" x2="0.85" y2="1"><stop offset="0" stop-color="#A9E4C1"/><stop offset="0.5" stop-color="#7FD1AE"/><stop offset="1" stop-color="#4DB38C"/></linearGradient>
+    <radialGradient id="easters-glow" cx="0.28" cy="0.12" r="0.75"><stop offset="0" stop-color="#fff" stop-opacity="0.2"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#easters-bg)"/>
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#easters-glow)"/>
+  <g transform="translate(182 182) scale(6.6)"><g>
+      <clipPath id="anchor-egg-clip"><path d="M50 2.5C60.53 2.5 63.5 20.5 63.5 23.5C63.5 30.5 57.42 36.5 50 36.5C42.58 36.5 36.5 30.5 36.5 23.5C36.5 20.5 39.47 2.5 50 2.5Z"/></clipPath>
+      <path d="M50 2.5C60.53 2.5 63.5 20.5 63.5 23.5C63.5 30.5 57.42 36.5 50 36.5C42.58 36.5 36.5 30.5 36.5 23.5C36.5 20.5 39.47 2.5 50 2.5Z" fill="#FFD66B"/>
+      <g clip-path="url(#anchor-egg-clip)">
+        <rect x="35" y="13.5" width="30" height="4" fill="#7FD1AE"/>
+        <polyline points="36 19.7 40 23.3 44 19.7 48 23.3 52 19.7 56 23.3 60 19.7 64 23.3" fill="none" stroke="#FF7AA8" stroke-width="2.6" stroke-linejoin="round"/>
+        <circle cx="45" cy="29" r="1.7" fill="#8B7CF6"/><circle cx="50" cy="30" r="1.7" fill="#8B7CF6"/><circle cx="55" cy="29" r="1.7" fill="#8B7CF6"/>
+      </g>
+      <path d="M50 2.5C60.53 2.5 63.5 20.5 63.5 23.5C63.5 30.5 57.42 36.5 50 36.5C42.58 36.5 36.5 30.5 36.5 23.5C36.5 20.5 39.47 2.5 50 2.5Z" fill="none" stroke="#FFFFFF" stroke-width="2.6"/>
+    </g>
+  <rect x="43" y="41.75" width="14" height="50" rx="7" fill="#FFFFFF"/>
+  <path d="M7.53 57.73A42.5 42.5 0 0 0 92.47 57.73L78.48 57.24A28.5 28.5 0 0 1 21.52 57.24Z" fill="#FFFFFF"/></g>
+</svg>

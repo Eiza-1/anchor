@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle, Clock, Eye, FileWarning, RefreshCw, ShieldAlert, ShieldCheck, Terminal,
 } from "lucide-react";
@@ -7,7 +7,9 @@ import {
   Dialog, Skeleton, Switch,
 } from "@/components/ui";
 import { cn } from "@/lib/utils";
-import { cached, ensureRestorePoint, invalidate, peek } from "@/lib/store";
+import { ensureRestorePoint, invalidate, peek } from "@/lib/store";
+import { Q } from "@/lib/queries";
+import { runTask, useBlockedBy, useTask } from "@/lib/tasks";
 import type { BootFinding, BootProcessEvent } from "@/types";
 
 const LEVEL_BADGE = { high: "destructive", medium: "warning", low: "secondary" } as const;
@@ -20,7 +22,6 @@ export default function BootWatchPage() {
   const [scanning, setScanning] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [confirm, setConfirm] = useState<BootFinding | null>(null);
-  const [msg, setMsg] = useState("");
 
   useEffect(() => {
     window.anchor.bootStatus().then((s) => setEnabled(s.enabled));
@@ -31,36 +32,39 @@ export default function BootWatchPage() {
   async function scan(force = false) {
     setScanning(true);
     if (force) invalidate("boot:scan");
-    setFindings(await cached("boot:scan", 120_000, () => window.anchor.bootScan()));
-    setScanning(false);
+    try { setFindings(await Q.bootScan()); } finally { setScanning(false); }
   }
 
-  async function disable(f: BootFinding) {
+  function disable(f: BootFinding) {
     setConfirm(null);
-    setMsg(`Disabling ${f.name}…`);
-    await ensureRestorePoint("Anchor disabled a startup item");
-    const r = await window.anchor.bootDisable(f.id);
-    setMsg(r.ok ? `${f.name} disabled. It will no longer run at startup.` : `Couldn't disable it: ${r.error}`);
-    scan(true);
+    runTask(
+      `boot:disable:${f.id}`,
+      {
+        label: "Boot Watch",
+        where: { section: "startup", tab: "bootwatch" },
+        group: "change",
+        isError: (r: { ok: boolean; error: string }) => (r.ok ? null : r.error || "Couldn't disable it"),
+        summarize: () => `${f.name} disabled`,
+      },
+      async () => {
+        await ensureRestorePoint("Anchor disabled a startup item");
+        const r = await window.anchor.bootDisable(f.id);
+        invalidate("boot:scan"); // stale now, even if this page is closed
+        return r;
+      },
+    );
   }
 
   const suspicious = (findings ?? []).filter((f) => f.level !== "low");
   const shown = showAll ? findings ?? [] : suspicious;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 py-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Boot Watch</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Seen a black console window flash for a split second after logging in? Windows won't tell you what it was.
-          Anchor finds everything set to run at startup, explains why each one runs, and flags the ones that look wrong.
-        </p>
-      </div>
+    <div className="page-column space-y-6 py-6">
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Eye className="size-4 text-sky-500" /> Watch every startup
+            <Eye className="size-4 text-primary" /> Watch every startup
           </CardTitle>
           <CardDescription>
             Anchor starts with Windows in the background, records what runs, and notifies you if something suspicious
@@ -95,7 +99,7 @@ export default function BootWatchPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             {events.map((e, i) => (
-              <div key={`${e.pid}-${e.time}-${i}`} className="rounded-lg border p-3">
+              <div key={`${e.pid}-${e.time}-${i}`} className="glass cut-corner rounded-lg p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={LEVEL_BADGE[e.level]}>{LEVEL_LABEL[e.level]}</Badge>
                   <span className="text-sm font-medium">{e.name}</span>
@@ -104,7 +108,7 @@ export default function BootWatchPage() {
                   </span>
                 </div>
                 {e.command && (
-                  <p className="mt-1.5 break-all rounded bg-secondary/60 p-2 font-mono text-xs text-muted-foreground">
+                  <p className="mt-1.5 break-all rounded bg-foreground/[0.07] p-2 font-mono text-xs text-muted-foreground">
                     {e.command}
                   </p>
                 )}
@@ -143,7 +147,6 @@ export default function BootWatchPage() {
             <Button variant="ghost" size="sm" onClick={() => setShowAll((v) => !v)}>
               {showAll ? "Show only flagged" : `Show all (${findings?.length ?? 0})`}
             </Button>
-            {msg && <span className="text-xs text-muted-foreground">{msg}</span>}
           </div>
 
           {findings === null ? (
@@ -157,9 +160,9 @@ export default function BootWatchPage() {
               <div
                 key={f.id}
                 className={cn(
-                  "space-y-2 rounded-lg border p-3",
-                  f.level === "high" && "border-red-500/40 bg-red-500/5",
-                  f.level === "medium" && "border-amber-500/40 bg-amber-500/5"
+                  "glass cut-corner rounded-lg space-y-2 p-3",
+                  f.level === "high" && "bg-red-500/10",
+                  f.level === "medium" && "bg-amber-500/10"
                 )}
               >
                 <div className="flex flex-wrap items-center gap-2">
@@ -180,7 +183,7 @@ export default function BootWatchPage() {
                 </div>
 
                 {f.command && (
-                  <p className="break-all rounded bg-secondary/60 p-2 font-mono text-xs text-muted-foreground">
+                  <p className="break-all rounded bg-foreground/[0.07] p-2 font-mono text-xs text-muted-foreground">
                     {f.command}
                   </p>
                 )}
@@ -199,11 +202,7 @@ export default function BootWatchPage() {
                   </div>
                 )}
 
-                {f.enabled && (
-                  <Button size="sm" variant="outline" onClick={() => setConfirm(f)}>
-                    Stop this running at startup
-                  </Button>
-                )}
+                <DisableControl f={f} onAsk={() => setConfirm(f)} onFinished={() => scan(true)} />
               </div>
             ))
           )}
@@ -232,6 +231,40 @@ export default function BootWatchPage() {
           <p className="break-all font-mono text-xs text-muted-foreground">{confirm.command}</p>
         )}
       </Dialog>
+    </div>
+  );
+}
+
+function DisableControl({ f, onAsk, onFinished }: { f: BootFinding; onAsk: () => void; onFinished: () => void }) {
+  const task = useTask<{ ok: boolean; error: string }>(`boot:disable:${f.id}`);
+  const blocker = useBlockedBy("change");
+  const running = task?.status === "running";
+  const blockedMsg = blocker ? `${blocker.label} is already running` : undefined;
+
+  // a finished disable refreshes the list (skipped on first mount: the page scans itself)
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    if (task && task.status !== "running") onFinished();
+  }, [task?.finishedAt]);
+
+  const msg = running
+    ? `Disabling ${f.name}…`
+    : task?.status === "done"
+    ? `${f.name} disabled. It will no longer run at startup.`
+    : task?.status === "error"
+    ? `Couldn't disable it: ${task.error}`
+    : "";
+
+  return (
+    <div className="space-y-1">
+      {f.enabled && (
+        <Button size="sm" variant="outline" onClick={onAsk} loading={running} disabled={!!blockedMsg} title={blockedMsg}>
+          Stop this running at startup
+        </Button>
+      )}
+      {blockedMsg && f.enabled && <p className="text-xs text-muted-foreground">{blockedMsg}</p>}
+      {msg && <p className="text-xs text-muted-foreground">{msg}</p>}
     </div>
   );
 }

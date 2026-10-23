@@ -21,6 +21,10 @@ const DEFAULTS = {
   // Start with Windows and watch what else starts (see services/bootwatch.js)
   bootWatch: false,
   theme: "dark",
+  // Dress the logo up for Halloween (see services/season.js).
+  seasonalLogos: true,
+  // Your own background picture, copied into userData (e.g. "background.jpg"); "" = theme picture.
+  background: "",
   // Supabase session, kept so mail preferences can be saved to your account.
   userId: "",
   accessToken: "",

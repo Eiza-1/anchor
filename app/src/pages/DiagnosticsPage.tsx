@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle, Clock, Cpu, Droplets, FileWarning, Play, RefreshCw, Stethoscope, Wrench,
 } from "lucide-react";
@@ -9,8 +9,10 @@ import {
 import { cn, formatBytes } from "@/lib/utils";
 import { cpuHogs, findLeaks, uptimeAdvice, type ProcSample, type SystemState } from "@/lib/diagnose";
 import {
-  cached, clearLeakHistory, ensureRestorePoint, invalidate, peek, startLeakWatch, useProcHistory,
+  clearLeakHistory, ensureRestorePoint, invalidate, peek, startLeakWatch, useProcHistory,
 } from "@/lib/store";
+import { Q } from "@/lib/queries";
+import { runTask, useBlockedBy, useRunningKeyWith, useTask } from "@/lib/tasks";
 
 type Repair = { id: string; name: string; detail: string; minutes: string };
 type ErrorGroups = { total: number; groups: { source: string; count: number; latest: string; sample: string }[] };
@@ -19,27 +21,20 @@ export default function DiagnosticsPage() {
   const history = useProcHistory();
   const [state, setState] = useState<SystemState | null>(peek<SystemState>("diag:state") ?? null);
   const [errors, setErrors] = useState<ErrorGroups | null>(peek<ErrorGroups>("diag:errors") ?? null);
-  const [repairs, setRepairs] = useState<Repair[]>([]);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [repairs, setRepairs] = useState<Repair[]>(peek<Repair[]>("diag:repairs") ?? []);
   const [confirm, setConfirm] = useState<Repair | null>(null);
-  const [result, setResult] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     startLeakWatch();               // keeps sampling even after leaving this page
     load();
-    cached("diag:repairs", Infinity, () => window.anchor.diagRepairs()).then(setRepairs);
+    Q.diagRepairs().then(setRepairs, () => {});
   }, []);
 
   async function load(force = false) {
     setRefreshing(true);
     if (force) invalidate("diag:state", "diag:errors");
-    const [s, e] = await Promise.all([
-      cached("diag:state", 30_000, () => window.anchor.diagState()),
-      cached("diag:errors", 300_000, () => window.anchor.diagErrors(7)),
-    ]);
-    setState(s);
-    setErrors(e);
+    await Promise.allSettled([Q.diagState().then(setState), Q.diagErrors().then(setErrors)]);
     setRefreshing(false);
   }
 
@@ -48,35 +43,47 @@ export default function DiagnosticsPage() {
   const hogs = cpuHogs(latest);
   const advice = uptimeAdvice(state, suspects.filter((s) => s.confidence !== "watching").length);
 
-  async function runRepair(r: Repair) {
+  function runRepair(r: Repair) {
     setConfirm(null);
-    setBusy(r.id);
-    setResult(`Running ${r.name}… ${r.minutes === "instant" ? "" : `This takes ${r.minutes}.`}`);
-    if (r.id === "winsock" || r.id === "updatecache") await ensureRestorePoint(`Anchor: ${r.name}`);
-    const res = await window.anchor.diagRunRepair(r.id);
-    setResult(res.ok ? `${r.name} finished.` : `${r.name} reported a problem: ${res.error || res.output.slice(-200)}`);
-    setBusy(null);
-    load(true);
+    runTask(
+      `diag:repair:${r.id}`,
+      {
+        label: r.name,
+        where: { section: "system", tab: "diagnostics" },
+        group: "change",
+        isError: (res: { ok: boolean; output: string; error: string }) =>
+          res.ok ? null : `${r.name} reported a problem: ${res.error || res.output.slice(-200)}`,
+        summarize: () => `${r.name} finished.`,
+      },
+      async () => {
+        if (r.id === "winsock" || r.id === "updatecache") await ensureRestorePoint(`Anchor: ${r.name}`);
+        const res = await window.anchor.diagRunRepair(r.id);
+        invalidate("diag:state", "diag:errors"); // stale now, even if this page is closed
+        return res;
+      },
+    );
   }
 
+  // a finished repair refreshes the system state while this page is open (if closed, the invalidate in the task covers the next visit)
+  const anyRepair = useRunningKeyWith("diag:repair:");
+  const wasRunning = useRef(false);
+  useEffect(() => {
+    if (wasRunning.current && !anyRepair) load(true);
+    wasRunning.current = !!anyRepair;
+  }, [anyRepair]);
+
   const TONE = {
-    ok: "border-emerald-500/40 bg-emerald-500/10",
-    suggest: "border-amber-500/40 bg-amber-500/10",
-    urgent: "border-red-500/40 bg-red-500/10",
+    // a status tint over the glass (the tint replaces the glass fill; the glass edge stays)
+    ok: "bg-emerald-500/10",
+    suggest: "bg-amber-500/10",
+    urgent: "bg-red-500/10",
   } as const;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 py-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Diagnostics</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          The problems that build up quietly: memory that never gets released, apps burning CPU in the background,
-          errors piling up in the logs, and updates waiting on a restart.
-        </p>
-      </div>
+    <div className="page-column space-y-6 py-6">
 
       {/* uptime verdict */}
-      <div className={cn("rounded-lg border p-4", TONE[advice.level])}>
+      <div className={cn("glass cut-corner rounded-lg p-4", TONE[advice.level])}>
         <div className="flex items-start gap-3">
           <Clock className="mt-0.5 size-5 shrink-0" />
           <div className="min-w-0 flex-1">
@@ -90,7 +97,7 @@ export default function DiagnosticsPage() {
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle className="flex items-center gap-2">
-            <Stethoscope className="size-4 text-sky-500" /> System state
+            <Stethoscope className="size-4 text-primary" /> System state
           </CardTitle>
           <Button variant="ghost" size="sm" onClick={() => load(true)} loading={refreshing}>
             {!refreshing && <RefreshCw />} Refresh
@@ -121,7 +128,7 @@ export default function DiagnosticsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Droplets className="size-4 text-sky-500" /> Memory leak watch
+            <Droplets className="size-4 text-primary" /> Memory leak watch
           </CardTitle>
           <CardDescription>
             A big app isn't a leak — a leak is memory that climbs and never comes back. Anchor samples every minute and
@@ -139,7 +146,7 @@ export default function DiagnosticsPage() {
             </Alert>
           ) : (
             suspects.map((s) => (
-              <div key={s.pid} className="rounded-lg border p-3">
+              <div key={s.pid} className="glass cut-corner rounded-lg p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={s.confidence === "strong" ? "destructive" : s.confidence === "likely" ? "warning" : "secondary"}>
                     {s.confidence === "watching" ? "Still watching" : s.confidence === "likely" ? "Likely leak" : "Strong leak"}
@@ -168,7 +175,7 @@ export default function DiagnosticsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Cpu className="size-4 text-sky-500" /> CPU time hogs
+            <Cpu className="size-4 text-primary" /> CPU time hogs
           </CardTitle>
           <CardDescription>
             Total CPU each process has consumed since it started. Something using a steady slice while "idle" shows up
@@ -182,7 +189,7 @@ export default function DiagnosticsPage() {
             </p>
           ) : (
             hogs.map((p) => (
-              <div key={p.pid} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3">
+              <div key={p.pid} className="flex flex-wrap items-center justify-between gap-2 glass cut-corner rounded-lg p-3">
                 <div className="min-w-0">
                   <p className="text-sm font-medium">{p.name}</p>
                   <p className="text-xs text-muted-foreground">
@@ -200,7 +207,7 @@ export default function DiagnosticsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FileWarning className="size-4 text-sky-500" /> Errors in the last 7 days
+            <FileWarning className="size-4 text-primary" /> Errors in the last 7 days
           </CardTitle>
           <CardDescription>
             Critical and error entries from the System and Application logs, grouped by what caused them.
@@ -215,7 +222,7 @@ export default function DiagnosticsPage() {
             <>
               <p className="text-sm text-muted-foreground">{errors.total} entries logged.</p>
               {errors.groups.map((g) => (
-                <div key={g.source} className="rounded-lg border p-3">
+                <div key={g.source} className="glass cut-corner rounded-lg p-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant={g.count > 50 ? "warning" : "secondary"}>{g.count}×</Badge>
                     <span className="text-sm font-medium">{g.source}</span>
@@ -233,7 +240,7 @@ export default function DiagnosticsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Wrench className="size-4 text-sky-500" /> Repairs
+            <Wrench className="size-4 text-primary" /> Repairs
           </CardTitle>
           <CardDescription>
             Each one is a documented Windows repair. Anchor explains what it does before running it.
@@ -241,26 +248,8 @@ export default function DiagnosticsPage() {
         </CardHeader>
         <CardContent className="space-y-2">
           {repairs.map((r) => (
-            <div key={r.id} className="flex flex-wrap items-start justify-between gap-3 rounded-lg border p-3">
-              <div className="min-w-0 flex-1">
-                <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
-                  {r.name}
-                  <Badge variant="secondary">{r.minutes}</Badge>
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">{r.detail}</p>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                loading={busy === r.id}
-                disabled={busy !== null}
-                onClick={() => setConfirm(r)}
-              >
-                {busy !== r.id && <Play />} Run
-              </Button>
-            </div>
+            <RepairRow key={r.id} r={r} anyRunning={anyRepair} onAsk={() => setConfirm(r)} />
           ))}
-          {result && <p className="text-sm text-muted-foreground">{result}</p>}
         </CardContent>
       </Card>
 
@@ -290,9 +279,41 @@ export default function DiagnosticsPage() {
 
 function Stat({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
   return (
-    <div className="rounded-md border p-3">
+    <div className="glass cut-corner rounded-lg p-3">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className={cn("text-lg font-semibold", warn && "text-amber-400")}>{value}</p>
+    </div>
+  );
+}
+
+function RepairRow({ r, anyRunning, onAsk }: { r: Repair; anyRunning?: string; onAsk: () => void }) {
+  const task = useTask<{ ok: boolean; output: string; error: string }>(`diag:repair:${r.id}`);
+  const blocker = useBlockedBy("change");
+  const running = task?.status === "running";
+  const blockedMsg = blocker ? `${blocker.label} is already running` : anyRunning && !running ? "Another repair is already running" : undefined;
+  const msg = running
+    ? `Running ${r.name}… ${r.minutes === "instant" ? "" : `This takes ${r.minutes}.`}`
+    : task?.status === "done"
+    ? `${r.name} finished.`
+    : task?.status === "error"
+    ? task.error ?? ""
+    : "";
+  return (
+    <div className="glass cut-corner rounded-lg p-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
+            {r.name}
+            <Badge variant="secondary">{r.minutes}</Badge>
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{r.detail}</p>
+        </div>
+        <Button size="sm" variant="outline" loading={running} disabled={!!blockedMsg || !!anyRunning} title={blockedMsg} onClick={onAsk}>
+          {!running && <Play />} Run
+        </Button>
+      </div>
+      {blockedMsg && !running && <p className="mt-2 text-xs text-muted-foreground">{blockedMsg}</p>}
+      {msg && <p className="mt-2 text-sm text-muted-foreground">{msg}</p>}
     </div>
   );
 }

@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Eraser, RefreshCw, Trash2, Zap } from "lucide-react";
 import {
   Alert, Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle,
-  Checkbox, Dialog, Label, Skeleton,
+  Checkbox, Dialog, Label, PageTitle, Skeleton,
 } from "@/components/ui";
 import { formatBytes } from "@/lib/utils";
-import { cached, invalidate, peek, runBoost, useAppState } from "@/lib/store";
+import { invalidate, peek, runMemoryTrim, useAppState } from "@/lib/store";
+import { Q } from "@/lib/queries";
+import { runTask, useBlockedBy, useTask } from "@/lib/tasks";
 
 type Target = {
   id: string; name: string; detail: string;
@@ -13,23 +15,52 @@ type Target = {
 };
 
 export default function BoostPage() {
-  const { boost } = useAppState();
+  const { trim } = useAppState();
   const [targets, setTargets] = useState<Target[] | null>(peek<Target[]>("cleanup:scan") ?? null);
   const [chosen, setChosen] = useState<Set<string>>(new Set());
-  const [scanning, setScanning] = useState(false);
-  const [cleaning, setCleaning] = useState(false);
   const [confirm, setConfirm] = useState(false);
-  const [result, setResult] = useState("");
+  const scanTask = useTask<Target[]>("cleanup:scan");
+  const cleanTask = useTask<{ freed: number; cleaned: string[] }>("cleanup:clean");
+  const blocker = useBlockedBy("cleanup");
+  const scanning = scanTask?.status === "running";
+  const cleaning = cleanTask?.status === "running";
+  const blockedMsg = blocker && blocker.key !== "cleanup:clean" ? `${blocker.label} is already running` : undefined;
+  const hadList = useRef(targets !== null);
+  const forceNext = useRef(false);
 
-  useEffect(() => { scan(); }, []);
+  useEffect(() => {
+    // pre-select from saved results right away; the rescan below refreshes them
+    if (targets) setChosen(new Set(targets.filter((t) => t.default && t.bytes > 0).map((t) => t.id)));
+    scan(false, true);
+  }, []);
 
-  async function scan(force = false) {
-    setScanning(true);
-    if (force) invalidate("cleanup:scan");
-    const list = await cached("cleanup:scan", 60_000, () => window.anchor.cleanupScan());
+  // a finished scan (even one that finished while this page was closed) shows its list;
+  // a background refresh keeps whatever the user ticked meanwhile
+  useEffect(() => {
+    if (scanTask?.status !== "done" || !scanTask.result) return;
+    const list = scanTask.result;
     setTargets(list);
-    setChosen(new Set(list.filter((t) => t.default && t.bytes > 0).map((t) => t.id)));
-    setScanning(false);
+    if (forceNext.current || !hadList.current) {
+      setChosen(new Set(list.filter((t) => t.default && t.bytes > 0).map((t) => t.id)));
+    }
+    forceNext.current = false;
+    hadList.current = true;
+  }, [scanTask?.finishedAt]);
+
+  // after a clean finishes, the numbers are stale
+  const firstClean = useRef(true);
+  useEffect(() => {
+    if (firstClean.current) { firstClean.current = false; return; }
+    if (cleanTask?.status === "done") scan(true, true); // automatic rescan: silent
+  }, [cleanTask?.finishedAt]);
+
+  function scan(force = false, automatic = false) {
+    if (force) { invalidate("cleanup:scan"); forceNext.current = true; }
+    return runTask(
+      "cleanup:scan",
+      { label: "Cleanup scan", where: { section: "cleanup" }, silent: automatic },
+      () => Q.cleanupScan(),
+    );
   }
 
   const selected = (targets ?? []).filter((t) => chosen.has(t.id));
@@ -37,64 +68,50 @@ export default function BoostPage() {
   const totalFound = (targets ?? []).reduce((sum, t) => sum + t.bytes, 0);
   const hasOneWay = selected.some((t) => t.oneWay);
 
-  async function clean() {
+  function clean() {
     setConfirm(false);
-    setCleaning(true);
-    setResult("Clearing…");
-    const r = await window.anchor.cleanupRun([...chosen]);
-    setResult(`Freed ${formatBytes(r.freed)} from ${r.cleaned.length} location${r.cleaned.length === 1 ? "" : "s"}.`);
-    setCleaning(false);
-    scan(true);
+    runTask(
+      "cleanup:clean",
+      {
+        label: "Cleanup",
+        where: { section: "cleanup" },
+        group: "cleanup",
+        summarize: (r) => `Freed ${formatBytes(r.freed)}`,
+      },
+      async () => {
+        const r = await window.anchor.cleanupRun([...chosen]);
+        invalidate("cleanup:scan"); // stale now, even if this page is closed: the next visit rescans
+        return r;
+      },
+    );
   }
 
-  return (
-    <div className="mx-auto max-w-4xl space-y-6 py-6">
-      <h1 className="text-3xl font-semibold tracking-tight">Boost & Cleanup</h1>
+  const result = cleaning
+    ? "Clearing…"
+    : cleanTask?.status === "done" && cleanTask.result
+    ? `Freed ${formatBytes(cleanTask.result.freed)} from ${cleanTask.result.cleaned.length} location${cleanTask.result.cleaned.length === 1 ? "" : "s"}.`
+    : cleanTask?.status === "error"
+    ? `Cleanup failed: ${cleanTask.error}`
+    : "";
 
-      {/* memory */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="size-4 text-sky-500" /> Free up memory
-          </CardTitle>
-          <CardDescription>
-            Trims the memory working set of background processes. Anything with an open window — everything on your
-            taskbar — and critical system processes are always skipped. Trimming never closes a program; Windows simply
-            reloads pages if the app needs them again.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Button
-            onClick={() => runBoost({ includeTemp: false, includeRecycleBin: false })}
-            loading={boost.running}
-          >
-            {!boost.running && <Zap />} Free memory now
-          </Button>
-          {boost.message && <p className="text-sm text-muted-foreground">{boost.message}</p>}
-          {boost.skipped.length > 0 && (
-            <details className="text-xs text-muted-foreground">
-              <summary className="cursor-pointer select-none">
-                Transparency log — {boost.skipped.length} processes deliberately left alone
-              </summary>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {boost.skipped.map((s) => (
-                  <span key={s} className="rounded-md bg-secondary px-2 py-0.5">{s}</span>
-                ))}
-              </div>
-            </details>
-          )}
-        </CardContent>
-      </Card>
+  return (
+    <div className="page-column space-y-6 py-6">
+      <div>
+        <PageTitle>Cleanup</PageTitle>
+        <p className="mt-1 text-sm text-foreground/80 dark:[text-shadow:0_1px_8px_rgb(0_0_0/0.5)]">
+          Everything is measured first, so you decide with real numbers. Personal files are never touched.
+        </p>
+      </div>
 
       {/* disk cleanup */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Eraser className="size-4 text-sky-500" /> Free up disk space
+            <Eraser className="size-4 text-primary" /> Free up disk space
           </CardTitle>
           <CardDescription>
-            Each location is measured before anything is deleted, so you decide with real numbers. Personal files —
-            documents, downloads, pictures, saved passwords — are never touched.
+            Documents, downloads, pictures and saved passwords are never touched. Locations ticked by default are what
+            one-click Boost on Home clears.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -104,7 +121,8 @@ export default function BoostPage() {
             </Button>
             <Button
               onClick={() => setConfirm(true)}
-              disabled={chosen.size === 0 || cleaning}
+              disabled={chosen.size === 0 || !!blockedMsg}
+              title={blockedMsg}
               loading={cleaning}
             >
               {!cleaning && <Trash2 />} Clear selected ({formatBytes(totalSelected)})
@@ -116,6 +134,7 @@ export default function BoostPage() {
             )}
           </div>
 
+          {blockedMsg && <p className="text-xs text-muted-foreground">{blockedMsg}</p>}
           {result && <p className="text-sm text-muted-foreground">{result}</p>}
 
           <div className="space-y-1.5">
@@ -126,7 +145,7 @@ export default function BoostPage() {
                   return (
                     <label
                       key={t.id}
-                      className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-accent/50 ${empty ? "opacity-50" : ""}`}
+                      className={`glass cut-corner rounded-lg flex cursor-pointer items-start gap-3 p-3 transition-colors hover:bg-accent/50 ${empty ? "opacity-50" : ""}`}
                     >
                       <Checkbox
                         checked={chosen.has(t.id)}
@@ -152,6 +171,38 @@ export default function BoostPage() {
                   );
                 })}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* memory — optional, deliberately not part of Boost */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="size-4 text-primary" /> Trim background memory
+          </CardTitle>
+          <CardDescription>
+            Usually not needed — Windows manages memory well on its own, and trimmed apps reload what they need, so
+            they can be briefly slower afterwards. Useful right before launching something memory-hungry. Apps with an
+            open window and system processes are always skipped; nothing is closed.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Button variant="outline" onClick={runMemoryTrim} loading={trim.running}>
+            {!trim.running && <Zap />} Trim now
+          </Button>
+          {trim.message && <p className="text-sm text-muted-foreground">{trim.message}</p>}
+          {trim.skipped.length > 0 && (
+            <details className="text-xs text-muted-foreground">
+              <summary className="cursor-pointer select-none">
+                {trim.skipped.length} processes deliberately left alone
+              </summary>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {trim.skipped.map((x) => (
+                  <span key={x} className="rounded-md bg-foreground/[0.08] px-2 py-0.5">{x}</span>
+                ))}
+              </div>
+            </details>
+          )}
         </CardContent>
       </Card>
 

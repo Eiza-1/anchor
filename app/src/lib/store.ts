@@ -3,6 +3,9 @@
 // Pages subscribe with useAppState(); the jobs themselves are plain functions here.
 import { useSyncExternalStore } from "react";
 import { formatBytes } from "@/lib/utils";
+import { runTask } from "@/lib/tasks";
+import type { NavTarget } from "@/lib/nav";
+import { THEME_KEY } from "@/lib/theme-boot";
 
 export type HealthStatus = "ok" | "warn" | "bad" | "info" | "tip";
 export type HealthIcon =
@@ -34,13 +37,22 @@ export interface BoostState {
 
 interface AppState {
   health: HealthState;
-  boost: BoostState;
+  boost: BoostState;  // one-click Boost (quick clean)
+  trim: BoostState;   // optional memory trim on the Cleanup page
 }
 
-const initial: AppState = {
-  health: { running: false, done: 0, total: 5, lines: [], finishedAt: null },
-  boost: { running: false, message: "", skipped: [], finishedAt: null },
-};
+const idle: BoostState = { running: false, message: "", skipped: [], finishedAt: null };
+
+// The last finished health check is kept, so Home isn't blank on launch.
+function savedHealth(): HealthState {
+  try {
+    const h = JSON.parse(localStorage.getItem("anchor:health") ?? "null");
+    if (h?.lines) return { ...h, running: false };
+  } catch { /* ignore */ }
+  return { running: false, done: 0, total: 6, lines: [], finishedAt: null };
+}
+
+const initial: AppState = { health: savedHealth(), boost: idle, trim: idle };
 
 let state: AppState = initial;
 const listeners = new Set<() => void>();
@@ -60,45 +72,89 @@ function setHealth(update: (h: HealthState) => HealthState) {
   state = { ...state, health: update(state.health) };
   emit();
 }
-function setBoost(update: (b: BoostState) => BoostState) {
-  state = { ...state, boost: update(state.boost) };
+function setJob(job: "boost" | "trim", next: BoostState) {
+  state = { ...state, [job]: next };
   emit();
 }
 
 /* --------------------------------- Cache ---------------------------------- *
  * Pages unmount when you navigate. Without this, every visit refetched
  * everything — the main reason the app felt slow. Results are kept here with a
- * TTL, so returning to a page is instant and only stale data is re-requested.  */
-type Entry = { value: unknown; at: number; inflight?: Promise<unknown> };
+ * TTL, so returning to a page is instant and only stale data is re-requested.
+ *
+ * Results are also saved to localStorage with the time they were fetched, so
+ * a fresh launch paints every page from last time's data at once, and only
+ * data older than its TTL is re-requested (the release calendar keeps its
+ * one-request-per-24 h budget across launches). Infinity-TTL data is fetched
+ * once per session: a saved copy paints first but is always re-read.         */
+type Entry = { value: unknown; at: number; inflight?: Promise<unknown>; fromDisk?: boolean };
 const cache = new Map<string, Entry>();
+const CACHE_ROOT = "anchor:cache:";
+const STORE_PREFIX = CACHE_ROOT + "v1:"; // bump when the saved shape changes
+
+function save(key: string, value: unknown, at: number) {
+  try { localStorage.setItem(STORE_PREFIX + key, JSON.stringify({ value, at })); } catch { /* full or unavailable */ }
+}
+try {
+  const stale: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k?.startsWith(CACHE_ROOT)) continue;
+    if (!k.startsWith(STORE_PREFIX)) { stale.push(k); continue; } // older format
+    try {
+      const saved = JSON.parse(localStorage.getItem(k) ?? "null");
+      if (saved && "value" in saved) {
+        const at = typeof saved.at === "number" && saved.at <= Date.now() ? saved.at : 0;
+        cache.set(k.slice(STORE_PREFIX.length), { value: saved.value, at, fromDisk: true });
+      }
+    } catch { /* corrupt entry — skip it */ }
+  }
+  stale.forEach((k) => localStorage.removeItem(k));
+} catch { /* unavailable — start empty */ }
 
 export async function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
   const hit = cache.get(key);
   if (hit) {
     if (hit.inflight) return hit.inflight as Promise<T>;
-    if (Date.now() - hit.at < ttlMs) return hit.value as T;
+    const age = hit.fromDisk && ttlMs === Infinity ? Infinity : Date.now() - hit.at;
+    if (hit.value !== undefined && age < ttlMs) return hit.value as T;
   }
   const inflight = fn()
     .then((value) => {
-      cache.set(key, { value, at: Date.now() });
+      const at = Date.now();
+      cache.set(key, { value, at });
+      save(key, value, at);
       return value;
     })
     .catch((e) => {
-      cache.delete(key);
+      if (hit?.value !== undefined) cache.set(key, { value: hit.value, at: hit.at, fromDisk: hit.fromDisk });
+      else cache.delete(key);
       throw e;
     });
-  cache.set(key, { value: hit?.value, at: hit?.at ?? 0, inflight });
+  cache.set(key, { value: hit?.value, at: hit?.at ?? 0, fromDisk: hit?.fromDisk, inflight });
   return inflight as Promise<T>;
 }
 
 /** Read whatever is cached right now (for instant first paint), or undefined. */
 export function peek<T>(key: string): T | undefined {
-  const hit = cache.get(key);
-  return hit && !hit.inflight ? (hit.value as T) : (hit?.value as T | undefined);
+  return cache.get(key)?.value as T | undefined;
 }
 
+/** Write a page's current view back (e.g. after a toggle) without resetting its age. */
+export function remember<T>(key: string, value: T) {
+  const hit = cache.get(key);
+  const at = hit?.at ?? 0;
+  cache.set(key, { ...hit, value, at });
+  save(key, value, at);
+}
+
+/** Marks entries stale: the next read refetches, but peek() keeps showing the
+ *  old value meanwhile, so a refresh never blanks the page. */
 export function invalidate(...keys: string[]) {
-  keys.forEach((k) => cache.delete(k));
+  keys.forEach((k) => {
+    const hit = cache.get(k);
+    if (hit && !hit.inflight) cache.set(k, { value: hit.value, at: -Infinity }); // stale even for Infinity TTLs
+  });
 }
 
 /* ------------------------------ Live monitor ------------------------------ *
@@ -205,9 +261,30 @@ export async function ensureRestorePoint(description: string) {
   return window.anchor.ensureRestorePoint(description, days);
 }
 
+/** Manual restore point, tracked so it survives page switches. Returns undefined
+ *  when one is already running or a change is in progress. `where` is the page
+ *  it was started from, which its pop-up and sidebar dot point to. */
+export function runRestorePoint(description: string, where: NavTarget = { section: "account" }) {
+  return runTask(
+    "restore:create",
+    {
+      label: "Restore point",
+      where,
+      group: "restore",
+      isError: (r: { ok: boolean; message: string }) => (r.ok ? null : r.message),
+      summarize: (r) => r.message,
+    },
+    async () => {
+      const r = await window.anchor.createRestorePoint(description);
+      invalidate("restore:last");
+      return r;
+    },
+  );
+}
+
 /* --------------------------------- Themes --------------------------------- */
 export const THEMES = [
-  { id: "dark", name: "Dark", hint: "Default — neutral charcoal", swatch: ["#09090b", "#27272a", "#fafafa"] },
+  { id: "dark", name: "Dark", hint: "Default — charcoal with sky blue", swatch: ["#09090b", "#27272a", "#38bdf8"] },
   { id: "light", name: "Light", hint: "Soft grey — kinder than pure white", swatch: ["#eeeef2", "#f7f7fa", "#2b2b33"] },
   { id: "midnight", name: "Midnight", hint: "Deep navy, softer than black", swatch: ["#0b1220", "#1e293b", "#60a5fa"] },
   { id: "ember", name: "Ember", hint: "Warm greys, low blue light", swatch: ["#12100e", "#2a2422", "#f97316"] },
@@ -220,6 +297,7 @@ export const THEMES = [
 export function applyTheme(id: string) {
   const known = THEMES.some((t) => t.id === id) ? id : "dark";
   document.documentElement.dataset.theme = known;
+  try { localStorage.setItem(THEME_KEY, known); } catch { /* ignore */ } // for theme-boot.ts on next launch
   // keep the native title-bar buttons readable on light themes
   const light = known === "light";
   document.documentElement.classList.toggle("dark", !light);
@@ -262,6 +340,21 @@ export function initUpdates() {
  *  slowest one (Windows Update, which can take a while) never blocks the rest. */
 export async function runHealthCheck() {
   if (state.health.running) return;
+  await runTask(
+    "home:health",
+    {
+      label: "Health Check",
+      where: { section: "home" },
+      summarize: (lines: HealthLine[]) => {
+        const n = lines.filter((l) => l.status === "bad" || l.status === "warn").length;
+        return n === 0 ? "No issues found" : `${n} issue${n === 1 ? "" : "s"} found`;
+      },
+    },
+    healthJob,
+  );
+}
+
+async function healthJob(): Promise<HealthLine[]> {
   setHealth(() => ({ running: true, done: 0, total: 6, lines: [], finishedAt: null }));
 
   const add = (line: HealthLine) =>
@@ -387,26 +480,68 @@ export async function runHealthCheck() {
 
   await Promise.allSettled(jobs);
   setHealth((h) => ({ ...h, running: false, finishedAt: Date.now() }));
+  try { localStorage.setItem("anchor:health", JSON.stringify(state.health)); } catch { /* ignore */ }
+  return state.health.lines;
 }
 
 /* --------------------------------- Boost --------------------------------- */
-/** Boost only frees memory and deletes temp files — nothing that needs rolling
- *  back — so it deliberately does NOT create a restore point. */
-export async function runBoost(opts: { includeTemp: boolean; includeRecycleBin: boolean }) {
+/** One-click Boost: clears the Cleanup page's default locations. Only caches
+ *  and leftovers — nothing that needs rolling back — so no restore point. */
+export async function runBoost() {
   if (state.boost.running) return;
-  setBoost(() => ({ running: true, message: "Boosting…", skipped: [], finishedAt: null }));
+  await runTask(
+    "home:boost",
+    {
+      label: "Boost",
+      where: { section: "home" },
+      group: "cleanup",
+      summarize: (r: { freed: number }) => `Freed ${formatBytes(r.freed)}`,
+    },
+    async () => {
+      setJob("boost", { ...idle, running: true, message: "Boosting…" });
+      try {
+        const r = await window.anchor.cleanupQuick();
+        invalidate("cleanup:scan");
+        setJob("boost", {
+          ...idle,
+          finishedAt: Date.now(),
+          message: `Freed ${formatBytes(r.freed)} from ${r.cleaned.length} location${r.cleaned.length === 1 ? "" : "s"}.`,
+        });
+        return r;
+      } catch (e) {
+        setJob("boost", { ...idle, finishedAt: Date.now(), message: "Boost failed." });
+        throw e;
+      }
+    },
+  );
+}
 
-  const r = await window.anchor.runBoost({
-    includeTemp: opts.includeTemp,
-    includeRecycleBin: opts.includeRecycleBin,
-  });
-
-  setBoost(() => ({
-    running: false,
-    finishedAt: Date.now(),
-    skipped: r.skipped ?? [],
-    message:
-      `Trimmed ${r.trimmed} background processes (${formatBytes(r.freedBytes)} RAM freed, measured system-wide) ` +
-      `and removed ${r.tempFiles} temp files (${formatBytes(r.tempBytes)}). Open apps were not touched.`,
-  }));
+/** Optional memory trim. Windows manages RAM well on its own, so this is a
+ *  manual tool, not part of Boost. Never touches apps with an open window. */
+export async function runMemoryTrim() {
+  if (state.trim.running) return;
+  await runTask(
+    "cleanup:trim",
+    {
+      label: "Memory trim",
+      where: { section: "cleanup" },
+      summarize: () => state.trim.message,
+    },
+    async () => {
+      setJob("trim", { ...idle, running: true, message: "Trimming…" });
+      try {
+        const r = await window.anchor.trimMemory();
+        setJob("trim", {
+          running: false,
+          finishedAt: Date.now(),
+          skipped: r.skipped ?? [],
+          message: `Trimmed ${r.trimmed} background processes — ${formatBytes(r.freedBytes)} RAM freed, measured system-wide.`,
+        });
+        return r;
+      } catch (e) {
+        setJob("trim", { ...idle, finishedAt: Date.now(), message: "Memory trim failed." });
+        throw e;
+      }
+    },
+  );
 }

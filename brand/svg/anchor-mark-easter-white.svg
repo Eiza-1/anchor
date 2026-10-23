@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+<g>
+      <clipPath id="anchor-egg-clip"><path d="M50 1.25C60.53 1.25 63.5 19.25 63.5 22.25C63.5 29.25 57.42 35.25 50 35.25C42.58 35.25 36.5 29.25 36.5 22.25C36.5 19.25 39.47 1.25 50 1.25Z"/></clipPath>
+      <path d="M50 1.25C60.53 1.25 63.5 19.25 63.5 22.25C63.5 29.25 57.42 35.25 50 35.25C42.58 35.25 36.5 29.25 36.5 22.25C36.5 19.25 39.47 1.25 50 1.25Z" fill="#FFD66B"/>
+      <g clip-path="url(#anchor-egg-clip)">
+        <rect x="35" y="12.25" width="30" height="4" fill="#7FD1AE"/>
+        <polyline points="36 18.45 40 22.05 44 18.45 48 22.05 52 18.45 56 22.05 60 18.45 64 22.05" fill="none" stroke="#FF7AA8" stroke-width="2.6" stroke-linejoin="round"/>
+        <circle cx="45" cy="27.75" r="1.7" fill="#8B7CF6"/><circle cx="50" cy="28.75" r="1.7" fill="#8B7CF6"/><circle cx="55" cy="27.75" r="1.7" fill="#8B7CF6"/>
+      </g>
+      <path d="M50 1.25C60.53 1.25 63.5 19.25 63.5 22.25C63.5 29.25 57.42 35.25 50 35.25C42.58 35.25 36.5 29.25 36.5 22.25C36.5 19.25 39.47 1.25 50 1.25Z" fill="none" stroke="#FFFFFF" stroke-width="2.6"/>
+    </g>
+  <rect x="44.5" y="40.25" width="11" height="53" rx="5.5" fill="#FFFFFF"/>
+  <path d="M7.73 60.69A42.5 42.5 0 0 0 92.27 60.69L81.33 59.54A31.5 31.5 0 0 1 18.67 59.54Z" fill="#FFFFFF"/>
+</svg>

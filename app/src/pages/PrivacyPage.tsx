@@ -1,47 +1,65 @@
 import { useEffect, useState } from "react";
 import { Button, Card, CardContent, Skeleton, Switch } from "@/components/ui";
-import { ensureRestorePoint } from "@/lib/store";
+import { ensureRestorePoint, invalidate, peek, remember, runRestorePoint } from "@/lib/store";
+import { runTask, useBlockedBy, useTask } from "@/lib/tasks";
+import { Q } from "@/lib/queries";
 
 type Tweak = { id: string; name: string; desc: string; applied: boolean };
+const PRIVACY_WHERE = { section: "debloat", tab: "privacy" };
 
 export default function PrivacyPage() {
-  const [tweaks, setTweaks] = useState<Tweak[] | null>(null);
-  const [restoreMsg, setRestoreMsg] = useState("");
+  const [tweaks, setTweaks] = useState<Tweak[] | null>(peek<Tweak[]>("privacy") ?? null);
+  const [restoreNote, setRestoreNote] = useState("");
+  const restoreTask = useTask<{ ok: boolean; message: string }>("restore:create");
+  const blocker = useBlockedBy("change"); // only ever a restore point (another task)
+  const restoreBlocker = useBlockedBy("restore"); // only ever a change (another task)
+  const creating = restoreTask?.status === "running";
+  const restoreMsg = creating ? "Creating restore point…" : restoreNote || restoreTask?.result?.message || restoreTask?.error || "";
 
-  useEffect(() => { window.anchor.privacyList().then(setTweaks); }, []);
+  useEffect(() => { Q.privacy().then(setTweaks, () => {}); }, []);
+  useEffect(() => { if (tweaks) remember("privacy", tweaks); }, [tweaks]);
 
-  async function apply(t: Tweak, on: boolean) {
-    setTweaks((prev) => prev?.map((x) => (x.id === t.id ? { ...x, applied: on } : x)) ?? null);
-    // registry change — worth a restore point, but at most once a week
-    ensureRestorePoint("Anchor privacy changes").then((rp) => {
-      if (!rp.skipped && rp.ok) setRestoreMsg("Restore point created before this change.");
-    });
-    const r = await window.anchor.privacyApply(t.id, on);
-    if (!r.ok) setTweaks((prev) => prev?.map((x) => (x.id === t.id ? { ...x, applied: !on } : x)) ?? null);
+  function apply(t: Tweak, on: boolean) {
+    const setApplied = (applied: boolean) =>
+      setTweaks((prev) => prev?.map((x) => (x.id === t.id ? { ...x, applied } : x)) ?? null);
+    setApplied(on);
+    runTask(
+      `privacy:${t.id}`,
+      {
+        label: "Privacy setting",
+        where: PRIVACY_WHERE,
+        group: "change",
+        isError: (r: { ok: boolean; error: string }) => (r.ok ? null : r.error || "Couldn't change this setting"),
+        summarize: () => `${t.name} ${on ? "turned on" : "turned off"}`,
+      },
+      async () => {
+        // registry change — worth a restore point, but at most once a week
+        const rp = await ensureRestorePoint("Anchor privacy changes");
+        if (!rp.skipped && rp.ok) setRestoreNote("Restore point created before this change.");
+        const r = await window.anchor.privacyApply(t.id, on);
+        // the page may be closed by now: make the next visit re-read the truth
+        invalidate("privacy");
+        if (!r.ok) setApplied(!on);
+        return r;
+      },
+    ).then((r) => { if (r === undefined) setApplied(!on); });
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 py-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Privacy & Telemetry</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Each toggle shows exactly which registry value it changes — no hidden behavior, all reversible here.
-          Consider creating a restore point first.
-        </p>
-      </div>
+    <div className="page-column space-y-6 py-6">
 
       <div className="flex items-center gap-3">
         <Button
           variant="outline"
           size="sm"
-          onClick={async () => {
-            setRestoreMsg("Creating restore point…");
-            const r = await window.anchor.createRestorePoint("Anchor privacy changes");
-            setRestoreMsg(r.message);
-          }}
+          loading={creating}
+          disabled={!!restoreBlocker}
+          title={restoreBlocker ? `${restoreBlocker.label} is already running` : undefined}
+          onClick={() => { setRestoreNote(""); runRestorePoint("Anchor privacy changes", PRIVACY_WHERE); }}
         >
           Create restore point
         </Button>
+        {restoreBlocker && <span className="text-xs text-muted-foreground">{restoreBlocker.label} is already running</span>}
         {restoreMsg && <span className="text-xs text-muted-foreground">{restoreMsg}</span>}
       </div>
 
@@ -54,8 +72,9 @@ export default function PrivacyPage() {
                   <div className="min-w-0 flex-1 space-y-1">
                     <p className="text-sm font-medium">{t.name}</p>
                     <p className="text-xs text-muted-foreground">{t.desc}</p>
+                    {blocker && <p className="text-xs text-muted-foreground">{blocker.label} is already running</p>}
                   </div>
-                  <Switch checked={t.applied} onCheckedChange={(v) => apply(t, v)} />
+                  <Switch checked={t.applied} disabled={!!blocker} title={blocker ? `${blocker.label} is already running` : undefined} onCheckedChange={(v) => apply(t, v)} />
                 </CardContent>
               </Card>
             ))}

@@ -40,7 +40,7 @@ try {
   }
   [PSCustomObject]@{pending=$result.Updates.Count; titles=$titles; last=$last} | ConvertTo-Json -Compress
 } catch { [PSCustomObject]@{error=$_.Exception.Message} | ConvertTo-Json -Compress }
-`);
+`, { long: true }); // a Windows Update search can take minutes
   return r ?? { error: "Windows Update Agent unavailable." };
 }
 
@@ -71,6 +71,11 @@ async function volumes() {
     "Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3' | Select-Object DeviceID,FreeSpace,Size | ConvertTo-Json -Compress"
   );
   return Array.isArray(v) ? v : v ? [v] : [];
+}
+
+async function isAdmin() {
+  const r = await runPSJson("([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) | ConvertTo-Json");
+  return r === true;
 }
 
 // ---------- Device health (Device Manager problem codes) ----------
@@ -371,7 +376,7 @@ function generateAutounattend(o) {
 }
 
 module.exports = {
-  buildInfo, checkUpdates, driveHealth, volumes, perfSample, topProcesses, deviceHealth, cpuInfo,
+  buildInfo, checkUpdates, driveHealth, volumes, isAdmin, perfSample, topProcesses, deviceHealth, cpuInfo,
   startupList, startupToggle, bloatwareList, bloatwareRemove,
   privacyList, privacyApply, openTool, generateAutounattend,
 };

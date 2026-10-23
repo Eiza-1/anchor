@@ -10,8 +10,9 @@
     --foreground: 0 0% 98%;
     --card: 240 10% 5.5%;
     --card-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
+    /* sky blue accent (#38bdf8) */
+    --primary: 199 92% 60%;
+    --primary-foreground: 204 80% 7%;
     --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
     --muted: 240 3.7% 15.9%;
@@ -22,8 +23,22 @@
     --destructive-foreground: 0 0% 98%;
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
+    --ring: 199 92% 60%;
     --radius: 0.5rem;
+    /* linear() sampling of SPRING (lib/motion.ts) for CSS-only transitions */
+    --ease-spring: linear(0, 0.046, 0.15, 0.28, 0.414, 0.54, 0.651, 0.744, 0.819, 0.878, 0.922, 0.954, 0.976, 0.991, 1.001, 1.006, 1.009, 1.01, 1.01, 1.009, 1.007, 1.006, 1.005, 1.004, 1.003, 1.002, 1.001, 1.001, 1);
+
+    /* glass + scrims (dark variant) */
+    --glass: 240 8% 12% / 0.62;
+    --glass-strong: 240 8% 8% / 0.98;
+    --glass-border: 0 0% 100% / 0.24;
+    --glass-edge: 0 0% 100% / 0.05;
+    --glass-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.05), 0 12px 32px -14px rgb(0 0 0 / 0.65);
+    --scrim-home: linear-gradient(180deg, hsl(var(--background) / 0.15) 0%, hsl(var(--background) / 0.55) 55%, hsl(var(--background) / 0.85) 100%);
+    --scrim-page: linear-gradient(180deg, hsl(var(--background) / 0.7), hsl(var(--background) / 0.86));
+    --bg-blur-page: 24px;
+    /* Home's frosted release cards: a light frost over the crisp picture */
+    --glass-home: 0 0% 100% / 0.1;
   }
 
   /* Soft light — a warm grey page rather than pure white, and text that stops
@@ -46,6 +61,17 @@
     --border: 240 12% 84%;
     --input: 240 12% 84%;
     --ring: 240 10% 58%;
+
+    /* glass + scrims (light variant: white glass, lightening wash) */
+    --glass: 0 0% 100% / 0.66;
+    --glass-strong: 0 0% 100% / 0.98;
+    --glass-border: 0 0% 100% / 0.95;
+    --glass-edge: 240 12% 40% / 0.16;
+    --glass-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.7), 0 12px 32px -16px hsl(240 20% 30% / 0.3);
+    --scrim-home: linear-gradient(180deg, hsl(0 0% 100% / 0.05) 0%, hsl(var(--background) / 0.35) 55%, hsl(var(--background) / 0.8) 100%);
+    --scrim-page: linear-gradient(180deg, hsl(0 0% 100% / 0.6), hsl(var(--background) / 0.78));
+    --bg-blur-page: 22px;
+    --glass-home: 0 0% 100% / 0.5;
   }
 
   /* Deep navy — easier on the eyes at night than pure black */
@@ -67,6 +93,16 @@
     --border: 217 33% 18%;
     --input: 217 33% 18%;
     --ring: 213 94% 68%;
+
+    /* glass + scrims (dark variant) */
+    --glass: 222 40% 14% / 0.62;
+    --glass-strong: 222 44% 10% / 0.98;
+    --glass-border: 0 0% 100% / 0.24;
+    --glass-edge: 0 0% 100% / 0.05;
+    --glass-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.05), 0 12px 32px -14px rgb(0 0 0 / 0.65);
+    --scrim-home: linear-gradient(180deg, hsl(var(--background) / 0.15) 0%, hsl(var(--background) / 0.55) 55%, hsl(var(--background) / 0.85) 100%);
+    --scrim-page: linear-gradient(180deg, hsl(var(--background) / 0.7), hsl(var(--background) / 0.86));
+    --bg-blur-page: 24px;
   }
 
   /* Warm grey with amber accents — low blue light */
@@ -88,6 +124,16 @@
     --border: 20 10% 18%;
     --input: 20 10% 18%;
     --ring: 25 95% 60%;
+
+    /* glass + scrims (dark variant) */
+    --glass: 20 12% 13% / 0.62;
+    --glass-strong: 20 14% 9% / 0.98;
+    --glass-border: 0 0% 100% / 0.24;
+    --glass-edge: 0 0% 100% / 0.05;
+    --glass-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.05), 0 12px 32px -14px rgb(0 0 0 / 0.65);
+    --scrim-home: linear-gradient(180deg, hsl(var(--background) / 0.15) 0%, hsl(var(--background) / 0.55) 55%, hsl(var(--background) / 0.85) 100%);
+    --scrim-page: linear-gradient(180deg, hsl(var(--background) / 0.7), hsl(var(--background) / 0.86));
+    --bg-blur-page: 24px;
   }
 
   /* Muted blue-green, lower contrast for long sessions */
@@ -109,6 +155,16 @@
     --border: 195 22% 19%;
     --input: 195 22% 19%;
     --ring: 174 72% 56%;
+
+    /* glass + scrims (dark variant) */
+    --glass: 195 26% 15% / 0.62;
+    --glass-strong: 195 28% 11% / 0.98;
+    --glass-border: 0 0% 100% / 0.24;
+    --glass-edge: 0 0% 100% / 0.05;
+    --glass-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.05), 0 12px 32px -14px rgb(0 0 0 / 0.65);
+    --scrim-home: linear-gradient(180deg, hsl(var(--background) / 0.15) 0%, hsl(var(--background) / 0.55) 55%, hsl(var(--background) / 0.85) 100%);
+    --scrim-page: linear-gradient(180deg, hsl(var(--background) / 0.7), hsl(var(--background) / 0.86));
+    --bg-blur-page: 24px;
   }
 
   /* Crimson — near-black with a red undertone, red and rose accents */
@@ -130,6 +186,16 @@
     --border: 0 18% 17%;
     --input: 0 18% 17%;
     --ring: 0 72% 55%;
+
+    /* glass + scrims (dark variant) */
+    --glass: 0 20% 12% / 0.62;
+    --glass-strong: 0 22% 8% / 0.98;
+    --glass-border: 0 0% 100% / 0.24;
+    --glass-edge: 0 0% 100% / 0.05;
+    --glass-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.05), 0 12px 32px -14px rgb(0 0 0 / 0.65);
+    --scrim-home: linear-gradient(180deg, hsl(var(--background) / 0.15) 0%, hsl(var(--background) / 0.55) 55%, hsl(var(--background) / 0.85) 100%);
+    --scrim-page: linear-gradient(180deg, hsl(var(--background) / 0.7), hsl(var(--background) / 0.86));
+    --bg-blur-page: 24px;
   }
 
   /* Amethyst — deep purple with indigo edges */
@@ -151,6 +217,16 @@
     --border: 265 25% 20%;
     --input: 265 25% 20%;
     --ring: 265 85% 68%;
+
+    /* glass + scrims (dark variant) */
+    --glass: 265 30% 14% / 0.62;
+    --glass-strong: 265 32% 10% / 0.98;
+    --glass-border: 0 0% 100% / 0.24;
+    --glass-edge: 0 0% 100% / 0.05;
+    --glass-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.05), 0 12px 32px -14px rgb(0 0 0 / 0.65);
+    --scrim-home: linear-gradient(180deg, hsl(var(--background) / 0.15) 0%, hsl(var(--background) / 0.55) 55%, hsl(var(--background) / 0.85) 100%);
+    --scrim-page: linear-gradient(180deg, hsl(var(--background) / 0.7), hsl(var(--background) / 0.86));
+    --bg-blur-page: 24px;
   }
 
   /* Vault — deep red bleeding into violet */
@@ -172,6 +248,16 @@
     --border: 285 20% 19%;
     --input: 285 20% 19%;
     --ring: 342 80% 58%;
+
+    /* glass + scrims (dark variant) */
+    --glass: 285 24% 13% / 0.62;
+    --glass-strong: 285 26% 9% / 0.98;
+    --glass-border: 0 0% 100% / 0.24;
+    --glass-edge: 0 0% 100% / 0.05;
+    --glass-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.05), 0 12px 32px -14px rgb(0 0 0 / 0.65);
+    --scrim-home: linear-gradient(180deg, hsl(var(--background) / 0.15) 0%, hsl(var(--background) / 0.55) 55%, hsl(var(--background) / 0.85) 100%);
+    --scrim-page: linear-gradient(180deg, hsl(var(--background) / 0.7), hsl(var(--background) / 0.86));
+    --bg-blur-page: 24px;
   }
 
   * {
@@ -200,18 +286,90 @@
     background: transparent;
   }
 
+  /* "Reduce animations" (Account → Appearance) sets html.reduce-motion; CSS motion
+     follows that switch, not Windows' prefers-reduced-motion, so Anchor animates by
+     default. Spinners keep turning: they show that work is still going. */
+  html.reduce-motion *:not(.animate-spin),
+  html.reduce-motion *::before,
+  html.reduce-motion *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
   /* Long lists (news, videos, apps): skip layout/paint for offscreen rows.
      This is what stops scrolling stuttering once a list gets big. */
-  .list-item {
+  /* (Not named "list-item": that's a Tailwind display utility and overrode flex.) */
+  .offscreen-row {
     content-visibility: auto;
-    contain-intrinsic-size: auto 96px;
+    contain-intrinsic-size: auto 110px;
   }
-  .card-item {
+  .offscreen-card {
     content-visibility: auto;
     contain-intrinsic-size: auto 280px;
   }
-  /* Images arrive at unpredictable sizes; reserving the box stops reflow jank. */
-  img {
-    content-visibility: auto;
+}
+
+/* Glass surfaces. No backdrop-filter on .glass: cards sit over an already
+   blurred background, so only .glass-blur (a handful of elements) pays for it. */
+@layer components {
+  /* The page's title strip. Electron applies drag regions in document order,
+     not stacking order, so this strip (after the sidebar in the DOM) would turn
+     the peeked sidebar's top row, Keep open button included, into a drag
+     region; entering one reads as mouseleave and shuts the peek. */
+  .title-drag {
+    -webkit-app-region: drag;
+  }
+  :root[data-sidebar-peek] .title-drag {
+    -webkit-app-region: no-drag;
+  }
+  /* every page but Home: one centered column, so pages line up when you switch */
+  .page-column {
+    @apply mx-auto w-full max-w-5xl;
+  }
+  .glass,
+  .glass-strong,
+  .glass-blur {
+    position: relative;
+    background: hsl(var(--glass));
+    box-shadow: var(--glass-shadow);
+    border-color: transparent;
+    isolation: isolate; /* keeps the border ring's z-index local */
+  }
+  .glass-strong {
+    background: hsl(var(--glass-strong));
+  }
+  /* 1px gradient border, bright top-left fading to a faint edge (mockup .rc::before) */
+  .glass::before,
+  .glass-strong::before,
+  .glass-blur::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 1; /* above images and other positioned children */
+    background: linear-gradient(160deg, hsl(var(--glass-border)), hsl(var(--glass-edge)) 55%, hsl(var(--glass-edge)));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+  .glass-blur {
+    backdrop-filter: blur(14px) saturate(1.3);
+  }
+  .cut-corner {
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%);
+  }
+  .glow {
+    box-shadow: 0 0 24px hsl(var(--primary) / 0.45);
+  }
+  /* Home rails: scrollable by wheel/trackpad and the arrows, no scrollbar */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }

@@ -1,37 +1,58 @@
 import { useEffect, useState } from "react";
 import { ExternalLink } from "lucide-react";
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Skeleton } from "@/components/ui";
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, PageTitle, Skeleton } from "@/components/ui";
 import type { NewsItem } from "@/types";
+import { peek } from "@/lib/store";
+import { articles, Q, windowsNews } from "@/lib/queries";
+import { runTask, useTask } from "@/lib/tasks";
+
+type UpdateResult = Awaited<ReturnType<typeof window.anchor.checkUpdates>>;
+
+const describe = (b: Awaited<ReturnType<typeof Q.buildInfo>>) =>
+  b ? `${b.ProductName} ${b.DisplayVersion} — build ${b.CurrentBuild}.${b.UBR}` : "";
 
 export default function UpdatesPage() {
-  const [build, setBuild] = useState("");
-  const [checking, setChecking] = useState(false);
-  const [status, setStatus] = useState("");
-  const [pending, setPending] = useState<string[]>([]);
-  const [last, setLast] = useState("");
-  const [news, setNews] = useState<NewsItem[] | null>(null);
+  const [build, setBuild] = useState(describe(peek("build") ?? null));
+  const task = useTask<UpdateResult>("updates:check");
+  const checking = task?.status === "running";
+  const u = task?.result;
+  const status = task?.status === "error"
+    ? `Couldn't query Windows Update: ${task.error}. Open Settings > Windows Update to check manually.`
+    : !u ? ""
+    : u.error ? `Couldn't query Windows Update: ${u.error}. Open Settings > Windows Update to check manually.`
+    : u.pending === 0 ? "You're on a recent stable build — no cumulative, security, or feature updates are pending."
+    : `${u.pending} update(s) pending. Installing cumulative and security updates keeps your system stable and secure.`;
+  const pending = u?.titles ?? [];
+  const last = u?.last ? `Last successful update: ${u.last}` : "";
+  const cachedNews = peek<NewsItem[]>("news:articles");
+  const [news, setNews] = useState<NewsItem[] | null>(cachedNews ? windowsNews(cachedNews).slice(0, 12) : null);
 
   useEffect(() => {
-    window.anchor.buildInfo().then((b) => {
-      if (b) setBuild(`${b.ProductName} ${b.DisplayVersion} — build ${b.CurrentBuild}.${b.UBR}`);
-    });
-    window.anchor.windowsNews().then((n) => setNews(n.slice(0, 12)));
+    Q.buildInfo().then((b) => setBuild(describe(b)), () => {});
+    articles().then((list) => setNews(windowsNews(list).slice(0, 12)), () => setNews([]));
   }, []);
 
-  async function check() {
-    setChecking(true);
-    const u = await window.anchor.checkUpdates();
-    if (u.error) setStatus(`Couldn't query Windows Update: ${u.error}. Open Settings > Windows Update to check manually.`);
-    else if (u.pending === 0) setStatus("You're on a recent stable build — no cumulative, security, or feature updates are pending.");
-    else setStatus(`${u.pending} update(s) pending. Installing cumulative and security updates keeps your system stable and secure.`);
-    setPending(u.titles ?? []);
-    setLast(u.last ? `Last successful update: ${u.last}` : "");
-    setChecking(false);
+  function check() {
+    runTask(
+      "updates:check",
+      {
+        label: "Windows Update check",
+        where: { section: "updates" },
+        isError: (r: UpdateResult) => r.error ?? null,
+        summarize: (r) => (r.pending === 0 ? "Up to date" : `${r.pending} update${r.pending === 1 ? "" : "s"} pending`),
+      },
+      () => window.anchor.checkUpdates(),
+    );
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 py-6">
-      <h1 className="text-3xl font-semibold tracking-tight">Windows Update</h1>
+    <div className="page-column space-y-6 py-6">
+      <div>
+        <PageTitle>Windows Update</PageTitle>
+        <p className="mt-1 text-sm text-foreground/80 dark:[text-shadow:0_1px_8px_rgb(0_0_0/0.5)]">
+          Check for pending updates and read recent update news.
+        </p>
+      </div>
 
       <Card>
         <CardHeader>
@@ -70,7 +91,7 @@ export default function UpdatesPage() {
                 <button
                   key={n.link}
                   onClick={() => window.anchor.openExternal(n.link)}
-                  className="flex w-full gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-accent"
+                  className="glass cut-corner flex w-full gap-3 rounded-lg p-3 text-left transition-[transform,background-color] duration-spring ease-spring hover:-translate-y-px hover:bg-accent/70"
                 >
                   {n.imageUrl && (
                     <img src={n.imageUrl} className="h-16 w-24 shrink-0 rounded-md object-cover" loading="lazy" />

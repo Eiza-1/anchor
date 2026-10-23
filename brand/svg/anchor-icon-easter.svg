@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+<clipPath id="easter-clip"><rect x="32" y="32" width="960" height="960" rx="224"/></clipPath>
+  <defs>
+    <linearGradient id="easter-bg" x1="0.15" y1="0" x2="0.85" y2="1"><stop offset="0" stop-color="#A9E4C1"/><stop offset="0.5" stop-color="#7FD1AE"/><stop offset="1" stop-color="#4DB38C"/></linearGradient>
+    <radialGradient id="easter-glow" cx="0.28" cy="0.12" r="0.75"><stop offset="0" stop-color="#fff" stop-opacity="0.2"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#easter-bg)"/>
+  <g clip-path="url(#easter-clip)"><g transform="translate(210 230) scale(2.4)"><ellipse cx="0" cy="-11" rx="7" ry="11" fill="#FFFFFF" transform="rotate(0)"/><ellipse cx="0" cy="-11" rx="7" ry="11" fill="#FFFFFF" transform="rotate(72)"/><ellipse cx="0" cy="-11" rx="7" ry="11" fill="#FFFFFF" transform="rotate(144)"/><ellipse cx="0" cy="-11" rx="7" ry="11" fill="#FFFFFF" transform="rotate(216)"/><ellipse cx="0" cy="-11" rx="7" ry="11" fill="#FFFFFF" transform="rotate(288)"/><circle r="6" fill="#FFD66B"/></g><g transform="translate(830 300) scale(1.8)"><ellipse cx="0" cy="-11" rx="7" ry="11" fill="#FFD1E1" transform="rotate(0)"/><ellipse cx="0" cy="-11" rx="7" ry="11" fill="#FFD1E1" transform="rotate(72)"/><ellipse cx="0" cy="-11" rx="7" ry="11" fill="#FFD1E1" transform="rotate(144)"/><ellipse cx="0" cy="-11" rx="7" ry="11" fill="#FFD1E1" transform="rotate(216)"/><ellipse cx="0" cy="-11" rx="7" ry="11" fill="#FFD1E1" transform="rotate(288)"/><circle r="6" fill="#FFFFFF"/></g><g transform="translate(180 680) scale(1.6)"><ellipse cx="0" cy="-11" rx="7" ry="11" fill="#FFF3C4" transform="rotate(0)"/><ellipse cx="0" cy="-11" rx="7" ry="11" fill="#FFF3C4" transform="rotate(72)"/><ellipse cx="0" cy="-11" rx="7" ry="11" fill="#FFF3C4" transform="rotate(144)"/><ellipse cx="0" cy="-11" rx="7" ry="11" fill="#FFF3C4" transform="rotate(216)"/><ellipse cx="0" cy="-11" rx="7" ry="11" fill="#FFF3C4" transform="rotate(288)"/><circle r="6" fill="#FF8FB1"/></g><g transform="translate(850 690) scale(2.1)"><ellipse cx="0" cy="-11" rx="7" ry="11" fill="#FFFFFF" transform="rotate(0)"/><ellipse cx="0" cy="-11" rx="7" ry="11" fill="#FFFFFF" transform="rotate(72)"/><ellipse cx="0" cy="-11" rx="7" ry="11" fill="#FFFFFF" transform="rotate(144)"/><ellipse cx="0" cy="-11" rx="7" ry="11" fill="#FFFFFF" transform="rotate(216)"/><ellipse cx="0" cy="-11" rx="7" ry="11" fill="#FFFFFF" transform="rotate(288)"/><circle r="6" fill="#B6A6FF"/></g><g transform="translate(217 217) scale(5.9)"><g>
+      <clipPath id="anchor-egg-clip"><path d="M50 1.25C60.53 1.25 63.5 19.25 63.5 22.25C63.5 29.25 57.42 35.25 50 35.25C42.58 35.25 36.5 29.25 36.5 22.25C36.5 19.25 39.47 1.25 50 1.25Z"/></clipPath>
+      <path d="M50 1.25C60.53 1.25 63.5 19.25 63.5 22.25C63.5 29.25 57.42 35.25 50 35.25C42.58 35.25 36.5 29.25 36.5 22.25C36.5 19.25 39.47 1.25 50 1.25Z" fill="#FFD66B"/>
+      <g clip-path="url(#anchor-egg-clip)">
+        <rect x="35" y="12.25" width="30" height="4" fill="#7FD1AE"/>
+        <polyline points="36 18.45 40 22.05 44 18.45 48 22.05 52 18.45 56 22.05 60 18.45 64 22.05" fill="none" stroke="#FF7AA8" stroke-width="2.6" stroke-linejoin="round"/>
+        <circle cx="45" cy="27.75" r="1.7" fill="#8B7CF6"/><circle cx="50" cy="28.75" r="1.7" fill="#8B7CF6"/><circle cx="55" cy="27.75" r="1.7" fill="#8B7CF6"/>
+      </g>
+      <path d="M50 1.25C60.53 1.25 63.5 19.25 63.5 22.25C63.5 29.25 57.42 35.25 50 35.25C42.58 35.25 36.5 29.25 36.5 22.25C36.5 19.25 39.47 1.25 50 1.25Z" fill="none" stroke="#FFFFFF" stroke-width="2.6"/>
+    </g>
+  <rect x="44.5" y="40.25" width="11" height="53" rx="5.5" fill="#FFFFFF"/>
+  <path d="M7.73 60.69A42.5 42.5 0 0 0 92.27 60.69L81.33 59.54A31.5 31.5 0 0 1 18.67 59.54Z" fill="#FFFFFF"/></g></g>
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#easter-glow)"/>
+</svg>

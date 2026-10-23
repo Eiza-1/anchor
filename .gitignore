@@ -3,3 +3,8 @@ obj/
 .vs/
 *.user
 dist/
+
+.superpowers/
+
+# local planning docs (contain local paths) — never pushed
+docs/superpowers/

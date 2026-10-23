@@ -1,44 +1,55 @@
 import { useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { Badge, Button, Card, CardContent, Skeleton, Switch } from "@/components/ui";
-import { cached, invalidate, peek } from "@/lib/store";
+import { invalidate, peek, remember } from "@/lib/store";
+import { Q } from "@/lib/queries";
+import { runTask, useBlockedBy } from "@/lib/tasks";
 
 type Entry = { name: string; command: string; scope: string; enabled: boolean };
 
 export default function StartupPage() {
   const [entries, setEntries] = useState<Entry[] | null>(peek<Entry[]>("startup") ?? null);
   const [loading, setLoading] = useState(false);
+  const blocker = useBlockedBy("change");
 
   async function load(force = false) {
     setLoading(true);
     if (force) invalidate("startup");
-    setEntries(await cached("startup", 30_000, () => window.anchor.startupList()));
-    setLoading(false);
+    try { setEntries(await Q.startup()); } finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
+  useEffect(() => { if (entries) remember("startup", entries); }, [entries]);
 
   async function toggle(entry: Entry, on: boolean) {
-    setEntries((prev) => prev?.map((e) => (e.name === entry.name && e.scope === entry.scope ? { ...e, enabled: on } : e)) ?? null);
-    const r = await window.anchor.startupToggle(entry.name, entry.scope, on);
-    if (!r.ok) {
-      // revert on failure
-      setEntries((prev) => prev?.map((e) => (e.name === entry.name && e.scope === entry.scope ? { ...e, enabled: !on } : e)) ?? null);
-    }
+    const setEnabled = (enabled: boolean) =>
+      setEntries((prev) => prev?.map((e) => (e.name === entry.name && e.scope === entry.scope ? { ...e, enabled } : e)) ?? null);
+    setEnabled(on);
+    const r = await runTask(
+      `startup:${entry.scope}:${entry.name}`,
+      {
+        label: "Startup app",
+        where: { section: "startup", tab: "apps" },
+        group: "change",
+        isError: (x: { ok: boolean; error: string }) => (x.ok ? null : x.error || "Couldn't change this startup app"),
+        summarize: () => `${entry.name} ${on ? "enabled" : "disabled"}`,
+      },
+      async () => {
+        const x = await window.anchor.startupToggle(entry.name, entry.scope, on);
+        if (!x.ok) invalidate("startup"); // the page may be closed: re-read the truth next visit
+        return x;
+      },
+    );
+    if (!r?.ok) setEnabled(!on); // revert on failure (or when it couldn't start)
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 py-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Startup Apps</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Apps that launch when Windows boots. Turning one off doesn't uninstall it — it just stops it auto-starting.
-          Flip the switch back any time. (Same mechanism as Task Manager's Startup tab.)
-        </p>
-      </div>
+    <div className="page-column space-y-6 py-6">
 
-      <Button variant="outline" size="sm" onClick={() => load(true)} loading={loading}>
-        {!loading && <RefreshCw />} Refresh
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="outline" size="sm" onClick={() => load(true)} loading={loading}>
+          {!loading && <RefreshCw />} Refresh
+        </Button>
+      </div>
 
       <div className="space-y-2">
         {entries === null ? (
@@ -55,8 +66,9 @@ export default function StartupPage() {
                     <Badge variant="outline">{e.scope}</Badge>
                   </div>
                   <p className="truncate text-xs text-muted-foreground">{e.command}</p>
+                  {blocker && <p className="text-xs text-muted-foreground">{blocker.label} is already running</p>}
                 </div>
-                <Switch checked={e.enabled} onCheckedChange={(v) => toggle(e, v)} />
+                <Switch checked={e.enabled} disabled={!!blocker} title={blocker ? `${blocker.label} is already running` : undefined} onCheckedChange={(v) => toggle(e, v)} />
               </CardContent>
             </Card>
           ))

@@ -1,9 +1,8 @@
-// The "Boost" engine: trims RAM of background processes and clears temp files.
-// Safety rules (same as always): never touches processes with a visible window,
-// never touches critical system processes, and only *trims* memory — kills nothing.
+// Memory trim + restore points. (Disk cleanup lives in cleanup.js — the
+// one-click Boost runs its default set.)
+// Trim safety rules: never touches processes with a visible window, never
+// touches critical system processes, and only *trims* memory — kills nothing.
 // "RAM freed" is measured system-wide (available memory before vs after).
-const fs = require("fs");
-const path = require("path");
 const { runPS, runPSJson } = require("./ps");
 
 const CRITICAL = [
@@ -14,7 +13,7 @@ const CRITICAL = [
   "conhost", "dllhost", "WmiPrvSE", "Anchor", "electron", "powershell",
 ];
 
-async function clearRam() {
+async function trimMemory() {
   const criticalPs = CRITICAL.map((c) => `'${c}'`).join(",");
   const script = `
 $ErrorActionPreference='SilentlyContinue'
@@ -32,38 +31,6 @@ $after=(Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory
 [PSCustomObject]@{trimmed=$trimmed; freedBytes=[math]::Max(0,($after-$before))*1024; skipped=($skipped|Sort-Object -Unique)} | ConvertTo-Json -Compress
 `;
   return (await runPSJson(script)) ?? { trimmed: 0, freedBytes: 0, skipped: [] };
-}
-
-function cleanTempDir(dir) {
-  let bytes = 0, files = 0;
-  let entries = [];
-  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return { bytes, files }; }
-  for (const e of entries) {
-    const full = path.join(dir, e.name);
-    try {
-      if (e.isDirectory()) {
-        const sub = cleanTempDir(full);
-        bytes += sub.bytes; files += sub.files;
-        fs.rmdirSync(full);
-      } else {
-        const size = fs.statSync(full).size;
-        fs.unlinkSync(full);
-        bytes += size; files += 1;
-      }
-    } catch { /* in use — skip */ }
-  }
-  return { bytes, files };
-}
-
-function cleanTemp() {
-  const dirs = [process.env.TEMP, path.join(process.env.SystemRoot || "C:\\Windows", "Temp")].filter(Boolean);
-  let bytes = 0, files = 0;
-  for (const d of dirs) { const r = cleanTempDir(d); bytes += r.bytes; files += r.files; }
-  return { bytes, files };
-}
-
-async function emptyRecycleBin() {
-  await runPS("Clear-RecycleBin -Force -ErrorAction SilentlyContinue");
 }
 
 /** How long ago the most recent restore point was made, in days. */
@@ -115,12 +82,4 @@ Checkpoint-Computer -Description '${description.replace(/'/g, "")}' -RestorePoin
     : { ok: false, message: `Could not create restore point: ${err}` };
 }
 
-async function runFullBoost({ includeTemp, includeRecycleBin }) {
-  const ram = await clearRam();
-  let temp = { bytes: 0, files: 0 };
-  if (includeTemp) temp = cleanTemp();
-  if (includeRecycleBin) await emptyRecycleBin();
-  return { ...ram, tempBytes: temp.bytes, tempFiles: temp.files };
-}
-
-module.exports = { runFullBoost, createRestorePoint, ensureRestorePoint, lastRestorePointAgeDays };
+module.exports = { trimMemory, createRestorePoint, ensureRestorePoint, lastRestorePointAgeDays };

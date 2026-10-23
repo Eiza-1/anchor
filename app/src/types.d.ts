@@ -1,3 +1,5 @@
+import type { Season } from "./components/brand-marks";
+
 export interface NewsItem {
   title: string;
   link: string;
@@ -5,26 +7,45 @@ export interface NewsItem {
   published: number;
   summary: string;
   imageUrl: string | null;
+  /** Videos only: a YouTube Short (vertical clip) */
+  isShort?: boolean;
 }
+
+export type Platform = "pc" | "playstation" | "xbox" | "switch";
+export interface GameRelease {
+  id: number; name: string; slug: string;
+  released: string; // YYYY-MM-DD
+  image: string | null; platforms: Platform[]; genres: string[];
+  added: number; // people tracking it on RAWG
+  url: string;
+}
+export interface FreeGame {
+  id: number; title: string; image: string;
+  store: "steam" | "epic" | "gog";
+  endDate: string | null; worth: string | null; url: string;
+}
+export type GamesResult<T> = { ok: true; items: T[] } | { ok: false; reason: "no-key" | "network" };
 
 export interface AnchorApi {
   minimize(): Promise<void>;
   maximize(): Promise<void>;
   close(): Promise<void>;
   appVersion(): Promise<string>;
+  /** Today's seasonal logo, or null (also null when "Seasonal logos" is off). */
+  season(): Promise<Season | null>;
+  onSeason(cb: (season: Season | null) => void): () => void;
 
   createRestorePoint(desc: string): Promise<{ ok: boolean; message: string }>;
   ensureRestorePoint(desc: string, minDays: number): Promise<{ ok: boolean; skipped?: boolean; message: string }>;
   lastRestorePoint(): Promise<{ days: number; description: string | null }>;
-  runBoost(opts: { includeTemp: boolean; includeRecycleBin: boolean }): Promise<{
-    trimmed: number; freedBytes: number; skipped: string[]; tempBytes: number; tempFiles: number;
-  }>;
+  trimMemory(): Promise<{ trimmed: number; freedBytes: number; skipped: string[] }>;
 
   cleanupScan(): Promise<Array<{
     id: string; name: string; detail: string;
     default: boolean; oneWay: boolean; bytes: number;
   }>>;
   cleanupRun(ids: string[]): Promise<{ freed: number; cleaned: string[] }>;
+  cleanupQuick(): Promise<{ freed: number; cleaned: string[] }>;
 
   buildInfo(): Promise<{ ProductName: string; DisplayVersion: string; CurrentBuild: string; UBR: number } | null>;
   checkUpdates(): Promise<{ pending?: number; titles?: string[]; last?: string | null; error?: string }>;
@@ -33,6 +54,7 @@ export interface AnchorApi {
     name: string; media: string; health: string; size: number;
     wear?: number; temp?: number; predictFailure?: boolean;
   }>>;
+  isAdmin(): Promise<boolean>;
   volumes(): Promise<Array<{ DeviceID: string; FreeSpace: number; Size: number }>>;
   deviceHealth(): Promise<Array<{
     name: string; deviceClass: string; code: number;
@@ -61,11 +83,15 @@ export interface AnchorApi {
   feeds(): Promise<{ articles: string[]; videos: string[] }>;
   articles(sources?: string[]): Promise<NewsItem[]>;
   videos(): Promise<NewsItem[]>;
-  windowsNews(): Promise<NewsItem[]>;
   backfillImages(links: string[]): Promise<Record<string, string>>;
+  gameReleases(): Promise<GamesResult<GameRelease>>;
+  freeGames(): Promise<GamesResult<FreeGame>>;
 
   loadProfile(): Promise<Profile>;
   saveProfile(p: Partial<Profile>): Promise<Profile>;
+  pickBackground(): Promise<{ ok: boolean; message?: string }>;
+  getBackground(): Promise<{ type: string; bytes: Uint8Array<ArrayBuffer> } | null>;
+  resetBackground(): Promise<void>;
   signIn(provider: string): Promise<{
     ok: boolean;
     user?: { name: string; email: string; userId: string; accessToken: string };
@@ -96,7 +122,7 @@ export interface AnchorApi {
   pickExe(): Promise<string | null>;
   gpuInfo(): Promise<Array<{
     name: string; driver: string; driverDate: string | null;
-    vram: number; status: string; ageDays: number | null;
+    vram: number; status: string; ageDays: number | null; errorCode?: number;
   }>>;
   pcieState(): Promise<{ saving: boolean }>;
   setPcie(on: boolean): Promise<{ ok: boolean; error: string }>;
@@ -129,11 +155,19 @@ export interface AnchorApi {
   bootStatus(): Promise<{ enabled: boolean; openAtLogin: boolean }>;
   onBootProcess(cb: (ev: BootProcessEvent) => void): () => void;
 
-  checkAppUpdate(): Promise<{
-    available: boolean; latestVersion?: string; currentVersion?: string;
-    releaseUrl?: string; installerUrl?: string | null; notes?: string;
-  } | null>;
+  updateCheck(): Promise<void>;
+  updateDownload(): Promise<void>;
+  updateInstall(): Promise<void>;
+  updateNotes(limit?: number): Promise<Array<{
+    version: string; name: string; date: string; notes: string; url: string; isCurrent: boolean;
+  }>>;
+  onUpdateEvent(cb: (payload: {
+    status: import("@/lib/store").UpdateStatus; version?: string; notes?: string;
+    percent?: number; message?: string;
+  }) => void): () => void;
   openExternal(url: string): Promise<void>;
+  notify(n: { title: string; body: string; target: import("@/lib/nav").NavTarget }): Promise<void>;
+  onNavigate(cb: (t: import("@/lib/nav").NavTarget) => void): () => void;
 }
 
 export interface BootFinding {
@@ -178,6 +212,8 @@ export interface Profile {
   restorePolicy: "weekly" | "monthly" | "always";
   bootWatch: boolean;
   theme: string;
+  seasonalLogos: boolean;
+  background: string;
   userId: string;
   accessToken: string;
 }

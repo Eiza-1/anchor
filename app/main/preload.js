@@ -10,14 +10,21 @@ contextBridge.exposeInMainWorld("anchor", {
   maximize: () => call("win:maximize"),
   close: () => call("win:close"),
   appVersion: () => call("app:version"),
+  season: () => call("app:season"),
+  onSeason: (cb) => {
+    const handler = (_e, season) => cb(season);
+    ipcRenderer.on("app:season", handler);
+    return () => ipcRenderer.removeListener("app:season", handler);
+  },
 
   // safety + boost
   createRestorePoint: (desc) => call("boost:restorePoint", desc),
   ensureRestorePoint: (desc, minDays) => call("boost:ensureRestorePoint", desc, minDays),
   lastRestorePoint: () => call("boost:lastRestorePoint"),
-  runBoost: (opts) => call("boost:run", opts),
+  trimMemory: () => call("boost:trim"),
   cleanupScan: () => call("cleanup:scan"),
   cleanupRun: (ids) => call("cleanup:run", ids),
+  cleanupQuick: () => call("cleanup:quick"),
 
   // windows update
   buildInfo: () => call("sys:buildInfo"),
@@ -26,6 +33,7 @@ contextBridge.exposeInMainWorld("anchor", {
   // drives / performance
   driveHealth: () => call("sys:driveHealth"),
   volumes: () => call("sys:volumes"),
+  isAdmin: () => call("sys:isAdmin"),
   deviceHealth: () => call("sys:deviceHealth"),
   cpuInfo: () => call("sys:cpuInfo"),
   monitorStart: () => call("monitor:start"),
@@ -54,12 +62,16 @@ contextBridge.exposeInMainWorld("anchor", {
   feeds: () => call("news:feeds"),
   articles: (sources) => call("news:articles", sources),
   videos: () => call("news:videos"),
-  windowsNews: () => call("news:windows"),
   backfillImages: (links) => call("news:backfill", links),
+  gameReleases: () => call("games:releases"),
+  freeGames: () => call("games:free"),
 
   // account
   loadProfile: () => call("profile:load"),
   saveProfile: (p) => call("profile:save", p),
+  pickBackground: () => call("bg:pick"),
+  getBackground: () => call("bg:get"),
+  resetBackground: () => call("bg:reset"),
   signIn: (provider) => call("auth:signIn", provider),
   authConfigured: () => call("auth:configured"),
   authProviders: () => call("auth:providers"),
@@ -82,9 +94,6 @@ contextBridge.exposeInMainWorld("anchor", {
   pcieState: () => call("perf:pcieState"),
   setPcie: (on) => call("perf:setPcie", on),
   clearShaderCaches: () => call("perf:clearShaderCaches"),
-
-  // app updates + links
-  checkAppUpdate: () => call("app:checkUpdate"),
 
   // disk benchmark + RAM test
   benchRun: (drive, sizeMB) => call("bench:run", drive, sizeMB),
@@ -122,4 +131,10 @@ contextBridge.exposeInMainWorld("anchor", {
     return () => ipcRenderer.removeListener("update:event", handler);
   },
   openExternal: (url) => call("app:openExternal", url),
+  notify: (n) => call("app:notify", n),
+  onNavigate: (cb) => {
+    const handler = (_e, target) => cb(target);
+    ipcRenderer.on("nav:go", handler);
+    return () => ipcRenderer.removeListener("nav:go", handler);
+  },
 });

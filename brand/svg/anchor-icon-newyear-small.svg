@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+<defs><linearGradient id="nys-gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE3A3"/><stop offset="0.5" stop-color="#FFC659"/><stop offset="1" stop-color="#F29A2E"/></linearGradient></defs><defs>
+    <linearGradient id="newyears-bg" x1="0.15" y1="0" x2="0.85" y2="1"><stop offset="0" stop-color="#26305A"/><stop offset="0.5" stop-color="#151C38"/><stop offset="1" stop-color="#0A0F1F"/></linearGradient>
+    <radialGradient id="newyears-glow" cx="0.28" cy="0.12" r="0.75"><stop offset="0" stop-color="#fff" stop-opacity="0.12"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#newyears-bg)"/>
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#newyears-glow)"/>
+  <g transform="translate(207 207) scale(6.1)"><g>
+      <circle cx="50" cy="19" r="12" fill="none" stroke="url(#nys-gold)" stroke-width="11.5"/>
+      <g stroke="url(#nys-gold)" stroke-width="3.4" stroke-linecap="round"><line x1="50" y1="-1.95" x2="50" y2="-8.25"/><line x1="64.81" y1="4.19" x2="67.15" y2="1.85"/><line x1="70.95" y1="19" x2="77.25" y2="19"/><line x1="64.81" y1="33.81" x2="67.15" y2="36.15"/><line x1="50" y1="39.95" x2="50" y2="46.25"/><line x1="35.19" y1="33.81" x2="32.85" y2="36.15"/><line x1="29.05" y1="19" x2="22.75" y2="19"/><line x1="35.19" y1="4.19" x2="32.85" y2="1.85"/></g>
+    </g>
+  <rect x="43" y="41.75" width="14" height="50" rx="7" fill="url(#nys-gold)"/>
+  <path d="M7.53 57.73A42.5 42.5 0 0 0 92.47 57.73L78.48 57.24A28.5 28.5 0 0 1 21.52 57.24Z" fill="url(#nys-gold)"/></g>
+</svg>

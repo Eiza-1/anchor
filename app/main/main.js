@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, Tray, Menu, Notification } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, dialog, Tray, Menu, Notification, protocol, net } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
@@ -7,7 +7,6 @@ const sys = require("./services/system");
 const news = require("./services/news");
 const profile = require("./services/profile");
 const auth = require("./services/auth");
-const appUpdate = require("./services/appUpdate");
 const perf = require("./services/perftweaks");
 const updater = require("./services/updater");
 const { warmUp, shutdown } = require("./services/ps");
@@ -16,11 +15,82 @@ const bootwatch = require("./services/bootwatch");
 const diagnostics = require("./services/diagnostics");
 const diskbench = require("./services/diskbench");
 const cleanup = require("./services/cleanup");
+const background = require("./services/background");
+const games = require("./services/games");
+const { seasonFor } = require("./services/season");
 
 let win;
 let tray = null;
+
+// The logo dresses up for Halloween unless Account → Appearance → "Seasonal
+// logos" is off. Other seasons are ready but switched off (ACTIVE in
+// services/season.js). The icons ship under main/ because build/ is not
+// packaged into the app.
+function currentSeason() {
+  return profile.loadProfile().seasonalLogos === false ? null : seasonFor(new Date());
+}
+let season = currentSeason();
+const appIcon = () => path.join(__dirname, "assets", "icons", `anchor${season ? `-${season}` : ""}.ico`);
+
+/** Re-checks the date and setting; swaps the window and tray icon and tells the page. */
+function refreshSeason() {
+  const next = currentSeason();
+  if (next === season) return;
+  season = next;
+  if (win && !win.isDestroyed()) {
+    win.setIcon(appIcon());
+    win.webContents.send("app:season", season);
+  }
+  tray?.setImage(appIcon());
+}
+
+// anchor-img://fetch?u=<https url>: a news picture fetched by main, readable by
+// the page (feeds' image hosts send no CORS headers). The page shrinks it to
+// card size once (lib/thumbs.ts) instead of decoding multi-megapixel photos
+// while you scroll. Images only; anything else is refused.
+protocol.registerSchemesAsPrivileged([
+  { scheme: "anchor-img", privileges: { supportFetchAPI: true, corsEnabled: true, secure: true } },
+]);
+async function proxyImage(req) {
+  const target = new URL(req.url).searchParams.get("u") ?? "";
+  if (!target.startsWith("https://")) return new Response(null, { status: 400 });
+  try {
+    const res = await net.fetch(target, { headers: { "User-Agent": "Mozilla/5.0 Anchor" } });
+    const type = res.headers.get("content-type") ?? "";
+    if (!res.ok || !type.startsWith("image/")) return new Response(null, { status: 502 });
+    return new Response(res.body, { headers: { "content-type": type, "access-control-allow-origin": "*" } });
+  } catch {
+    return new Response(null, { status: 502 });
+  }
+}
 // Launched by Windows at login (see setLoginItemSettings) — start in the tray.
 const startedHidden = process.argv.includes("--startup");
+// Windows matches toasts to the installer's shortcut by this id.
+if (process.platform === "win32" && app.isPackaged) app.setAppUserModelId("com.eiza.anchor");
+
+/** Shows the window, un-minimizing it first (show() alone leaves it minimized). */
+function bringToFront() {
+  if (!win || win.isDestroyed()) return false;
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+  return true;
+}
+
+// Shown notifications are held here — one only kept in a local can be
+// garbage-collected, and its click never fires. Kept past "close" too, since
+// Windows closes a toast when it times out into Action Center, where it can
+// still be clicked; the oldest are let go after a few.
+const notes = new Set();
+const MAX_NOTES = 10;
+function showNote({ title, body }, onClick) {
+  const note = new Notification({ title, body, icon: appIcon() });
+  notes.add(note);
+  if (notes.size > MAX_NOTES) notes.delete(notes.values().next().value);
+  note.on("click", () => { notes.delete(note); if (bringToFront()) onClick?.(); });
+  note.on("failed", () => notes.delete(note));
+  note.show();
+}
 
 function createWindow() {
   win = new BrowserWindow({
@@ -31,9 +101,9 @@ function createWindow() {
     show: false,
     backgroundColor: "#09090b",
     title: "Anchor",
-    icon: path.join(__dirname, "..", "build", "icon.ico"),
+    icon: appIcon(),
     titleBarStyle: "hidden",
-    titleBarOverlay: { color: "#09090b", symbolColor: "#a1a1aa", height: 40 },
+    titleBarOverlay: { color: "#00000000", symbolColor: "#a1a1aa", height: 40 },
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -49,7 +119,8 @@ function createWindow() {
     if (!app.isQuitting && tray) { e.preventDefault(); win.hide(); }
   });
   // Safety net: never leave the user staring at nothing if the page is slow or fails.
-  setTimeout(() => { if (!win.isDestroyed() && !win.isVisible()) win.show(); }, 4000);
+  // A login launch stays in the tray — the user hasn't asked to see the window.
+  if (!startedHidden) setTimeout(() => { if (!win.isDestroyed() && !win.isVisible()) win.show(); }, 4000);
 
   win.webContents.on("did-fail-load", (_e, code, desc, url) => {
     win.show();
@@ -73,23 +144,24 @@ function createWindow() {
 }
 
 function createTray() {
-  const icon = path.join(__dirname, "..", "build", "icon.ico");
-  try { tray = new Tray(icon); } catch { return; }
+  try { tray = new Tray(appIcon()); } catch { return; }
   tray.setToolTip("Anchor — watching startup activity");
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: "Open Anchor", click: () => { win?.show(); win?.focus(); } },
+      { label: "Open Anchor", click: bringToFront },
       { type: "separator" },
       { label: "Quit", click: () => { app.isQuitting = true; app.quit(); } },
     ])
   );
-  tray.on("double-click", () => { win?.show(); win?.focus(); });
+  tray.on("double-click", bringToFront);
 }
 
 app.whenReady().then(async () => {
+  protocol.handle("anchor-img", proxyImage);
   createWindow();
   createTray();
   warmUp();                       // start the PowerShell host before it's needed
+  setInterval(refreshSeason, 60 * 60 * 1000);   // seasons start and end at midnight; an hour late is fine
   updater.init(win.webContents);
 
   // Boot Watch: if the user enabled it, watch process starts and, when launched
@@ -101,13 +173,10 @@ app.whenReady().then(async () => {
       const findings = await bootwatch.scanPersistence();
       const risky = findings.filter((f) => f.level === "high");
       if (risky.length && Notification.isSupported()) {
-        const n = new Notification({
+        showNote({
           title: `Anchor found ${risky.length} suspicious startup item${risky.length === 1 ? "" : "s"}`,
           body: risky.slice(0, 2).map((f) => f.name).join(", ") + " — click to review.",
-          icon: path.join(__dirname, "..", "build", "icon.ico"),
         });
-        n.on("click", () => { win?.show(); win?.focus(); });
-        n.show();
       }
     }
   }
@@ -131,20 +200,23 @@ handle("win:minimize", () => win?.minimize());
 handle("win:maximize", () => (win?.isMaximized() ? win.unmaximize() : win?.maximize()));
 handle("win:close", () => win?.close());
 handle("app:version", () => app.getVersion());
+handle("app:season", () => season);
 
 handle("boost:restorePoint", (desc) => boost.createRestorePoint(desc ?? "Anchor"));
 handle("boost:ensureRestorePoint", (desc, minDays) =>
   boost.ensureRestorePoint(desc ?? "Anchor", minDays ?? 7)
 );
 handle("boost:lastRestorePoint", () => boost.lastRestorePointAgeDays());
-handle("boost:run", (opts) => boost.runFullBoost(opts ?? {}));
+handle("boost:trim", () => boost.trimMemory());
 handle("cleanup:scan", () => cleanup.scan());
 handle("cleanup:run", (ids) => cleanup.clean(ids ?? []));
+handle("cleanup:quick", () => cleanup.quickClean());
 
 handle("sys:buildInfo", () => sys.buildInfo());
 handle("sys:checkUpdates", () => sys.checkUpdates());
 handle("sys:driveHealth", () => sys.driveHealth());
 handle("sys:volumes", () => sys.volumes());
+handle("sys:isAdmin", () => sys.isAdmin());
 handle("sys:deviceHealth", () => sys.deviceHealth());
 handle("sys:cpuInfo", () => sys.cpuInfo());
 handle("monitor:start", () => monitor.start(win.webContents));
@@ -174,11 +246,27 @@ handle("sys:saveAutounattend", async (opts) => {
 handle("news:feeds", () => ({ articles: Object.keys(news.FEEDS), videos: Object.keys(news.VIDEO_CHANNELS) }));
 handle("news:articles", (sources) => news.fetchArticles(sources));
 handle("news:videos", () => news.fetchVideos());
-handle("news:windows", () => news.fetchWindowsUpdateNews());
 handle("news:backfill", (links) => news.backfillImages(links ?? []));
+handle("games:releases", () => {
+  let key = "";
+  try { key = require("./config").rawgKey ?? ""; } catch { /* no config.js */ }
+  const d = new Date(), p = (n) => String(n).padStart(2, "0");
+  const today = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  return games.upcomingReleases(key, today);
+});
+handle("games:free", () => games.freeGames());
 
 handle("profile:load", () => profile.loadProfile());
-handle("profile:save", (p) => profile.saveProfile(p ?? {}));
+// `background` is owned by services/background.js; a stale copy from the UI must not undo a pick/reset.
+handle("profile:save", (p) => {
+  const { background: _ignored, ...rest } = p ?? {};
+  const saved = profile.saveProfile(rest);
+  refreshSeason();                // "Seasonal logos" may have changed
+  return saved;
+});
+handle("bg:pick", () => background.pickBackground(win));
+handle("bg:get", () => background.getBackground());
+handle("bg:reset", () => background.resetBackground());
 handle("auth:signIn", async (provider) => {
   try {
     const user = await auth.signIn(provider);
@@ -275,11 +363,19 @@ handle("bootwatch:status", () => ({
   openAtLogin: app.getLoginItemSettings({ path: process.execPath, args: ["--startup"] }).openAtLogin,
 }));
 
-handle("app:checkUpdate", () => appUpdate.checkForUpdate());
 handle("update:check", () => updater.check());
 handle("update:download", () => updater.download());
 handle("update:install", () => updater.install());
 handle("update:notes", (limit) => updater.releaseNotes(limit));
 handle("app:openExternal", (url) => {
   if (typeof url === "string" && /^https?:\/\//.test(url)) shell.openExternal(url);
+});
+// Windows notification for a finished task, only when Anchor isn't the focused window.
+handle("app:notify", (n) => {
+  if (!win || win.isDestroyed() || win.isFocused() || !Notification.isSupported()) return;
+  if (!n || typeof n.title !== "string") return;
+  showNote(
+    { title: n.title, body: typeof n.body === "string" ? n.body : "" },
+    () => win.webContents.send("nav:go", n.target),
+  );
 });

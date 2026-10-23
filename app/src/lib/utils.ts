@@ -23,3 +23,9 @@ export function formatBytes(b: number): string {
   if (b >= 1 << 10) return `${Math.round(b / (1 << 10))} KB`;
   return `${b} B`;
 }
+
+/** "Removed 3 apps", or "Removed 2 of 3 apps" when some failed. */
+export function countSummary(verb: string, done: number, total: number, noun: string): string {
+  const of = done < total ? `${done} of ${total}` : `${done}`;
+  return `${verb} ${of} ${noun}${(done < total ? total : done) === 1 ? "" : "s"}`;
+}

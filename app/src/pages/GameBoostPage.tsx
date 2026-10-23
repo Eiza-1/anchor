@@ -4,8 +4,12 @@ import {
   Alert, Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle,
   Select, Skeleton, Switch,
 } from "@/components/ui";
-import { formatBytes } from "@/lib/utils";
-import { cached, ensureRestorePoint, invalidate, peek } from "@/lib/store";
+import { countSummary, formatBytes } from "@/lib/utils";
+import { ensureRestorePoint, invalidate, peek, remember } from "@/lib/store";
+import { Q } from "@/lib/queries";
+import { runTask, useBlockedBy, useTask } from "@/lib/tasks";
+
+const PERF_WHERE = { section: "performance", tab: "boost" };
 
 type Tweak = {
   id: string; name: string; desc: string; category: string;
@@ -23,51 +27,135 @@ export default function GameBoostPage() {
   const [power, setPower] = useState<PowerPlan | null>(peek<PowerPlan>("perf:power") ?? null);
   const [gpu, setGpu] = useState<GpuPref[]>(peek<GpuPref[]>("perf:gpuPrefs") ?? []);
   const [gpus, setGpus] = useState<Gpu[]>(peek<Gpu[]>("perf:gpuInfo") ?? []);
-  const [pcieSaving, setPcieSaving] = useState<boolean | null>(null);
-  const [cacheMsg, setCacheMsg] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState("");
+  const [pcieSaving, setPcieSaving] = useState<boolean | null>(peek<{ saving: boolean }>("perf:pcie")?.saving ?? null);
+  const recTask = useTask("perf:recommended");
+  const revTask = useTask("perf:revert");
+  const shaderTask = useTask<{ bytes: number; cleared: string[] }>("perf:shaders");
+  const blocker = useBlockedBy("perf");
+  const recBusy = recTask?.status === "running";
+  const revBusy = revTask?.status === "running";
+  const shaderBusy = shaderTask?.status === "running";
+  // message only when a DIFFERENT task blocks a control (its own spinner already says it's running)
+  const blockedBy = (ownKey: string) =>
+    blocker && blocker.key !== ownKey ? `${blocker.label} is already running` : undefined;
+  const recBlocked = blockedBy("perf:recommended");
+  const revBlocked = blockedBy("perf:revert");
 
   async function load(force = false) {
     if (force) invalidate("perf:tweaks", "perf:power", "perf:gpuPrefs", "perf:gpuInfo", "perf:pcie");
-    const [t, p, g, info, pcie] = await Promise.all([
-      cached("perf:tweaks", 15_000, () => window.anchor.perfList()),
-      cached("perf:power", 15_000, () => window.anchor.powerPlan()),
-      cached("perf:gpuPrefs", 15_000, () => window.anchor.gpuPrefs()),
-      cached("perf:gpuInfo", 300_000, () => window.anchor.gpuInfo()),
-      cached("perf:pcie", 15_000, () => window.anchor.pcieState()),
+    // each section fills in as soon as its own data arrives
+    await Promise.allSettled([
+      Q.perfTweaks().then(setTweaks),
+      Q.powerPlan().then(setPower),
+      Q.gpuPrefs().then(setGpu),
+      Q.gpuInfo().then(setGpus),
+      Q.pcie().then((p) => setPcieSaving(p.saving)),
     ]);
-    setTweaks(t); setPower(p); setGpu(g); setGpus(info); setPcieSaving(pcie.saving);
   }
   useEffect(() => { load(); }, []);
+  // keep the cache in step with toggles, so coming back shows the real state
+  useEffect(() => { if (tweaks) remember("perf:tweaks", tweaks); }, [tweaks]);
+  useEffect(() => { if (power) remember("perf:power", power); }, [power]);
+  useEffect(() => { remember("perf:gpuPrefs", gpu); }, [gpu]);
+  useEffect(() => { if (pcieSaving !== null) remember("perf:pcie", { saving: pcieSaving }); }, [pcieSaving]);
 
   const restartNeeded = tweaks?.some((t) => t.needsRestart && t.applied);
 
-  async function toggle(t: Tweak, on: boolean) {
-    setTweaks((prev) => prev?.map((x) => (x.id === t.id ? { ...x, applied: on } : x)) ?? null);
-    const r = await window.anchor.perfApply(t.id, on);
-    if (!r.ok) setTweaks((prev) => prev?.map((x) => (x.id === t.id ? { ...x, applied: !on } : x)) ?? null);
+  function toggle(t: Tweak, on: boolean) {
+    const setApplied = (applied: boolean) =>
+      setTweaks((prev) => prev?.map((x) => (x.id === t.id ? { ...x, applied } : x)) ?? null);
+    setApplied(on);
+    runTask(
+      `perf:${t.id}`,
+      {
+        label: "Performance tweak",
+        where: PERF_WHERE,
+        group: "perf",
+        isError: (r: { ok: boolean; error: string }) => (r.ok ? null : r.error || "Couldn't change this tweak"),
+        summarize: () => `${t.name} ${on ? "on" : "off"}`,
+      },
+      async () => {
+        const r = await window.anchor.perfApply(t.id, on);
+        if (!r.ok) invalidate("perf:tweaks"); // page may be closed: re-read the truth next visit
+        return r;
+      },
+    ).then((r) => { if (!r?.ok) setApplied(!on); });
   }
 
-  async function applyRecommended() {
-    setBusy(true);
-    setMsg("Checking restore point…");
-    const rp = await ensureRestorePoint("Anchor performance tweaks");
-    setMsg(rp.skipped ? `${rp.message} Applying tweaks…` : "Restore point created. Applying tweaks…");
-    await window.anchor.perfApplyRecommended();
-    await load(true);
-    setMsg("Recommended tweaks applied. Every one can be switched back off below.");
-    setBusy(false);
+  function applyRecommended() {
+    runTask(
+      "perf:recommended",
+      {
+        label: "Recommended tweaks",
+        where: PERF_WHERE,
+        group: "perf",
+        isError: (r: Array<{ id: string; ok: boolean }>) =>
+          r.length > 0 && r.every((x) => !x.ok) ? "None of the tweaks could be applied" : null,
+        summarize: (r) => countSummary("Applied", r.filter((x) => x.ok).length, r.length, "tweak"),
+      },
+      async () => {
+        await ensureRestorePoint("Anchor performance tweaks");
+        const r = await window.anchor.perfApplyRecommended();
+        await load(true);
+        return r;
+      },
+    );
   }
 
-  async function revertAll() {
-    setBusy(true);
-    setMsg("Restoring Windows defaults…");
-    for (const t of tweaks ?? []) if (t.applied) await window.anchor.perfApply(t.id, false);
-    await load(true);
-    setMsg("All tweaks reverted to Windows defaults.");
-    setBusy(false);
+  function revertAll() {
+    const applied = (tweaks ?? []).filter((t) => t.applied);
+    runTask(
+      "perf:revert",
+      {
+        label: "Revert tweaks",
+        where: PERF_WHERE,
+        group: "perf",
+        isError: (r: boolean[]) => (r.some((ok) => !ok) ? `${r.filter((ok) => !ok).length} tweaks couldn't be reverted` : null),
+        summarize: () => "Windows defaults restored",
+      },
+      async () => {
+        const oks: boolean[] = [];
+        for (const t of applied) oks.push((await window.anchor.perfApply(t.id, false)).ok);
+        await load(true);
+        return oks;
+      },
+    );
   }
+
+  function clearShaders() {
+    runTask(
+      "perf:shaders",
+      {
+        label: "Shader cache clear",
+        where: PERF_WHERE,
+        summarize: (r: { bytes: number; cleared: string[] }) =>
+          r.cleared.length ? `Cleared ${formatBytes(r.bytes)}` : "No shader caches found",
+      },
+      () => window.anchor.clearShaderCaches(),
+    );
+  }
+
+  const latestOne = (recTask?.finishedAt ?? 0) >= (revTask?.finishedAt ?? 0) ? recTask : revTask;
+  const msg = recBusy
+    ? "Checking restore point, then applying tweaks…"
+    : revBusy
+    ? "Restoring Windows defaults…"
+    : latestOne?.status === "error"
+    ? `${latestOne.label} failed: ${latestOne.error}`
+    : latestOne?.status === "done"
+    ? latestOne === recTask
+      ? "Recommended tweaks applied. Every one can be switched back off below."
+      : "All tweaks reverted to Windows defaults."
+    : "";
+  const cacheMsg = shaderBusy
+    ? "Clearing shader caches…"
+    : shaderTask?.status === "error"
+    ? `Couldn't clear shader caches: ${shaderTask.error}`
+    : shaderTask?.result
+    ? shaderTask.result.cleared.length
+      ? `Cleared ${formatBytes(shaderTask.result.bytes)} from ${shaderTask.result.cleared.join(", ")}. Games rebuild these on next launch.`
+      : "No shader caches found to clear."
+    : "";
 
   async function addGame() {
     const exe = await window.anchor.pickExe();
@@ -82,19 +170,12 @@ export default function GameBoostPage() {
   }, {});
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 py-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Game & App Boost</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Windows settings that free up resources for games and heavy apps. Each toggle names the exact registry value
-          it changes, and every one is reversible here. None of these weaken your PC's security.
-        </p>
-      </div>
+    <div className="page-column space-y-6 py-6">
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Sparkles className="size-4 text-sky-500" /> One click
+            <Sparkles className="size-4 text-primary" /> One click
           </CardTitle>
           <CardDescription>
             Applies the recommended set (everything except the one needing a restart), after creating a System Restore
@@ -102,13 +183,19 @@ export default function GameBoostPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={applyRecommended} loading={busy}>
-              {!busy && <Zap />} Apply recommended
-            </Button>
-            <Button variant="outline" onClick={revertAll} disabled={busy}>
-              <RotateCcw /> Revert all
-            </Button>
+          <div className="flex flex-wrap items-start gap-2">
+            <div className="space-y-1">
+              <Button onClick={applyRecommended} loading={recBusy} disabled={!!recBlocked} title={recBlocked}>
+                {!recBusy && <Zap />} Apply recommended
+              </Button>
+              {recBlocked && <p className="text-xs text-muted-foreground">{recBlocked}</p>}
+            </div>
+            <div className="space-y-1">
+              <Button variant="outline" onClick={revertAll} loading={revBusy} disabled={!!revBlocked} title={revBlocked}>
+                {!revBusy && <RotateCcw />} Revert all
+              </Button>
+              {revBlocked && <p className="text-xs text-muted-foreground">{revBlocked}</p>}
+            </div>
           </div>
           {msg && <p className="text-sm text-muted-foreground">{msg}</p>}
           {restartNeeded && (
@@ -120,7 +207,7 @@ export default function GameBoostPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Cpu className="size-4 text-sky-500" /> Your graphics hardware
+            <Cpu className="size-4 text-primary" /> Your graphics hardware
           </CardTitle>
           <CardDescription>
             Read-only. Outdated drivers are the most common cause of games getting slower over time.
@@ -134,7 +221,7 @@ export default function GameBoostPage() {
               const stale = g.ageDays !== null && g.ageDays > 365;
               const aging = g.ageDays !== null && g.ageDays > 180 && !stale;
               return (
-                <div key={g.name} className="rounded-lg border p-3">
+                <div key={g.name} className="glass cut-corner rounded-lg p-3">
                   <p className="text-sm font-medium">{g.name}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     Driver {g.driver}
@@ -172,18 +259,8 @@ export default function GameBoostPage() {
             <Button
               variant="outline"
               size="sm"
-              loading={busy}
-              onClick={async () => {
-                setBusy(true);
-                setCacheMsg("Clearing shader caches…");
-                const r = await window.anchor.clearShaderCaches();
-                setCacheMsg(
-                  r.cleared.length
-                    ? `Cleared ${formatBytes(r.bytes)} from ${r.cleared.join(", ")}. Games rebuild these on next launch.`
-                    : "No shader caches found to clear."
-                );
-                setBusy(false);
-              }}
+              loading={shaderBusy}
+              onClick={clearShaders}
             >
               <Eraser /> Clear shader caches
             </Button>
@@ -199,7 +276,7 @@ export default function GameBoostPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <MonitorPlay className="size-4 text-sky-500" /> Power plan
+            <MonitorPlay className="size-4 text-primary" /> Power plan
           </CardTitle>
           <CardDescription>
             Balanced throttles the CPU to save power. High performance keeps clocks up — best while gaming, at the cost
@@ -236,7 +313,7 @@ export default function GameBoostPage() {
             </div>
           )}
 
-          <div className="flex items-start gap-4 rounded-lg border p-3">
+          <div className="flex items-start gap-4 glass cut-corner rounded-lg p-3">
             <div className="min-w-0 flex-1 space-y-1">
               <p className="text-sm font-medium">Maximum PCIe link speed</p>
               <p className="text-xs text-muted-foreground">
@@ -261,7 +338,7 @@ export default function GameBoostPage() {
           <CardHeader><CardTitle>{cat}</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             {items.map((t) => (
-              <div key={t.id} className="flex items-start gap-4 rounded-lg border p-3">
+              <div key={t.id} className="flex items-start gap-4 glass cut-corner rounded-lg p-3">
                 <div className="min-w-0 flex-1 space-y-1">
                   <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
                     {t.name}
@@ -269,8 +346,9 @@ export default function GameBoostPage() {
                     {t.needsRestart && <Badge variant="warning">Needs restart</Badge>}
                   </p>
                   <p className="text-xs text-muted-foreground">{t.desc}</p>
+                  {blockedBy(`perf:${t.id}`) && <p className="text-xs text-muted-foreground">{blockedBy(`perf:${t.id}`)}</p>}
                 </div>
-                <Switch checked={t.applied} onCheckedChange={(v) => toggle(t, v)} />
+                <Switch checked={t.applied} disabled={!!blocker} title={blockedBy(`perf:${t.id}`)} onCheckedChange={(v) => toggle(t, v)} />
               </div>
             ))}
           </CardContent>
@@ -282,7 +360,7 @@ export default function GameBoostPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Gamepad2 className="size-4 text-sky-500" /> Per-game GPU preference
+            <Gamepad2 className="size-4 text-primary" /> Per-game GPU preference
           </CardTitle>
           <CardDescription>
             On laptops with two GPUs, Windows sometimes runs a game on the power-saving chip. Add the game's .exe to
@@ -296,7 +374,7 @@ export default function GameBoostPage() {
           {gpu.length > 0 && (
             <div className="space-y-1.5">
               {gpu.map((g) => (
-                <div key={g.path} className="flex items-center gap-3 rounded-md border p-2.5">
+                <div key={g.path} className="flex items-center gap-3 glass cut-corner rounded-lg p-2.5">
                   <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{g.path}</span>
                   <Badge variant="success">High performance</Badge>
                   <Button

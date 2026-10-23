@@ -29,8 +29,6 @@ const VIDEO_CHANNELS = {
   CNET: "UCOmcA3f_RrH6b9NmcNa4tdg",
 };
 
-const WINDOWS_SOURCES = ["WindowsLatest", "Windows Blog", "Windows Central"];
-
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_" });
 const UA = { "User-Agent": "Anchor/0.3 (Windows optimization app; open-source)" };
 
@@ -38,9 +36,14 @@ const asArray = (x) => (x == null ? [] : Array.isArray(x) ? x : [x]);
 const text = (x) => (typeof x === "object" && x != null ? x["#text"] ?? "" : x ?? "");
 
 function strip(html) {
-  const t = String(html).replace(/<[^>]*>/g, " ").replace(/&#?\w+;/g, (m) => decodeEntity(m)).replace(/\s+/g, " ").trim();
-  return t.length > 220 ? t.slice(0, 220) + "…" : t;
+  const t = String(html).replace(/<[^>]*>/g, " ").replace(/&#?\w+;/g, (m) => decodeEntity(m)).replace(/\s+/g, " ").trim()
+    // tails feeds tack on: "The post … appeared first on …", "[…]", "Read more", "more…"
+    .replace(/\s*The post .* appeared first on .*$/i, "")
+    .replace(/\s*(\[(…|\.\.\.)\]|read more|continue reading|more\s*(…|\.\.\.))\s*$/i, "")
+    .trim();
+  return t.length > 220 ? t.slice(0, 220).trimEnd() + "…" : t;
 }
+const title = (x) => String(text(x)).replace(/&#?\w+;/g, (m) => decodeEntity(m)).trim() || "(untitled)";
 function decodeEntity(m) {
   const map = { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "&apos;": "'", "&nbsp;": " " };
   if (map[m]) return map[m];
@@ -51,7 +54,8 @@ function decodeEntity(m) {
 
 function firstHttpsImage(...candidates) {
   for (const u of candidates) {
-    if (u && typeof u === "string" && u.startsWith("https://")) return u;
+    // some feeds leave the &amp; / &#038; of the URL's query string encoded
+    if (u && typeof u === "string" && u.startsWith("https://")) return u.replace(/&(amp|#0?38);/g, "&");
   }
   return null;
 }
@@ -70,7 +74,7 @@ function extractImage(item, html) {
 }
 
 async function fetchFeed(source, url) {
-  const res = await fetch(url, { headers: UA, signal: AbortSignal.timeout(15000) });
+  const res = await fetch(url, { headers: UA, signal: AbortSignal.timeout(8000) });
   const xml = await res.text();
   const doc = parser.parse(xml);
   const items = [];
@@ -82,7 +86,7 @@ async function fetchFeed(source, url) {
       const content = text(e.content);
       const link = asArray(e.link).find((l) => l?.["@_rel"] !== "self")?.["@_href"] ?? "";
       items.push({
-        title: text(e.title).trim() || "(untitled)",
+        title: title(e.title),
         link, source,
         published: Date.parse(e.published ?? e.updated ?? "") || 0,
         summary: strip(summary || content),
@@ -96,7 +100,7 @@ async function fetchFeed(source, url) {
       const desc = text(e.description);
       const full = text(e["content:encoded"]);
       items.push({
-        title: text(e.title).trim() || "(untitled)",
+        title: title(e.title),
         link: text(e.link).trim(),
         source,
         published: Date.parse(text(e.pubDate)) || 0,
@@ -116,36 +120,35 @@ async function fetchArticles(sources) {
   return results.flat().sort((a, b) => b.published - a.published);
 }
 
+/** One YouTube feed entry → [item], or [] when it has no video id. Shorts link to /shorts/<id>. */
+function videoFromEntry(e, source) {
+  const vid = e["yt:videoId"];
+  if (!vid) return [];
+  const href = asArray(e.link).find((l) => l?.["@_rel"] === "alternate")?.["@_href"] ?? "";
+  return [{
+    title: title(e.title),
+    link: `https://www.youtube.com/watch?v=${vid}`,
+    source,
+    published: Date.parse(e.published ?? "") || 0,
+    summary: "",
+    imageUrl: `https://i.ytimg.com/vi/${vid}/mqdefault.jpg`,
+    isShort: href.includes("/shorts/"),
+  }];
+}
+
 async function fetchVideos() {
   const results = await Promise.all(
     Object.entries(VIDEO_CHANNELS).map(async ([name, id]) => {
       try {
         const res = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${id}`, {
-          headers: UA, signal: AbortSignal.timeout(15000),
+          headers: UA, signal: AbortSignal.timeout(8000),
         });
         const doc = parser.parse(await res.text());
-        return asArray(doc.feed?.entry).flatMap((e) => {
-          const vid = e["yt:videoId"];
-          if (!vid) return [];
-          return [{
-            title: text(e.title).trim() || "(untitled)",
-            link: `https://www.youtube.com/watch?v=${vid}`,
-            source: name,
-            published: Date.parse(e.published ?? "") || 0,
-            summary: "",
-            imageUrl: `https://i.ytimg.com/vi/${vid}/mqdefault.jpg`,
-          }];
-        });
+        return asArray(doc.feed?.entry).flatMap((e) => videoFromEntry(e, name));
       } catch { return []; }
     })
   );
   return results.flat().sort((a, b) => b.published - a.published);
-}
-
-async function fetchWindowsUpdateNews() {
-  const kw = ["update", "kb5", "build", "patch", "cumulative", "24h2", "25h2", "26h2", "security"];
-  const all = await fetchArticles(WINDOWS_SOURCES);
-  return all.filter((i) => kw.some((k) => i.title.toLowerCase().includes(k)));
 }
 
 /// og:image backfill for articles whose feed shipped no image — reads only the
@@ -180,4 +183,4 @@ async function backfillImages(links, max = 40) {
   return out;
 }
 
-module.exports = { FEEDS, VIDEO_CHANNELS, fetchArticles, fetchVideos, fetchWindowsUpdateNews, backfillImages };
+module.exports = { FEEDS, VIDEO_CHANNELS, fetchArticles, fetchVideos, backfillImages, strip, videoFromEntry };

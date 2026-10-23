@@ -18,8 +18,7 @@ npm run dev          # hot-reloading dev window
 ## Building installers
 
 ```powershell
-npm run build         # x64  -> release/AnchorSetup-<version>-x64.exe  + .zip
-npm run build:arm64   # ARM64
+npm run build         # x64 + ARM64 -> release/nsis-web/ and portable .zip files
 ```
 
 Both are self-contained: Electron bundles its own Chromium, so nothing extra is
@@ -36,10 +35,11 @@ app/
 ├── main/                  Electron main process — ALL system access lives here
 │   ├── main.js            window + IPC handlers
 │   ├── preload.js         the only bridge exposed to the UI
-│   └── services/          ps, boost, system, news, profile, auth, appUpdate
+│   └── services/          ps, boost, cleanup, system, news, profile, auth, updater, …
 └── src/                   React UI (no Node access, sandboxed renderer)
     ├── components/ui.tsx  shadcn/ui components (zinc theme)
-    ├── pages/             one file per feature page
+    ├── pages/             one file per feature page (grouped into tabs in App.tsx)
+    ├── lib/queries.ts     every page's data: cache keys, freshness, prefetch
     └── index.css          shadcn design tokens
 ```
 
@@ -54,9 +54,21 @@ app/
 
 ## Releasing
 
-1. Bump `version` in `package.json`
-2. `npm run build` and `npm run build:arm64`
-3. Commit + push
-4. GitHub release tagged `v<version>` (e.g. `v0.3.0`) with the installers attached
+Anchor ships as a **web installer**: a small setup stub (`AnchorSetup-<version>.exe`)
+plus one app package per architecture (`anchor-<version>-x64.nsis.7z`,
+`anchor-<version>-arm64.nsis.7z`). In-app updates download only the package for
+that PC, and only the blocks that changed since the installed version, so an
+update is usually a few MB rather than the whole app. (The first update from
+0.3.0, which used the full installer, is still a full download.)
 
-The in-app update banner reads that release via the public GitHub API.
+1. Bump `version` in `package.json`
+2. Set a GitHub token with `repo` scope: `$env:GH_TOKEN = "<token>"`
+3. `npm run release` — builds both architectures and uploads everything the
+   updater needs (stub, both `.nsis.7z` packages and `latest.yml`) to a **draft**
+   GitHub release tagged `v<version>`
+4. Add release notes to the draft and publish it
+
+Upload all of those files. Without `latest.yml` and the packages, in-app updates
+can't find or verify the new version. Don't upload them by hand from separate
+x64 and ARM64 builds; each build writes its own `latest.yml`, and the second
+would overwrite the first.

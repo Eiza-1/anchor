@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+<clipPath id="newyear-clip"><rect x="32" y="32" width="960" height="960" rx="224"/></clipPath>
+  <defs>
+    <linearGradient id="newyear-bg" x1="0.15" y1="0" x2="0.85" y2="1"><stop offset="0" stop-color="#26305A"/><stop offset="0.5" stop-color="#151C38"/><stop offset="1" stop-color="#0A0F1F"/></linearGradient>
+    <radialGradient id="newyear-glow" cx="0.28" cy="0.12" r="0.75"><stop offset="0" stop-color="#fff" stop-opacity="0.12"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#newyear-bg)"/>
+  <g clip-path="url(#newyear-clip)"><defs><linearGradient id="ny-gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE3A3"/><stop offset="0.5" stop-color="#FFC659"/><stop offset="1" stop-color="#F29A2E"/></linearGradient></defs><rect x="196" y="225" width="28" height="10" rx="5" fill="#FF7A33" transform="rotate(20 210 230)"/><rect x="806" y="255" width="28" height="10" rx="5" fill="#FFE3A3" transform="rotate(-30 820 260)"/><rect x="166" y="555" width="28" height="10" rx="5" fill="#8FB8FF" transform="rotate(45 180 560)"/><rect x="836" y="595" width="28" height="10" rx="5" fill="#FF7A33" transform="rotate(10 850 600)"/><rect x="246" y="815" width="28" height="10" rx="5" fill="#FFE3A3" transform="rotate(-15 260 820)"/><rect x="766" y="825" width="28" height="10" rx="5" fill="#8FB8FF" transform="rotate(30 780 830)"/><rect x="686" y="165" width="28" height="10" rx="5" fill="#FF5A8A" transform="rotate(60 700 170)"/><rect x="306" y="155" width="28" height="10" rx="5" fill="#8FB8FF" transform="rotate(-40 320 160)"/><path d="M250 366Q255.44 394.56 284 400Q255.44 405.44 250 434Q244.56 405.44 216 400Q244.56 394.56 250 366Z" fill="#FFE3A3"/><path d="M800 404Q804.16 425.84 826 430Q804.16 434.16 800 456Q795.84 434.16 774 430Q795.84 425.84 800 404Z" fill="#FFE3A3"/><circle cx="860" cy="160" r="5" fill="#FFE3A3" opacity="0.7"/><circle cx="160" cy="700" r="5" fill="#FFE3A3" opacity="0.7"/><g transform="translate(231.75 231.75) scale(5.605)"><g>
+      <circle cx="50" cy="17.75" r="12" fill="none" stroke="url(#ny-gold)" stroke-width="9"/>
+      <g stroke="url(#ny-gold)" stroke-width="3.4" stroke-linecap="round"><line x1="50" y1="-1.95" x2="50" y2="-8.25"/><line x1="63.93" y1="3.82" x2="66.26" y2="1.49"/><line x1="69.7" y1="17.75" x2="76" y2="17.75"/><line x1="63.93" y1="31.68" x2="66.26" y2="34.01"/><line x1="50" y1="37.45" x2="50" y2="43.75"/><line x1="36.07" y1="31.68" x2="33.74" y2="34.01"/><line x1="30.3" y1="17.75" x2="24" y2="17.75"/><line x1="36.07" y1="3.82" x2="33.74" y2="1.49"/></g>
+    </g>
+  <rect x="44.5" y="40.25" width="11" height="53" rx="5.5" fill="url(#ny-gold)"/>
+  <path d="M7.73 60.69A42.5 42.5 0 0 0 92.27 60.69L81.33 59.54A31.5 31.5 0 0 1 18.67 59.54Z" fill="url(#ny-gold)"/></g></g>
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#newyear-glow)"/>
+</svg>

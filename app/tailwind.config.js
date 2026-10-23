@@ -17,6 +17,9 @@ module.exports = {
         accent: { DEFAULT: "hsl(var(--accent))", foreground: "hsl(var(--accent-foreground))" },
         card: { DEFAULT: "hsl(var(--card))", foreground: "hsl(var(--card-foreground))" },
       },
+      // CSS-only transitions follow SPRING (see --ease-spring in index.css)
+      transitionTimingFunction: { spring: "var(--ease-spring)" },
+      transitionDuration: { spring: "420ms" },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",

@@ -1,64 +1,62 @@
 import { useEffect, useState } from "react";
 import {
-  AlertTriangle, HardDrive, HardDriveDownload, MemoryStick, Play, RefreshCw, Save, Timer,
+  AlertTriangle, HardDrive, HardDriveDownload, MemoryStick, Play, RefreshCw, Thermometer, Timer,
 } from "lucide-react";
 import {
   Alert, Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle,
-  Progress, Select, Skeleton,
+  Select, Skeleton,
 } from "@/components/ui";
 import { cn, formatBytes } from "@/lib/utils";
-import { cached, invalidate, peek } from "@/lib/store";
+import { invalidate, peek } from "@/lib/store";
+import { Q } from "@/lib/queries";
+import { runTask, useTask } from "@/lib/tasks";
+import { tempInfo, volumeStats } from "@/lib/drives";
+import { DiskRing } from "@/components/DiskRing";
 
 type Drive = { name: string; media: string; health: string; size: number; wear?: number; temp?: number; predictFailure?: boolean };
+type BenchResult = Awaited<ReturnType<typeof window.anchor.benchRun>>;
 type Volume = { DeviceID: string; FreeSpace: number; Size: number };
-
-const TTL = 60_000;
 
 export default function DrivesPage() {
   const [drives, setDrives] = useState<Drive[] | null>(peek<Drive[]>("drives") ?? null);
   const [vols, setVols] = useState<Volume[]>(peek<Volume[]>("volumes") ?? []);
   const [loading, setLoading] = useState(false);
+  const [admin, setAdmin] = useState(peek<boolean>("isAdmin") ?? false);
 
   const [benchDrive, setBenchDrive] = useState("C:");
   const [benchSize, setBenchSize] = useState(256);
-  const [bench, setBench] = useState<Awaited<ReturnType<typeof window.anchor.benchRun>> | null>(
-    peek("bench:last") ?? null
-  );
-  const [benching, setBenching] = useState(false);
+  const benchTask = useTask<BenchResult>("drives:bench");
+  const benching = benchTask?.status === "running";
+  const bench: BenchResult | null =
+    benchTask?.result ?? (benchTask?.status === "error" ? { error: benchTask.error } : null);
   const [memTest, setMemTest] = useState<Awaited<ReturnType<typeof window.anchor.memoryTestResults>> | null>(null);
 
   useEffect(() => { window.anchor.memoryTestResults().then(setMemTest); }, []);
+  useEffect(() => { Q.isAdmin().then(setAdmin).catch(() => {}); }, []);
 
-  async function runBench() {
-    setBenching(true);
-    setBench(null);
-    const r = await window.anchor.benchRun(benchDrive, benchSize);
-    setBench(r);
-    setBenching(false);
+  function runBench() {
+    runTask(
+      "drives:bench",
+      {
+        label: "Speed test",
+        where: { section: "system", tab: "drives" },
+        isError: (r: BenchResult) => r.error ?? null,
+        summarize: (r) => `Read ${r.seqReadMB} MB/s`,
+      },
+      () => window.anchor.benchRun(benchDrive, benchSize),
+    );
   }
 
   async function scan(force = false) {
     setLoading(true);
     if (force) invalidate("drives", "volumes");
-    const [d, v] = await Promise.all([
-      cached("drives", TTL, () => window.anchor.driveHealth()),
-      cached("volumes", TTL, () => window.anchor.volumes()),
-    ]);
-    setDrives(d);
-    setVols(v);
+    await Promise.allSettled([Q.drives().then(setDrives), Q.volumes().then(setVols)]);
     setLoading(false);
   }
   useEffect(() => { scan(); }, []);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 py-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Drive Health</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Early warnings for SSD/HDD failure using Windows' own S.M.A.R.T. and storage-reliability data. If you ever see
-          a warning here, back up first, diagnose second.
-        </p>
-      </div>
+    <div className="page-column space-y-6 py-6">
 
       <Button variant="outline" size="sm" onClick={() => scan(true)} loading={loading}>
         {!loading && <RefreshCw />} Scan drives
@@ -90,7 +88,7 @@ export default function DrivesPage() {
                     <span>{d.media}</span>
                     <span>{formatBytes(d.size)}</span>
                     {d.wear ? <span>Wear {d.wear}%</span> : null}
-                    {d.temp ? <span>{d.temp}°C</span> : null}
+                    <TempChip temp={d.temp} admin={admin} />
                   </div>
                   {bad ? (
                     <Alert variant="destructive">
@@ -126,28 +124,17 @@ export default function DrivesPage() {
             SSDs need free space to shuffle data around — below about 10% they slow down measurably and wear faster.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="grid gap-6 sm:grid-cols-2">
           {vols.map((v) => {
-            const freePct = (v.FreeSpace / v.Size) * 100;
-            const critical = freePct < 5;
-            const low = freePct < 10;
+            const st = volumeStats(v);
             return (
-              <div key={v.DeviceID} className="space-y-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2 font-medium">
-                    <Save className="size-3.5 text-muted-foreground" />
-                    {v.DeviceID}
-                  </span>
-                  <span className={critical ? "text-red-400" : low ? "text-amber-400" : "text-muted-foreground"}>
-                    {formatBytes(v.FreeSpace)} free of {formatBytes(v.Size)} ({Math.round(freePct)}%)
-                  </span>
-                </div>
-                <Progress value={100 - freePct} />
-                {low && (
-                  <p className={cn("text-xs", critical ? "text-red-400" : "text-amber-400")}>
-                    {critical
-                      ? `Critically low. Windows needs room for updates and the page file — free up at least ${formatBytes(v.Size * 0.1 - v.FreeSpace)} to get back to 10%.`
-                      : `Getting low. Aim for ${formatBytes(v.Size * 0.1)} free (10%) to keep performance and drive life healthy.`}
+              <div key={v.DeviceID} className="space-y-2">
+                <DiskRing stats={st} label={v.DeviceID} />
+                {st.level !== "ok" && (
+                  <p className={cn("text-xs", st.level === "critical" ? "text-red-400" : "text-amber-400")}>
+                    {st.level === "critical"
+                      ? `Critically low. Windows needs room for updates and the page file — free up at least ${formatBytes(st.total * 0.1 - st.free)} to get back to 10%.`
+                      : `Getting low. Aim for ${formatBytes(st.total * 0.1)} free (10%) to keep performance and drive life healthy.`}
                   </p>
                 )}
               </div>
@@ -160,7 +147,7 @@ export default function DrivesPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Timer className="size-4 text-sky-500" /> Speed test
+            <Timer className="size-4 text-primary" /> Speed test
           </CardTitle>
           <CardDescription>
             The same measurements CrystalDiskMark takes — sequential and random 4K, read and write — using unbuffered
@@ -218,7 +205,7 @@ export default function DrivesPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <MemoryStick className="size-4 text-sky-500" /> Memory (RAM) test
+            <MemoryStick className="size-4 text-primary" /> Memory (RAM) test
           </CardTitle>
           <CardDescription>
             Faulty RAM causes random crashes, corrupted files and blue screens that look like software problems.
@@ -248,9 +235,19 @@ export default function DrivesPage() {
   );
 }
 
+function TempChip({ temp, admin }: { temp?: number | null; admin: boolean }) {
+  const t = tempInfo(temp, admin);
+  const tone = t.tone === "hot" ? "text-red-400" : t.tone === "warm" ? "text-amber-400" : t.tone === "normal" ? "text-foreground" : "text-muted-foreground";
+  return (
+    <span className={cn("inline-flex items-center gap-1", tone)}>
+      <Thermometer className="size-3.5" /> {t.text}
+    </span>
+  );
+}
+
 function BenchStat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-md border p-3">
+    <div className="glass cut-corner rounded-lg p-3">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="text-lg font-semibold">{value}</p>
       {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
