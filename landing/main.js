@@ -103,25 +103,46 @@
 
   /* ---------------- 0 m: junk and the drop ---------------- */
   const junk = $(".junk"), surface = $("#surface"), plunge = $(".plunge");
-  (() => {
-    const small = innerWidth < 720;
+  // Junk is placed by measuring: never over the headline, copy, buttons, header
+  // or depth gauge, and never over another piece. A piece that doesn't fit is hidden.
+  const junkItems = C.hero.junk.map((j) => {
+    const n = el("div", { className: `junk__item junk__${j.kind}` });
+    if (j.kind === "toast") n.append(el("b", { textContent: j.text }), j.detail);
+    else if (j.kind === "scare") n.append(j.text, el("small", { textContent: j.detail }));
+    else n.textContent = j.text;
+    junk.append(n);
+    return n;
+  });
+  function layoutJunk() {
     let seed = 7;
     const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
-    const items = small ? C.hero.junk.slice(0, 7) : C.hero.junk;
-    items.forEach((j, idx) => {
-      // keep the headline block (left/middle) clear so the copy stays readable
-      let x, y, tries = 0;
-      do {
-        x = rnd() * 88; y = 6 + rnd() * 84; tries++;
-      } while (tries < 40 && (small ? y > 18 && y < 82 : x < 58 && y > 22 && y < 78));
-      const n = el("div", { className: `junk__item junk__${j.kind}` });
-      if (j.kind === "toast") n.append(el("b", { textContent: j.text }), j.detail);
-      else if (j.kind === "scare") n.append(j.text, el("small", { textContent: j.detail }));
-      else n.textContent = j.text;
-      n.style.cssText = `--x:${x}%;--y:${y}%;--r:${(rnd() * 8 - 4).toFixed(1)}deg;--dx:${(rnd() * 40 - 20).toFixed(0)}px;--dy:${(rnd() * 30 - 15).toFixed(0)}px;--dur:${(5 + rnd() * 5).toFixed(1)}s;--delay:-${(rnd() * 5).toFixed(1)}s;--sx:${(rnd() * 200 - 100).toFixed(0)}px;--sr:${(rnd() * 90 - 45).toFixed(0)}deg;--h:${Math.round(rnd() * 360)};transition-delay:${(rnd() * 0.25).toFixed(2)}s`;
-      junk.append(n);
+    const box = surface.getBoundingClientRect(), W = box.width, H = box.height;
+    const DRIFT = 22;   // drift animation reach, kept as clearance
+    const rel = (r, pad) => ({ x0: r.left - box.left - pad, y0: r.top - box.top - pad, x1: r.right - box.left + pad, y1: r.bottom - box.top + pad });
+    const blocked = $$(".surface__title, .surface__sub, .surface__cta").map((n) => rel(n.getBoundingClientRect(), 28));
+    blocked.push({ x0: 0, y0: 0, x1: W, y1: 84 });                               // header
+    if (innerWidth > 900) blocked.push({ x0: W - 190, y0: 0, x1: W, y1: H });   // depth gauge
+    const hit = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
+    const placed = [];
+    junkItems.forEach((n) => {
+      n.hidden = false;
+      n.style.cssText = "";
+      const w = n.offsetWidth, h = n.offsetHeight;
+      let spot = null;
+      for (let t = 0; t < 120 && !spot; t++) {
+        const x = 12 + rnd() * Math.max(0, W - w - 24), y = 88 + rnd() * Math.max(0, H - h - 104);
+        const r = { x0: x - DRIFT, y0: y - DRIFT, x1: x + w + DRIFT, y1: y + h + DRIFT };
+        if (!blocked.some((b) => hit(r, b)) && !placed.some((p) => hit(r, p))) spot = { x, y, r };
+      }
+      if (!spot) { n.hidden = true; return; }
+      placed.push(spot.r);
+      n.style.cssText = `--x:${spot.x.toFixed(0)}px;--y:${spot.y.toFixed(0)}px;--r:${(rnd() * 6 - 3).toFixed(1)}deg;--dx:${(rnd() * 30 - 15).toFixed(0)}px;--dy:${(rnd() * 24 - 12).toFixed(0)}px;--dur:${(5 + rnd() * 5).toFixed(1)}s;--delay:-${(rnd() * 5).toFixed(1)}s;--sx:${(rnd() * 200 - 100).toFixed(0)}px;--sr:${(rnd() * 90 - 45).toFixed(0)}deg;--h:${Math.round(rnd() * 360)};transition-delay:${(rnd() * 0.25).toFixed(2)}s`;
     });
-  })();
+  }
+  layoutJunk();
+  document.fonts?.ready.then(layoutJunk);
+  let junkTimer;
+  addEventListener("resize", () => { clearTimeout(junkTimer); junkTimer = setTimeout(layoutJunk, 150); });
 
   let dropping = false;
   async function drop() {
@@ -517,27 +538,42 @@
   }
 
   /* ---------------- ambient sound (off by default) ---------------- */
-  // Brown noise through a low-pass filter; quieter the deeper you are.
+  // The music from content.js, in a small visible YouTube player that opens from the
+  // sound button. It loops, and gets quieter the deeper you scroll.
   var sound = (() => {
-    let ctx, gain, on = false, level = 0;
-    const btn = $(".sound");
-    function start() {
-      ctx = new AudioContext();
-      const len = ctx.sampleRate * 4, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
-      let last = 0;
-      for (let i = 0; i < len; i++) { last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = last * 3.2; }
-      const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
-      const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 420;
-      gain = ctx.createGain(); gain.gain.value = 0;
-      src.connect(lp).connect(gain).connect(ctx.destination); src.start();
+    const M = C.music, btn = $(".sound"), card = $(".player");
+    let player = null, ready = false, on = false, depthT = 0;
+    $(".player__title").textContent = M.title;
+    Object.assign($(".player__channel"), { textContent: M.channel, href: M.channelUrl, target: "_blank", rel: "noopener" });
+    const volume = () => Math.round(M.volume.surface + (M.volume.seabed - M.volume.surface) * depthT);
+    function loadApi() {
+      return new Promise((resolve) => {
+        if (window.YT?.Player) return resolve();
+        window.onYouTubeIframeAPIReady = resolve;
+        document.head.append(el("script", { src: "https://www.youtube.com/iframe_api" }));
+      });
     }
-    btn.addEventListener("click", async () => {
-      on = !on;
+    async function start() {
+      await loadApi();
+      player = new YT.Player("player-frame", {
+        width: 256, height: 200, videoId: M.youtubeId,
+        playerVars: { autoplay: 1, loop: 1, playlist: M.youtubeId, controls: 1, modestbranding: 1, playsinline: 1, rel: 0 },
+        events: {
+          onReady: (e) => { ready = true; e.target.setVolume(volume()); if (on) e.target.playVideo(); },
+        },
+      });
+    }
+    function set(next) {
+      on = next;
       btn.setAttribute("aria-pressed", String(on));
-      if (on && !ctx) start();
-      if (ctx) { await ctx.resume(); gain.gain.setTargetAtTime(on ? level : 0, ctx.currentTime, 0.4); }
-    });
-    return { depth(t) { level = 0.09 * (1 - t * 0.75); if (on && gain) gain.gain.setTargetAtTime(level, ctx.currentTime, 0.5); } };
+      card.hidden = !on;
+      root.classList.toggle("player-open", on);
+      if (on && !player) start();
+      else if (ready) on ? player.playVideo() : player.pauseVideo();
+    }
+    btn.addEventListener("click", () => set(!on));
+    $(".player__close").addEventListener("click", () => { set(false); btn.focus(); });
+    return { depth(t) { depthT = t; if (ready && on) player.setVolume(volume()); } };
   })();
 
   /* ---------------- easter eggs ---------------- */
