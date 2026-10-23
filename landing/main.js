@@ -540,10 +540,10 @@
   /* ---------------- ambient sound (off by default) ---------------- */
   // An underwater soundscape generated in the browser: a deep current, slow swells,
   // a low hum and the odd stream of bubbles. Deeper = quieter and more muffled.
-  // If content.js sets music.src, that audio file plays instead.
+  // If content.js lists audio files in music.src, the first one the browser can play is used instead.
   var sound = (() => {
     const M = C.music, btn = $(".sound");
-    let ctx, master, muffle, bus, file = null, on = false, depthT = 0, bubbleTimer;
+    let ctx, master, muffle, bus, file = false, on = false, depthT = 0, bubbleTimer, sleepTimer;
     const vol = () => M.volume.surface + (M.volume.seabed - M.volume.surface) * depthT;
 
     function noise(kind) {
@@ -566,13 +566,22 @@
       master = ctx.createGain(); master.gain.value = 0;
       muffle = ctx.createBiquadFilter(); muffle.type = "lowpass"; muffle.frequency.value = 1400;
       muffle.connect(master).connect(ctx.destination);
-      if (M.src) {
-        file = new Audio(M.src); file.loop = true;
-        ctx.createMediaElementSource(file).connect(muffle);
+      const probe = document.createElement("audio");
+      const src = [].concat(M.src || []).find((f) => probe.canPlayType(f.endsWith(".webm") ? "audio/webm; codecs=opus" : f.endsWith(".m4a") ? "audio/mp4" : "audio/mpeg"));
+      if (src) {
+        // decoded into the graph so the loop repeats with no gap; generated sound if it fails
+        file = true;
+        fetch(src).then((r) => r.arrayBuffer()).then((b) => ctx.decodeAudioData(b)).then((buf) => {
+          const node = ctx.createBufferSource();
+          node.buffer = buf; node.loop = true; node.connect(muffle); node.start();
+        }).catch(() => { file = false; buildGenerated(); if (on) bubbles(); });
         return;
       }
+      buildGenerated();
+    }
+    function buildGenerated() {
       // a little space: a dark feedback echo
-      bus = ctx.createGain();
+      bus = ctx.createGain(); bus.gain.value = 0.5;   // level-matched to the audio file
       const delay = ctx.createDelay(1), fb = ctx.createGain(), dark = ctx.createBiquadFilter(), wet = ctx.createGain();
       delay.delayTime.value = 0.27; fb.gain.value = 0.38; dark.type = "lowpass"; dark.frequency.value = 900; wet.gain.value = 0.35;
       bus.connect(muffle); bus.connect(delay); delay.connect(dark).connect(fb).connect(delay); delay.connect(wet).connect(muffle);
@@ -621,10 +630,11 @@
       btn.setAttribute("aria-pressed", String(on));
       if (!ctx) build();
       await ctx.resume();
-      if (file) on ? file.play().catch(() => {}) : file.pause();
-      clearTimeout(bubbleTimer);
-      if (on) bubbles();
+      clearTimeout(bubbleTimer); clearTimeout(sleepTimer);
+      if (on && !file) bubbles();
       apply();
+      // after the fade-out, let the audio engine rest
+      if (!on) sleepTimer = setTimeout(() => { if (!on) ctx.suspend(); }, 3000);
     });
     return { depth(t) { depthT = t; if (ctx) apply(); } };
   })();

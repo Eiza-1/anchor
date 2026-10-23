@@ -18,12 +18,12 @@ window.ANCHOR = {
     zipArm64: /^Anchor-[\d.]+-arm64-win\.zip$/,
   },
 
-  /* Ambient sound. Leave src empty for the built-in underwater soundscape
-     (generated in the browser), or point it at an audio file you have the
-     rights to, e.g. "assets/ambience.mp3". Volume fades from surface to seabed. */
+  /* Ambient sound: a 90-second seamless loop cut from "Peaceful Underwater Sounds"
+     (used under licence). Browsers play the first format they support. Set src to []
+     for the built-in generated soundscape. Volume fades from surface to seabed. */
   music: {
-    src: "",
-    volume: { surface: 0.55, seabed: 0.22 },
+    src: ["assets/ambience.webm", "assets/ambience.m4a"],
+    volume: { surface: 1, seabed: 0.4 },
   },
 
   /* The depth gauge: one stop per section, top to bottom. */
