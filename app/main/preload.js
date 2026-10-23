@@ -4,6 +4,15 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 const call = (channel, ...args) => ipcRenderer.invoke(channel, ...args);
 
+// A notification click can reopen a released window and ask it to navigate
+// before the UI has subscribed, so the target waits here until it does.
+let navListener = null;
+let pendingNav = null;
+ipcRenderer.on("nav:go", (_e, target) => {
+  if (navListener) navListener(target);
+  else pendingNav = target;
+});
+
 contextBridge.exposeInMainWorld("anchor", {
   // window
   minimize: () => call("win:minimize"),
@@ -132,9 +141,10 @@ contextBridge.exposeInMainWorld("anchor", {
   },
   openExternal: (url) => call("app:openExternal", url),
   notify: (n) => call("app:notify", n),
+  setBusy: (busy) => ipcRenderer.send("app:busy", !!busy),
   onNavigate: (cb) => {
-    const handler = (_e, target) => cb(target);
-    ipcRenderer.on("nav:go", handler);
-    return () => ipcRenderer.removeListener("nav:go", handler);
+    navListener = cb;
+    if (pendingNav) { cb(pendingNav); pendingNav = null; }
+    return () => { if (navListener === cb) navListener = null; };
   },
 });

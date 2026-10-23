@@ -167,6 +167,7 @@ export interface AnchorApi {
   }) => void): () => void;
   openExternal(url: string): Promise<void>;
   notify(n: { title: string; body: string; target: import("@/lib/nav").NavTarget }): Promise<void>;
+  setBusy(busy: boolean): void;
   onNavigate(cb: (t: import("@/lib/nav").NavTarget) => void): () => void;
 }
 

@@ -36,6 +36,7 @@ function spawnPS(args) {
 const MARK = "@@ANCHOR@@";
 const MAX_HOSTS = 3;                 // health check fires ~6 reads at once
 const CALL_TIMEOUT_MS = 10 * 60_000; // a hung script costs one host, not the app
+const IDLE_MS = 60_000;              // a host costs ~100 MB; an idle one exits, the next read starts another
 
 // Reads one base64 script per line, runs it in a child scope (so a script's
 // $ErrorActionPreference or variables never leak into the next one), and
@@ -72,7 +73,7 @@ const queue = [];
 let poolBroken = false;
 
 function createHost() {
-  const host = { proc: null, ready: false, job: null, buffer: "", dead: false };
+  const host = { proc: null, ready: false, job: null, buffer: "", dead: false, idleTimer: null };
   const proc = spawn("powershell.exe", [...PS_ARGS, "-EncodedCommand", ENCODED_HOST], { windowsHide: true });
   host.proc = proc;
   hosts.add(host);
@@ -103,6 +104,7 @@ function createHost() {
   });
 
   const die = () => {
+    clearTimeout(host.idleTimer);
     if (host.dead) return;
     host.dead = true;
     hosts.delete(host);
@@ -122,6 +124,13 @@ function createHost() {
   return host;
 }
 
+/** Out of the pool first, so no job lands on it; closing stdin ends its read loop. */
+function retire(host) {
+  host.dead = true;
+  hosts.delete(host);
+  try { host.proc.stdin.end(); } catch {}
+}
+
 function pump() {
   if (poolBroken) {
     for (const job of queue.splice(0)) runPS(job.command).then(({ out, err }) => job.resolve({ out, err }));
@@ -134,9 +143,14 @@ function pump() {
       return; // a host will call pump() when it's ready or free
     }
     const job = queue.shift();
+    clearTimeout(host.idleTimer);
+    host.idleTimer = null;
     host.job = job;
     job.timer = setTimeout(() => { try { host.proc.kill(); } catch {} }, CALL_TIMEOUT_MS);
     host.proc.stdin.write(Buffer.from(job.command, "utf8").toString("base64") + "\n");
+  }
+  for (const h of hosts) {
+    if (h.ready && !h.job && !h.idleTimer) h.idleTimer = setTimeout(() => retire(h), IDLE_MS);
   }
 }
 

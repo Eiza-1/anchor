@@ -19,8 +19,10 @@ autoUpdater.disableDifferentialDownload = false;
 let sendToUI = () => {};
 const send = (status, data = {}) => sendToUI({ status, ...data });
 
-function init(webContents) {
+/** getContents returns the window's current webContents, or null while it's released. */
+function init(getContents) {
   sendToUI = (payload) => {
+    const webContents = getContents();
     if (webContents && !webContents.isDestroyed()) webContents.send("update:event", payload);
   };
 
