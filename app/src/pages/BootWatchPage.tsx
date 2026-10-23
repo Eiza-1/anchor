@@ -166,7 +166,11 @@ export default function BootWatchPage() {
                 )}
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={LEVEL_BADGE[f.level]}>{LEVEL_LABEL[f.level]}</Badge>
+                  {f.microsoft ? (
+                    <Badge variant="success">Part of Windows</Badge>
+                  ) : (
+                    <Badge variant={LEVEL_BADGE[f.level]}>{LEVEL_LABEL[f.level]}</Badge>
+                  )}
                   <span className="text-sm font-medium">{f.name}</span>
                   {!f.enabled && <Badge variant="secondary">Disabled</Badge>}
                 </div>
@@ -202,7 +206,14 @@ export default function BootWatchPage() {
                   </div>
                 )}
 
-                <DisableControl f={f} onAsk={() => setConfirm(f)} onFinished={() => scan(true)} />
+                {f.microsoft ? (
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <ShieldCheck className="size-3 text-emerald-400" />
+                    Signed by Microsoft. Windows needs this, so Anchor won't offer to disable it.
+                  </p>
+                ) : (
+                  <DisableControl f={f} onAsk={() => setConfirm(f)} onFinished={() => scan(true)} />
+                )}
               </div>
             ))
           )}

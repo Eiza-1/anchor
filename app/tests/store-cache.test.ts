@@ -83,4 +83,23 @@ describe("persisted query cache", () => {
     expect(app.peek("games:releases")).toBeUndefined();
     expect(storage.getItem("anchor:cache:games:releases")).toBeNull();
   });
+
+  it("drops what an earlier version saved, so an update never paints an old shape", async () => {
+    // 1.0.1 saved GPU info with WMI's `vram`; 1.1.0 reads `dedicated`
+    const old = JSON.stringify({ value: [{ name: "GPU", vram: 1073741824 }], at: Date.now() });
+    storage.setItem("anchor:cache:v1:perf:gpuInfo", old);
+    const gpuInfo = vi.fn().mockResolvedValue([{ name: "GPU", dedicated: 134217728 }]);
+    const app = await launch({ gpuInfo });
+    expect(app.peek("perf:gpuInfo")).toBeUndefined();
+    expect(storage.getItem("anchor:cache:v1:perf:gpuInfo")).toBeNull();
+    expect(await app.Q.gpuInfo()).toEqual([{ name: "GPU", dedicated: 134217728 }]);
+    expect(gpuInfo).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the cache across launches of the same version", async () => {
+    const gpuInfo = vi.fn().mockResolvedValue([{ name: "GPU", dedicated: 1 }]);
+    await (await launch({ gpuInfo })).Q.gpuInfo();
+    const second = await launch({ gpuInfo });
+    expect(second.peek("perf:gpuInfo")).toEqual([{ name: "GPU", dedicated: 1 }]);
+  });
 });

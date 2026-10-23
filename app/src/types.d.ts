@@ -207,6 +207,8 @@ export interface BootFinding {
   trigger: string | null;
   enabled: boolean;
   lastRun: string | null;
+  /** every file it runs is signed by Microsoft: never flagged, never disabled */
+  microsoft?: boolean;
   score: number;
   level: "high" | "medium" | "low";
   reasons: string[];
@@ -244,6 +246,8 @@ export interface Profile {
 }
 
 declare global {
+  /** package.json version, inlined by Vite (vite.config.ts `define`) */
+  const __APP_VERSION__: string;
   interface Window {
     anchor: AnchorApi;
   }

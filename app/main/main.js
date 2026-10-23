@@ -22,6 +22,11 @@ const { seasonFor } = require("./services/season");
 let win;
 let tray = null;
 
+// `npm run dev` keeps its own data folder (%APPDATA%\Anchor-dev), and with it
+// its own single-instance lock: it runs beside an installed Anchor without
+// quitting on launch or touching that copy's settings, cache and backups.
+if (process.env.VITE_DEV_SERVER_URL) app.setPath("userData", `${app.getPath("userData")}-dev`);
+
 // One Anchor per user: a second launch (shortcut clicked while Anchor sits in
 // the tray, or a login launch on top of an open one) hands over and exits, so
 // there's never a second tray icon or a second set of PowerShell processes.
