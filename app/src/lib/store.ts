@@ -92,11 +92,15 @@ function setJob(job: "boost" | "trim", next: BoostState) {
  * a fresh launch paints every page from last time's data at once, and only
  * data older than its TTL is re-requested (the release calendar keeps its
  * one-request-per-24 h budget across launches). Infinity-TTL data is fetched
- * once per session: a saved copy paints first but is always re-read.         */
+ * once per session: a saved copy paints first but is always re-read.
+ *
+ * The saved copy is tied to the app version: pages paint it before any fetch,
+ * so a shape an older version saved (tweaks without `effect`, GPU info with
+ * `vram`) would crash or blank the page on the first launch after an update. */
 type Entry = { value: unknown; at: number; inflight?: Promise<unknown>; fromDisk?: boolean };
 const cache = new Map<string, Entry>();
 const CACHE_ROOT = "anchor:cache:";
-const STORE_PREFIX = CACHE_ROOT + "v1:"; // bump when the saved shape changes
+const STORE_PREFIX = `${CACHE_ROOT}${__APP_VERSION__}:`; // anything else is from another version
 
 function save(key: string, value: unknown, at: number) {
   try { localStorage.setItem(STORE_PREFIX + key, JSON.stringify({ value, at })); } catch { /* full or unavailable */ }

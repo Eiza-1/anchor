@@ -244,6 +244,8 @@ export interface Profile {
 }
 
 declare global {
+  /** package.json version, inlined by Vite (vite.config.ts `define`) */
+  const __APP_VERSION__: string;
   interface Window {
     anchor: AnchorApi;
   }
