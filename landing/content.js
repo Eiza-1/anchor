@@ -4,6 +4,8 @@
    ========================================================================== */
 window.ANCHOR = {
   repo: { owner: "Eiza-1", name: "anchor" },
+  /* Always on the radar, even when GitHub's API is unavailable. */
+  maintainer: { login: "Eiza-1", role: "maintainer", url: "https://github.com/Eiza-1", avatar: "https://github.com/Eiza-1.png?size=80" },
   links: {
     github: "https://github.com/Eiza-1/anchor",
     releases: "https://github.com/Eiza-1/anchor/releases",

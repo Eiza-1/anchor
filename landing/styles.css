@@ -344,16 +344,23 @@ main { position: relative; z-index: 1; }
 .stats div + div { padding-left: 18px; border-left: 1px solid var(--line); }
 .stats dt { font: 500 11px/1 var(--mono); color: var(--steel-2); text-transform: uppercase; letter-spacing: .08em; }
 .stats dd { margin: 0; font: 500 clamp(1.1rem, 2vw, 1.5rem)/1.1 var(--mono); font-variant-numeric: tabular-nums; min-height: 1.2em; white-space: nowrap; }
-.sonar { position: relative; aspect-ratio: 1; max-width: 360px; width: 100%; justify-self: center; border-radius: 50%; background: radial-gradient(circle, rgba(255,90,31,.08), transparent 70%), repeating-radial-gradient(circle, transparent 0 15.5%, rgba(169,180,198,.16) 15.5% calc(15.5% + 1px)); border: 1px solid var(--line); overflow: hidden; }
-.sonar__sweep { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, rgba(255,90,31,.32), transparent 22%); animation: sweep 6s linear infinite; }
-@keyframes sweep { to { transform: rotate(360deg); } }
-.sonar__blips { list-style: none; margin: 0; padding: 0; position: absolute; inset: 0; }
-.sonar__blips li { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); }
-.sonar__blips a { display: block; width: 34px; height: 34px; border-radius: 50%; overflow: hidden; border: 2px solid var(--buoy); box-shadow: 0 0 0 0 var(--glow); animation: blip 2.4s ease-out infinite; animation-delay: var(--d); }
-.sonar__blips img { width: 100%; height: 100%; object-fit: cover; }
-.sonar__blips .tip { position: absolute; left: 50%; top: calc(100% + 6px); transform: translateX(-50%); font: 500 11px var(--mono); background: var(--foam); color: var(--harbour); padding: 3px 7px; border-radius: 4px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .15s; }
-.sonar__blips li:hover .tip, .sonar__blips a:focus-visible + .tip { opacity: 1; }
-@keyframes blip { 0% { box-shadow: 0 0 0 0 rgba(255,90,31,.55); } 80%,100% { box-shadow: 0 0 0 12px rgba(255,90,31,0); } }
+/* radar: a live sonar scope; contributors light up as the beam passes */
+.radar { position: relative; aspect-ratio: 1; width: 100%; max-width: 440px; justify-self: center; margin: 0; }
+.radar__scope { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; box-shadow: 0 0 0 1px rgba(169,180,198,.18), 0 40px 90px -40px rgba(0,0,0,.85); }
+.radar__contacts { list-style: none; margin: 0; padding: 0; position: absolute; inset: 0; }
+.radar__contacts li { --lit: 0.3; position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); }
+.radar__contacts a { display: block; width: 38px; height: 38px; border-radius: 50%; overflow: hidden; border: 2px solid var(--buoy); background: var(--harbour); opacity: calc(0.4 + var(--lit) * 0.6); transform: scale(calc(0.92 + var(--lit) * 0.08)); box-shadow: 0 0 calc(var(--lit) * 22px) rgba(255, 90, 31, calc(var(--lit) * 0.7)); }
+.radar__contacts img { width: 100%; height: 100%; object-fit: cover; }
+.radar__label { position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%); font: 500 11px/1.3 var(--mono); white-space: nowrap; color: var(--foam); background: rgba(5, 8, 15, 0.82); border: 1px solid rgba(255, 90, 31, 0.55); border-radius: 3px; padding: 3px 7px; pointer-events: none; opacity: clamp(0, calc((var(--lit) - 0.4) * 2.5), 1); }
+.radar__label small { display: block; color: var(--steel-1); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+.radar__contacts li:hover .radar__label, .radar__contacts a:focus-visible + .radar__label { opacity: 1; }
+.radar__hud { position: absolute; font-size: 10.5px; letter-spacing: .08em; color: var(--steel-1); font-variant-numeric: tabular-nums; }
+.radar__hud--tl { left: 0; top: 0; color: var(--buoy); }
+.radar__hud--tl::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--buoy); margin-right: 7px; vertical-align: 1px; animation: blink 2s ease-in-out infinite; }
+.radar__hud--tr { right: 0; top: 0; }
+.radar__hud--bl { left: 0; bottom: 0; }
+.radar__hud--br { right: 0; bottom: 0; }
+@keyframes blink { 50% { opacity: .25; } }
 .term { border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #070A12; align-self: start; }
 .term__bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px 8px 14px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--steel-2); }
 .term__body { margin: 0; padding: 16px; font-size: 13.5px; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; color: #DCE2EB; }
@@ -507,7 +514,6 @@ body::after { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001s !important; animation-iteration-count: 1 !important; transition-duration: 0.001s !important; scroll-behavior: auto !important; }
   .junk__item { animation: none !important; }
-  .sonar__sweep { display: none; }
   .bed__anchor { transform: translate(-50%, 0); opacity: 1; }
   .cursor { display: none !important; }
 }

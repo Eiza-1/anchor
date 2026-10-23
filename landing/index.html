@@ -182,7 +182,14 @@
           <div><dt>Latest release</dt><dd data-stat="release">—</dd></div>
           <div><dt>Last commit</dt><dd data-stat="commit">—</dd></div>
         </dl>
-        <div class="sonar"><div class="sonar__sweep" aria-hidden="true"></div><ul class="sonar__blips" aria-label="Contributors"></ul></div>
+        <figure class="radar" aria-label="Contributors on the sonar">
+          <canvas class="radar__scope" aria-hidden="true"></canvas>
+          <ul class="radar__contacts" aria-label="Contributors"></ul>
+          <span class="radar__hud radar__hud--tl mono">SONAR · ACTIVE</span>
+          <span class="radar__hud radar__hud--tr mono" data-brg>BRG 000°</span>
+          <span class="radar__hud radar__hud--bl mono" data-contacts>1 CONTACT</span>
+          <span class="radar__hud radar__hud--br mono">RANGE 1,000 m</span>
+        </figure>
         <div class="term">
           <div class="term__bar"><span class="mono">PowerShell</span><button class="btn btn--small" type="button" data-copy>Copy</button></div>
           <pre class="term__body mono"></pre>
