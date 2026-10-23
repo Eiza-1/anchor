@@ -96,6 +96,8 @@ contextBridge.exposeInMainWorld("anchor", {
   powerPlan: () => call("perf:powerPlan"),
   setPowerPlan: (guid) => call("perf:setPowerPlan", guid),
   addUltimatePlan: () => call("perf:addUltimatePlan"),
+  removeDuplicateUltimate: () => call("perf:removeDuplicateUltimate"),
+  perfRevertAll: () => call("perf:revertAll"),
   gpuPrefs: () => call("perf:gpuPrefs"),
   setGpuPref: (path, high) => call("perf:setGpuPref", path, high),
   pickExe: () => call("perf:pickExe"),

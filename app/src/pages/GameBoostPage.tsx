@@ -5,21 +5,28 @@ import {
   Select, Skeleton, Switch,
 } from "@/components/ui";
 import { countSummary, formatBytes } from "@/lib/utils";
-import { ensureRestorePoint, invalidate, peek, remember } from "@/lib/store";
+import { invalidate, peek, remember } from "@/lib/store";
 import { Q } from "@/lib/queries";
+import { GpuCard, type Gpu } from "@/components/GpuCard";
 import { runTask, useBlockedBy, useTask } from "@/lib/tasks";
 
 const PERF_WHERE = { section: "performance", tab: "boost" };
 
-type Tweak = {
-  id: string; name: string; desc: string; category: string;
-  needsRestart: boolean; recommended: boolean; applied: boolean;
-};
-type PowerPlan = { active: string; plans: { guid: string; name: string }[] };
+type Tweak = import("@/types").PerfTweak;
+type PowerPlan = { active: string; plans: { guid: string; name: string }[]; ultimateCopies: number };
 type GpuPref = { path: string; value: string };
-type Gpu = {
-  name: string; driver: string; driverDate: string | null;
-  vram: number; ageDays: number | null; errorCode?: number;
+
+// What each tweak really changes — so nobody expects a desktop tweak to add frames.
+const EFFECT: Record<Tweak["effect"], { label: string; variant: "default" | "secondary" | "outline" }> = {
+  fps: { label: "FPS", variant: "default" },
+  smoothness: { label: "Smoothness", variant: "outline" },
+  latency: { label: "Input latency", variant: "outline" },
+  desktop: { label: "Desktop only", variant: "secondary" },
+};
+const CATEGORY_NOTE: Record<string, string> = {
+  Gaming: "Free up CPU time and memory for the game you're playing.",
+  Graphics: "How Windows hands frames to your display.",
+  Desktop: "These make Windows itself feel faster. They don't change in-game frame rates.",
 };
 
 export default function GameBoostPage() {
@@ -59,7 +66,8 @@ export default function GameBoostPage() {
   useEffect(() => { remember("perf:gpuPrefs", gpu); }, [gpu]);
   useEffect(() => { if (pcieSaving !== null) remember("perf:pcie", { saving: pcieSaving }); }, [pcieSaving]);
 
-  const restartNeeded = tweaks?.some((t) => t.needsRestart && t.applied);
+  const restartNeeded = tweaks?.some((t) => t.pendingRestart);
+  const [planMsg, setPlanMsg] = useState("");
 
   function toggle(t: Tweak, on: boolean) {
     const setApplied = (applied: boolean) =>
@@ -94,7 +102,7 @@ export default function GameBoostPage() {
         summarize: (r) => countSummary("Applied", r.filter((x) => x.ok).length, r.length, "tweak"),
       },
       async () => {
-        await ensureRestorePoint("Anchor performance tweaks");
+        // each tweak saves the settings it replaces, so Revert all restores exactly those
         const r = await window.anchor.perfApplyRecommended();
         await load(true);
         return r;
@@ -103,21 +111,23 @@ export default function GameBoostPage() {
   }
 
   function revertAll() {
-    const applied = (tweaks ?? []).filter((t) => t.applied);
+    type Rev = Array<{ name: string; ok: boolean; error: string }>;
     runTask(
       "perf:revert",
       {
         label: "Revert tweaks",
         where: PERF_WHERE,
         group: "perf",
-        isError: (r: boolean[]) => (r.some((ok) => !ok) ? `${r.filter((ok) => !ok).length} tweaks couldn't be reverted` : null),
-        summarize: () => "Windows defaults restored",
+        isError: (r: Rev) => {
+          const bad = r.filter((x) => !x.ok);
+          return bad.length ? `Couldn't revert: ${bad.map((x) => x.name).join(", ")}` : null;
+        },
+        summarize: (r) => (r.length ? `Reverted ${r.length} setting${r.length === 1 ? "" : "s"}` : "Nothing to revert"),
       },
       async () => {
-        const oks: boolean[] = [];
-        for (const t of applied) oks.push((await window.anchor.perfApply(t.id, false)).ok);
+        const r = await window.anchor.perfRevertAll();
         await load(true);
-        return oks;
+        return r;
       },
     );
   }
@@ -137,15 +147,15 @@ export default function GameBoostPage() {
 
   const latestOne = (recTask?.finishedAt ?? 0) >= (revTask?.finishedAt ?? 0) ? recTask : revTask;
   const msg = recBusy
-    ? "Checking restore point, then applying tweaks…"
+    ? "Applying recommended tweaks…"
     : revBusy
-    ? "Restoring Windows defaults…"
+    ? "Putting your original settings back…"
     : latestOne?.status === "error"
     ? `${latestOne.label} failed: ${latestOne.error}`
     : latestOne?.status === "done"
     ? latestOne === recTask
-      ? "Recommended tweaks applied. Every one can be switched back off below."
-      : "All tweaks reverted to Windows defaults."
+      ? "Recommended tweaks applied. Your previous settings are saved; Revert all puts them back."
+      : "Your original settings are back."
     : "";
   const cacheMsg = shaderBusy
     ? "Clearing shader caches…"
@@ -164,7 +174,24 @@ export default function GameBoostPage() {
     setGpu(await window.anchor.gpuPrefs());
   }
 
-  const byCategory = (tweaks ?? []).reduce<Record<string, Tweak[]>>((acc, t) => {
+  async function changePlan(guid: string) {
+    setPlanMsg("");
+    const r = await window.anchor.setPowerPlan(guid);
+    if (!r.ok) setPlanMsg(`Couldn't switch plan: ${r.error}`);
+    setPower(await window.anchor.powerPlan());
+  }
+  async function unlockUltimate() {
+    const r = await window.anchor.addUltimatePlan();
+    setPlanMsg(r.ok ? "Ultimate Performance added — choose it from the list." : `Couldn't add it: ${r.error}`);
+    setPower(await window.anchor.powerPlan());
+  }
+  async function removeDuplicates() {
+    const r = await window.anchor.removeDuplicateUltimate();
+    setPlanMsg(r.ok ? `Removed ${r.removed} duplicate plan${r.removed === 1 ? "" : "s"}.` : `Couldn't remove them: ${r.error}`);
+    setPower(await window.anchor.powerPlan());
+  }
+
+  const byCategory = (tweaks ?? []).filter((t) => !t.hidden).reduce<Record<string, Tweak[]>>((acc, t) => {
     (acc[t.category] ??= []).push(t);
     return acc;
   }, {});
@@ -178,8 +205,8 @@ export default function GameBoostPage() {
             <Sparkles className="size-4 text-primary" /> One click
           </CardTitle>
           <CardDescription>
-            Applies the recommended set (everything except the one needing a restart), after creating a System Restore
-            point.
+            Applies the tweaks marked Recommended. Each one saves the settings it replaces first, so Revert all puts back
+            exactly what you had, including your power plan.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -199,7 +226,7 @@ export default function GameBoostPage() {
           </div>
           {msg && <p className="text-sm text-muted-foreground">{msg}</p>}
           {restartNeeded && (
-            <Alert variant="warning">Restart your PC to finish applying GPU scheduling.</Alert>
+            <Alert variant="warning">Restart your PC to finish changing hardware-accelerated GPU scheduling.</Alert>
           )}
         </CardContent>
       </Card>
@@ -215,44 +242,9 @@ export default function GameBoostPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {gpus.length === 0 ? (
-            <Skeleton className="h-14 w-full" />
+            <Skeleton className="h-[136px] w-full" />
           ) : (
-            gpus.map((g) => {
-              const stale = g.ageDays !== null && g.ageDays > 365;
-              const aging = g.ageDays !== null && g.ageDays > 180 && !stale;
-              return (
-                <div key={g.name} className="glass cut-corner rounded-lg p-3">
-                  <p className="text-sm font-medium">{g.name}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Driver {g.driver}
-                    {g.driverDate && ` · ${g.driverDate}`}
-                    {g.vram > 0 && ` · ${formatBytes(g.vram)} VRAM`}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {g.errorCode ? (
-                      <Badge variant="destructive">
-                        Not working — Device Manager code {g.errorCode}
-                      </Badge>
-                    ) : null}
-                    {g.ageDays !== null && (
-                      <Badge variant={stale ? "warning" : aging ? "secondary" : "success"}>
-                        {stale
-                          ? `Driver is ${Math.round(g.ageDays / 30)} months old — check your GPU vendor for an update`
-                          : aging
-                          ? `Driver is ${Math.round(g.ageDays / 30)} months old`
-                          : "Driver is recent"}
-                      </Badge>
-                    )}
-                  </div>
-                  {g.errorCode === 43 && (
-                    <p className="mt-2 text-xs text-red-400">
-                      Windows stopped this GPU because it reported problems. Games will fall back to the other adapter.
-                      Reinstall the vendor driver; if the code returns, the card may need service.
-                    </p>
-                  )}
-                </div>
-              );
-            })
+            gpus.map((g) => <GpuCard key={g.name} gpu={g} />)
           )}
 
           <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -288,37 +280,32 @@ export default function GameBoostPage() {
             <Skeleton className="h-9 w-72" />
           ) : (
             <div className="flex flex-wrap items-center gap-2">
-              <Select
-                className="w-72"
-                value={power.active}
-                onChange={async (e) => {
-                  await window.anchor.setPowerPlan(e.target.value);
-                  setPower(await window.anchor.powerPlan());
-                }}
-              >
+              <Select className="w-72" value={power.active} onChange={(e) => changePlan(e.target.value)}>
                 {power.plans.map((p) => (
                   <option key={p.guid} value={p.guid}>{p.name}</option>
                 ))}
               </Select>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  await window.anchor.addUltimatePlan();
-                  setPower(await window.anchor.powerPlan());
-                }}
-              >
-                <Plus /> Unlock Ultimate Performance
-              </Button>
+              {power.ultimateCopies === 0 && (
+                <Button variant="outline" size="sm" onClick={unlockUltimate}>
+                  <Plus /> Unlock Ultimate Performance
+                </Button>
+              )}
+              {power.ultimateCopies > 1 && (
+                <Button variant="outline" size="sm" onClick={removeDuplicates}>
+                  <Trash2 /> Remove {power.ultimateCopies - 1} duplicate Ultimate plan{power.ultimateCopies === 2 ? "" : "s"}
+                </Button>
+              )}
             </div>
           )}
+          {planMsg && <p className="text-xs text-muted-foreground">{planMsg}</p>}
 
           <div className="flex items-start gap-4 glass cut-corner rounded-lg p-3">
             <div className="min-w-0 flex-1 space-y-1">
               <p className="text-sm font-medium">Maximum PCIe link speed</p>
               <p className="text-xs text-muted-foreground">
-                Stops Windows dropping the PCIe link to a lower power state, which can cost frames on a desktop. Applies
-                to the active power plan, so switching plans puts it back. Uses powercfg SUB_PCIEXPRESS.
+                Stops Windows putting the graphics card's PCIe link into a power-saving state, which can cause small
+                hitches when a game suddenly needs it. Only changes the plugged-in setting, so battery life is
+                unaffected. Applies to the active power plan. Uses powercfg SUB_PCIEXPRESS (ASPM = Off).
               </p>
             </div>
             <Switch
@@ -335,14 +322,18 @@ export default function GameBoostPage() {
 
       {Object.entries(byCategory).map(([cat, items]) => (
         <Card key={cat}>
-          <CardHeader><CardTitle>{cat}</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>{cat}</CardTitle>
+            {CATEGORY_NOTE[cat] && <CardDescription>{CATEGORY_NOTE[cat]}</CardDescription>}
+          </CardHeader>
           <CardContent className="space-y-2">
             {items.map((t) => (
               <div key={t.id} className="flex items-start gap-4 glass cut-corner rounded-lg p-3">
                 <div className="min-w-0 flex-1 space-y-1">
                   <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
                     {t.name}
-                    {t.recommended && <Badge variant="secondary">Recommended</Badge>}
+                    <Badge variant={EFFECT[t.effect].variant}>{EFFECT[t.effect].label}</Badge>
+                    {t.recommended && <Badge variant="success">Recommended</Badge>}
                     {t.needsRestart && <Badge variant="warning">Needs restart</Badge>}
                   </p>
                   <p className="text-xs text-muted-foreground">{t.desc}</p>
@@ -357,7 +348,8 @@ export default function GameBoostPage() {
 
       {tweaks === null && <Skeleton className="h-40 w-full" />}
 
-      <Card>
+      {/* only matters with two GPUs (laptops): one GPU means there's nothing to choose */}
+      {gpus.length !== 1 && <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Gamepad2 className="size-4 text-primary" /> Per-game GPU preference
@@ -392,7 +384,7 @@ export default function GameBoostPage() {
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card>}
     </div>
   );
 }

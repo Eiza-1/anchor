@@ -108,21 +108,22 @@ export interface AnchorApi {
     error?: string;
   }>;
 
-  perfList(): Promise<Array<{
-    id: string; name: string; desc: string; category: string;
-    needsRestart: boolean; recommended: boolean; applied: boolean;
-  }>>;
+  perfList(): Promise<PerfTweak[]>;
   perfApply(id: string, on: boolean): Promise<{ ok: boolean; error: string }>;
   perfApplyRecommended(): Promise<Array<{ id: string; ok: boolean }>>;
-  powerPlan(): Promise<{ active: string; plans: { guid: string; name: string }[] }>;
+  perfRevertAll(): Promise<Array<{ name: string; ok: boolean; error: string }>>;
+  powerPlan(): Promise<{ active: string; plans: { guid: string; name: string }[]; ultimateCopies: number }>;
   setPowerPlan(guid: string): Promise<{ ok: boolean; error: string }>;
-  addUltimatePlan(): Promise<{ ok: boolean; error: string }>;
+  addUltimatePlan(): Promise<{ ok: boolean; error: string; existed?: boolean }>;
+  removeDuplicateUltimate(): Promise<{ ok: boolean; error: string; removed: number }>;
   gpuPrefs(): Promise<Array<{ path: string; value: string }>>;
   setGpuPref(path: string, high: boolean): Promise<{ ok: boolean; error: string }>;
   pickExe(): Promise<string | null>;
   gpuInfo(): Promise<Array<{
     name: string; driver: string; driverDate: string | null;
-    vram: number; status: string; ageDays: number | null; errorCode?: number;
+    status: string; ageDays: number | null; errorCode?: number;
+    /** bytes from the graphics driver; null when it couldn't be read */
+    dedicated: number | null; shared: number | null; hwSchSupported: boolean | null;
   }>>;
   pcieState(): Promise<{ saving: boolean }>;
   setPcie(on: boolean): Promise<{ ok: boolean; error: string }>;
@@ -169,6 +170,21 @@ export interface AnchorApi {
   notify(n: { title: string; body: string; target: import("@/lib/nav").NavTarget }): Promise<void>;
   setBusy(busy: boolean): void;
   onNavigate(cb: (t: import("@/lib/nav").NavTarget) => void): () => void;
+}
+
+export interface PerfTweak {
+  id: string; name: string; desc: string; category: string;
+  /** what it really changes: frame rate, frame pacing, input latency, or only the desktop */
+  effect: "fps" | "smoothness" | "latency" | "desktop";
+  needsRestart: boolean; recommended: boolean; applied: boolean;
+  /** false when this PC's hardware can't use it (e.g. GPU scheduling) */
+  supported: boolean;
+  /** not listed: unsupported here, or retired (still undone by Revert all) */
+  hidden: boolean;
+  /** set, but Windows only picks it up after a restart */
+  pendingRestart: boolean;
+  /** Anchor saved the original values, so switching off restores exactly those */
+  hasBackup: boolean;
 }
 
 export interface BootFinding {
