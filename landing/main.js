@@ -103,25 +103,46 @@
 
   /* ---------------- 0 m: junk and the drop ---------------- */
   const junk = $(".junk"), surface = $("#surface"), plunge = $(".plunge");
-  (() => {
-    const small = innerWidth < 720;
+  // Junk is placed by measuring: never over the headline, copy, buttons, header
+  // or depth gauge, and never over another piece. A piece that doesn't fit is hidden.
+  const junkItems = C.hero.junk.map((j) => {
+    const n = el("div", { className: `junk__item junk__${j.kind}` });
+    if (j.kind === "toast") n.append(el("b", { textContent: j.text }), j.detail);
+    else if (j.kind === "scare") n.append(j.text, el("small", { textContent: j.detail }));
+    else n.textContent = j.text;
+    junk.append(n);
+    return n;
+  });
+  function layoutJunk() {
     let seed = 7;
     const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
-    const items = small ? C.hero.junk.slice(0, 7) : C.hero.junk;
-    items.forEach((j, idx) => {
-      // keep the headline block (left/middle) clear so the copy stays readable
-      let x, y, tries = 0;
-      do {
-        x = rnd() * 88; y = 6 + rnd() * 84; tries++;
-      } while (tries < 40 && (small ? y > 18 && y < 82 : x < 58 && y > 22 && y < 78));
-      const n = el("div", { className: `junk__item junk__${j.kind}` });
-      if (j.kind === "toast") n.append(el("b", { textContent: j.text }), j.detail);
-      else if (j.kind === "scare") n.append(j.text, el("small", { textContent: j.detail }));
-      else n.textContent = j.text;
-      n.style.cssText = `--x:${x}%;--y:${y}%;--r:${(rnd() * 8 - 4).toFixed(1)}deg;--dx:${(rnd() * 40 - 20).toFixed(0)}px;--dy:${(rnd() * 30 - 15).toFixed(0)}px;--dur:${(5 + rnd() * 5).toFixed(1)}s;--delay:-${(rnd() * 5).toFixed(1)}s;--sx:${(rnd() * 200 - 100).toFixed(0)}px;--sr:${(rnd() * 90 - 45).toFixed(0)}deg;--h:${Math.round(rnd() * 360)};transition-delay:${(rnd() * 0.25).toFixed(2)}s`;
-      junk.append(n);
+    const box = surface.getBoundingClientRect(), W = box.width, H = box.height;
+    const DRIFT = 22;   // drift animation reach, kept as clearance
+    const rel = (r, pad) => ({ x0: r.left - box.left - pad, y0: r.top - box.top - pad, x1: r.right - box.left + pad, y1: r.bottom - box.top + pad });
+    const blocked = $$(".surface__title, .surface__sub, .surface__cta").map((n) => rel(n.getBoundingClientRect(), 28));
+    blocked.push({ x0: 0, y0: 0, x1: W, y1: 84 });                               // header
+    if (innerWidth > 900) blocked.push({ x0: W - 190, y0: 0, x1: W, y1: H });   // depth gauge
+    const hit = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
+    const placed = [];
+    junkItems.forEach((n) => {
+      n.hidden = false;
+      n.style.cssText = "";
+      const w = n.offsetWidth, h = n.offsetHeight;
+      let spot = null;
+      for (let t = 0; t < 120 && !spot; t++) {
+        const x = 12 + rnd() * Math.max(0, W - w - 24), y = 88 + rnd() * Math.max(0, H - h - 104);
+        const r = { x0: x - DRIFT, y0: y - DRIFT, x1: x + w + DRIFT, y1: y + h + DRIFT };
+        if (!blocked.some((b) => hit(r, b)) && !placed.some((p) => hit(r, p))) spot = { x, y, r };
+      }
+      if (!spot) { n.hidden = true; return; }
+      placed.push(spot.r);
+      n.style.cssText = `--x:${spot.x.toFixed(0)}px;--y:${spot.y.toFixed(0)}px;--r:${(rnd() * 6 - 3).toFixed(1)}deg;--dx:${(rnd() * 30 - 15).toFixed(0)}px;--dy:${(rnd() * 24 - 12).toFixed(0)}px;--dur:${(5 + rnd() * 5).toFixed(1)}s;--delay:-${(rnd() * 5).toFixed(1)}s;--sx:${(rnd() * 200 - 100).toFixed(0)}px;--sr:${(rnd() * 90 - 45).toFixed(0)}deg;--h:${Math.round(rnd() * 360)};transition-delay:${(rnd() * 0.25).toFixed(2)}s`;
     });
-  })();
+  }
+  layoutJunk();
+  document.fonts?.ready.then(layoutJunk);
+  let junkTimer;
+  addEventListener("resize", () => { clearTimeout(junkTimer); junkTimer = setTimeout(layoutJunk, 150); });
 
   let dropping = false;
   async function drop() {
@@ -517,27 +538,95 @@
   }
 
   /* ---------------- ambient sound (off by default) ---------------- */
-  // Brown noise through a low-pass filter; quieter the deeper you are.
+  // An underwater soundscape generated in the browser: a deep current, slow swells,
+  // a low hum and the odd stream of bubbles. Deeper = quieter and more muffled.
+  // If content.js sets music.src, that audio file plays instead.
   var sound = (() => {
-    let ctx, gain, on = false, level = 0;
-    const btn = $(".sound");
-    function start() {
+    const M = C.music, btn = $(".sound");
+    let ctx, master, muffle, bus, file = null, on = false, depthT = 0, bubbleTimer;
+    const vol = () => M.volume.surface + (M.volume.seabed - M.volume.surface) * depthT;
+
+    function noise(kind) {
+      const len = ctx.sampleRate * 6, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+      let last = 0, b0 = 0, b1 = 0, b2 = 0;
+      for (let i = 0; i < len; i++) {
+        const w = Math.random() * 2 - 1;
+        if (kind === "brown") { last = (last + 0.02 * w) / 1.02; d[i] = last * 3.5; }
+        else { b0 = 0.997 * b0 + w * 0.029591; b1 = 0.985 * b1 + w * 0.032534; b2 = 0.95 * b2 + w * 0.048056; d[i] = (b0 + b1 + b2 + w * 0.05) * 0.9; }
+      }
+      const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.start();
+      return src;
+    }
+    const lfo = (rate, depth, target) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.value = rate; g.gain.value = depth; o.connect(g).connect(target); o.start();
+    };
+    function build() {
       ctx = new AudioContext();
-      const len = ctx.sampleRate * 4, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
-      let last = 0;
-      for (let i = 0; i < len; i++) { last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = last * 3.2; }
-      const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
-      const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 420;
-      gain = ctx.createGain(); gain.gain.value = 0;
-      src.connect(lp).connect(gain).connect(ctx.destination); src.start();
+      master = ctx.createGain(); master.gain.value = 0;
+      muffle = ctx.createBiquadFilter(); muffle.type = "lowpass"; muffle.frequency.value = 1400;
+      muffle.connect(master).connect(ctx.destination);
+      if (M.src) {
+        file = new Audio(M.src); file.loop = true;
+        ctx.createMediaElementSource(file).connect(muffle);
+        return;
+      }
+      // a little space: a dark feedback echo
+      bus = ctx.createGain();
+      const delay = ctx.createDelay(1), fb = ctx.createGain(), dark = ctx.createBiquadFilter(), wet = ctx.createGain();
+      delay.delayTime.value = 0.27; fb.gain.value = 0.38; dark.type = "lowpass"; dark.frequency.value = 900; wet.gain.value = 0.35;
+      bus.connect(muffle); bus.connect(delay); delay.connect(dark).connect(fb).connect(delay); delay.connect(wet).connect(muffle);
+      // deep current
+      const current = ctx.createBiquadFilter(), cg = ctx.createGain();
+      current.type = "lowpass"; current.frequency.value = 320; current.Q.value = 0.5; cg.gain.value = 0.9;
+      noise("brown").connect(current).connect(cg).connect(bus);
+      lfo(0.05, 120, current.frequency);
+      // slow swells
+      const swell = ctx.createBiquadFilter(), sg = ctx.createGain();
+      swell.type = "bandpass"; swell.frequency.value = 450; swell.Q.value = 0.8; sg.gain.value = 0.12;
+      noise("pink").connect(swell).connect(sg).connect(bus);
+      lfo(0.07, 0.1, sg.gain);
+      lfo(0.031, 180, swell.frequency);
+      // low hum
+      const hum = ctx.createGain(), humLp = ctx.createBiquadFilter();
+      hum.gain.value = 0.05; humLp.type = "lowpass"; humLp.frequency.value = 200;
+      [49, 73.5].forEach((f) => { const o = ctx.createOscillator(); o.frequency.value = f; o.connect(humLp); o.start(); });
+      humLp.connect(hum).connect(bus);
+      lfo(0.13, 0.02, hum.gain);
+    }
+    function bubbles() {
+      if (!on || !bus) return;
+      const t = ctx.currentTime, n = 1 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < n; i++) {
+        const at = t + i * (0.05 + Math.random() * 0.12), f0 = 300 + Math.random() * 500;
+        const o = ctx.createOscillator(), g = ctx.createGain(), pan = ctx.createStereoPanner();
+        o.frequency.setValueAtTime(f0, at);
+        o.frequency.exponentialRampToValueAtTime(f0 * (2 + Math.random()), at + 0.07);
+        g.gain.setValueAtTime(0, at);
+        g.gain.linearRampToValueAtTime(0.02 + Math.random() * 0.05, at + 0.005);
+        g.gain.exponentialRampToValueAtTime(0.0001, at + 0.12);
+        pan.pan.value = Math.random() * 1.6 - 0.8;
+        o.connect(g).connect(pan).connect(bus);
+        o.start(at); o.stop(at + 0.15);
+      }
+      bubbleTimer = setTimeout(bubbles, 900 + Math.random() * 3500);
+    }
+    function apply() {
+      const now = ctx.currentTime;
+      master.gain.setTargetAtTime(on ? vol() : 0, now, 0.6);
+      muffle.frequency.setTargetAtTime(1400 - 1000 * depthT, now, 0.8);
     }
     btn.addEventListener("click", async () => {
       on = !on;
       btn.setAttribute("aria-pressed", String(on));
-      if (on && !ctx) start();
-      if (ctx) { await ctx.resume(); gain.gain.setTargetAtTime(on ? level : 0, ctx.currentTime, 0.4); }
+      if (!ctx) build();
+      await ctx.resume();
+      if (file) on ? file.play().catch(() => {}) : file.pause();
+      clearTimeout(bubbleTimer);
+      if (on) bubbles();
+      apply();
     });
-    return { depth(t) { level = 0.09 * (1 - t * 0.75); if (on && gain) gain.gain.setTargetAtTime(level, ctx.currentTime, 0.5); } };
+    return { depth(t) { depthT = t; if (ctx) apply(); } };
   })();
 
   /* ---------------- easter eggs ---------------- */
