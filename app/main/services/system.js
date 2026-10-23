@@ -240,7 +240,8 @@ const BLOCKED_APPS = [
 
 async function bloatwareList() {
   const r = await runPSJson(
-    "Get-AppxPackage | Where-Object { -not $_.IsFramework } | Select-Object Name,PackageFullName | ConvertTo-Json -Compress"
+    // NonRemovable packages are part of Windows itself; Remove-AppxPackage always refuses them
+    "Get-AppxPackage | Where-Object { -not $_.IsFramework -and -not $_.NonRemovable } | Select-Object Name,PackageFullName | ConvertTo-Json -Compress"
   );
   const list = Array.isArray(r) ? r : r ? [r] : [];
   return list
@@ -249,13 +250,31 @@ async function bloatwareList() {
     .sort((a, b) => (b.safe ? 1 : 0) - (a.safe ? 1 : 0) || a.name.localeCompare(b.name));
 }
 
+// One PowerShell process for the whole batch. -AllUsers first: Anchor runs
+// elevated, and when the admin is a different account than the signed-in
+// user, a per-user removal only touches the admin's copy. Older Windows
+// builds reject -AllUsers, so a plain removal is the fallback.
 async function bloatwareRemove(packages) {
-  const results = [];
-  for (const p of packages) {
-    const { code, err } = await runPS(`Remove-AppxPackage -Package '${p.packageFullName}'`);
-    results.push({ name: p.name, ok: code === 0, error: err });
+  if (!packages.length) return [];
+  const list = packages.map((p) => `'${p.packageFullName.replace(/'/g, "''")}'`).join(",");
+  const r = await runPSJson(`
+$ProgressPreference='SilentlyContinue'
+$res = foreach ($pkg in @(${list})) {
+  $err = $null
+  try { Remove-AppxPackage -Package $pkg -AllUsers -ErrorAction Stop }
+  catch {
+    try { Remove-AppxPackage -Package $pkg -ErrorAction Stop }
+    catch { $err = $_.Exception.Message }
   }
-  return results;
+  [PSCustomObject]@{ pkg = $pkg; error = $err }
+}
+ConvertTo-Json -Compress -InputObject @($res)
+`, { long: true });
+  const byPkg = new Map((Array.isArray(r) ? r : []).map((x) => [x.pkg, x.error]));
+  return packages.map((p) => {
+    const error = byPkg.has(p.packageFullName) ? byPkg.get(p.packageFullName) : "No result from PowerShell.";
+    return { name: p.name, ok: !error, error: (error ?? "").trim() };
+  });
 }
 
 // ---------- Privacy ----------
