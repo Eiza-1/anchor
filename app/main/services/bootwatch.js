@@ -38,7 +38,7 @@ const RED_FLAGS = [
   { re: /(downloadstring|downloadfile|invoke-webrequest|iwr\s|curl\s|wget\s)/i, why: "downloads something from the internet" },
   { re: /https?:\/\//i, why: "contains a web address" },
   { re: /\bstart\s+\/min\b/i, why: "starts minimised so you don't see it" },
-  { re: /\bvbscript|\.vbs\b|\.js\b|\.bat\b|\.cmd\b|\.ps1\b/i, why: "runs a script file" },
+  { re: /\bvbscript|\.vbs\b|\.js\b|\.bat\b|\.cmd\b|\.ps1\b/i, why: "runs a script file", script: true },
   { re: /taskkill|net\s+stop|sc\s+stop/i, why: "stops other programs or services" },
   { re: /(defender|msmpeng|windowsdefender)/i, why: "references Windows Defender" },
   { re: /\bhosts\b/i, why: "touches the hosts file, which can redirect web traffic" },
@@ -97,6 +97,70 @@ function assess({ name, command, path, source, runAs, author }) {
   score = Math.max(0, Math.min(100, score));
   const level = score >= 60 ? "high" : score >= 30 ? "medium" : "low";
   return { score, level, reasons };
+}
+
+/* -------------------------- Microsoft signatures -------------------------- */
+// Windows and Defender run from places the rules above call risky (Defender
+// lives in ProgramData, as SYSTEM) and use cmd.exe for their own upkeep.
+// Disabling them weakens or breaks the system, so an entry whose every file
+// carries a valid signature chaining to a Microsoft root is left alone: never
+// flagged, never offered for disabling. Malware can't produce that signature;
+// it can only borrow signed interpreters, which is why those need more (below).
+const MS_ROOTS = [
+  "CDD4EEAE6000AC7F40C3802C171E30148030C072", // Microsoft Root Certificate Authority
+  "3B1EFD3A66EA28B16697394703A72CA340A05BD5", // Microsoft Root Certificate Authority 2010
+  "8F43288AD272F3103B6FB1428485EA3014C0BCFE", // Microsoft Root Certificate Authority 2011
+  "A43489159A520F0D93D032CCAF37E7FE20A8B419", // Microsoft Root Authority
+];
+const EXT = "(?:exe|com|dll|cpl|scr|msc|cmd|bat|ps1|vbs|js|wsf|hta)";
+// quoted path | rooted or %VAR% path (may hold spaces) | bare file name
+const FILE_RE = new RegExp(
+  String.raw`"([^"]+\.${EXT})"|((?:[a-z]:\\|%\w+%|\\\\)[^"]*?\.${EXT})(?![\w.])|([^\s"/,]+\.${EXT})(?![\w.])`, "gi");
+
+/** The files a startup command runs: the program, plus any script or DLL it's handed. */
+function filesIn(command) {
+  return [...String(command ?? "").matchAll(FILE_RE)].map((m) => m[1] ?? m[2] ?? m[3]);
+}
+
+/** Which of these files carry a valid signature from a Microsoft root (lower-cased). */
+async function microsoftSigned(files) {
+  const unique = [...new Set(files.map((f) => f.toLowerCase()))];
+  if (unique.length === 0) return new Set();
+  const q = (s) => `'${s.replace(/'/g, "''")}'`;
+  const r = await runPSJson(`
+$roots = @(${MS_ROOTS.map(q).join(",")})
+$out = @()
+foreach ($f in @(${unique.map(q).join(",")})) {
+  $p = [Environment]::ExpandEnvironmentVariables($f)
+  if (-not [IO.Path]::IsPathRooted($p)) {
+    $cmd = Get-Command $p -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    $p = if ($cmd) { $cmd.Source } else { Join-Path "$env:windir\\System32" $p }
+  }
+  $s = Get-AuthenticodeSignature -LiteralPath $p -ErrorAction SilentlyContinue
+  if ($s.Status -ne 'Valid' -or $s.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') { continue }
+  $chain = New-Object Security.Cryptography.X509Certificates.X509Chain
+  $chain.ChainPolicy.RevocationMode = 'NoCheck'
+  [void]$chain.Build($s.SignerCertificate)
+  if ($roots -contains $chain.ChainElements[$chain.ChainElements.Count - 1].Certificate.Thumbprint) { $out += $f }
+}
+ConvertTo-Json @($out) -Compress
+`);
+  return new Set(Array.isArray(r) ? r : r ? [r] : []);
+}
+
+const TRUSTED = { score: 0, level: "low", reasons: [] };
+
+/** Microsoft's own entries are trusted outright; everything else is scored. */
+function judge(e, signed) {
+  const files = filesIn(e.command || e.path);
+  const allSigned = files.length > 0 && files.every((f) => signed.has(f.toLowerCase()));
+  const exe = (files[0] ?? "").toLowerCase();
+  const interpreter = INTERPRETERS.some((i) => exe === i || exe.endsWith(`\\${i}`));
+  // A signed cmd.exe or PowerShell proves nothing about what it's told to run:
+  // only trust it running a signed script, with nothing hidden or fetched.
+  const microsoft = allSigned && (!interpreter ||
+    (files.length > 1 && !RED_FLAGS.some((f) => !f.script && f.re.test(e.command ?? ""))));
+  return { microsoft, ...(microsoft ? TRUSTED : assess(e)) };
 }
 
 /* ---------------------------- persistence scan ---------------------------- */
@@ -212,10 +276,12 @@ ConvertTo-Json @($out) -Depth 3 -Compress
 `);
 
   const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
-  return list
-    .map((e) => ({ ...e, ...assess(e) }))
-    .sort((a, b) => b.score - a.score);
+  const signed = await microsoftSigned(list.flatMap((e) => filesIn(e.command || e.path)));
+  const findings = list.map((e) => ({ ...e, ...judge(e, signed) })).sort((a, b) => b.score - a.score);
+  protectedIds = new Set(findings.filter((f) => f.microsoft).map((f) => f.id));
+  return findings;
 }
+let protectedIds = null; // ids of Microsoft entries from the last scan
 
 /* --------------------------- live process watch --------------------------- */
 
@@ -270,14 +336,16 @@ function watchProcesses(getContents) {
       if (!INTERPRETERS.includes(name)) continue;          // only the flashy ones
       if (/anchor|electron|npm|node\.exe/i.test(ev.parent ?? "")) continue; // our own
 
-      const verdict = assess({
-        name: ev.name, command: ev.command, path: ev.path, source: "Process start",
-      });
-      if (verdict.score < 20) continue;                     // ignore benign noise
+      const entry = { name: ev.name, command: ev.command, path: ev.path, source: "Process start" };
+      if (assess(entry).score < 20) continue;               // ignore benign noise
 
-      const webContents = getContents();
-      if (webContents && !webContents.isDestroyed())
-        webContents.send("bootwatch:process", { ...ev, ...verdict });
+      microsoftSigned(filesIn(ev.command || ev.path)).then((signed) => {
+        const verdict = judge(entry, signed);
+        if (verdict.microsoft) return;                      // Windows doing its own upkeep
+        const webContents = getContents();
+        if (webContents && !webContents.isDestroyed())
+          webContents.send("bootwatch:process", { ...ev, ...verdict });
+      });
     }
   });
 
@@ -294,6 +362,10 @@ function stopWatching() {
 
 /** Disables (never silently deletes) a persistence entry. */
 async function disableEntry(id) {
+  if (!protectedIds) await scanPersistence();
+  if (protectedIds.has(id)) {
+    return { ok: false, error: "This is part of Windows, signed by Microsoft. Disabling it could leave your PC unprotected or unstable." };
+  }
   const [kind, ...rest] = String(id).split("|");
   const target = rest.join("|");
   let cmd = "";
@@ -334,4 +406,8 @@ Move-Item -LiteralPath '${target.replace(/'/g, "''")}' -Destination $q -Force`;
   return { ok: code === 0, error: err };
 }
 
-module.exports = { scanPersistence, watchProcesses, stopWatching, disableEntry };
+module.exports = {
+  scanPersistence, watchProcesses, stopWatching, disableEntry,
+  // for tests
+  _internal: { filesIn, judge },
+};
