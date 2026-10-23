@@ -7,7 +7,8 @@
 // (it's out of flow and contained), and App slides the page across to match.
 import { useEffect, useRef, useState } from "react";
 import { motion, type Variants } from "framer-motion";
-import { Anchor as AnchorIcon, ChevronLeft } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
+import { BrandMark, useSeason } from "@/components/BrandMark";
 import { cn } from "@/lib/utils";
 import { INSTANT, SPRING, useReduceMotion } from "@/lib/motion";
 import { navigate } from "@/lib/nav";
@@ -75,6 +76,7 @@ export function Sidebar({
 
   const expanded = open || peek;
   const reduce = useReduceMotion();
+  const season = useSeason();
   const peeking = !open && peek;
 
   // lets the page's title strip stop being a drag region under the peek (index.css .title-drag)
@@ -149,7 +151,7 @@ export function Sidebar({
           className="flex h-12 shrink-0 items-center gap-2.5 pl-6 pr-3"
           style={{ WebkitAppRegion: peeking ? "no-drag" : "drag" } as React.CSSProperties}
         >
-          <AnchorIcon className="size-4 shrink-0 text-primary drop-shadow-[0_0_6px_hsl(var(--primary)/0.6)]" />
+          <BrandMark season={season} className="size-5 text-foreground" />
           <motion.span
             className="whitespace-nowrap text-sm font-semibold tracking-tight"
             initial={false}

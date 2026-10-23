@@ -10,6 +10,12 @@ contextBridge.exposeInMainWorld("anchor", {
   maximize: () => call("win:maximize"),
   close: () => call("win:close"),
   appVersion: () => call("app:version"),
+  season: () => call("app:season"),
+  onSeason: (cb) => {
+    const handler = (_e, season) => cb(season);
+    ipcRenderer.on("app:season", handler);
+    return () => ipcRenderer.removeListener("app:season", handler);
+  },
 
   // safety + boost
   createRestorePoint: (desc) => call("boost:restorePoint", desc),

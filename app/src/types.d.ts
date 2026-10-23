@@ -1,3 +1,5 @@
+import type { Season } from "./components/brand-marks";
+
 export interface NewsItem {
   title: string;
   link: string;
@@ -29,6 +31,9 @@ export interface AnchorApi {
   maximize(): Promise<void>;
   close(): Promise<void>;
   appVersion(): Promise<string>;
+  /** Today's seasonal logo, or null (also null when "Seasonal logos" is off). */
+  season(): Promise<Season | null>;
+  onSeason(cb: (season: Season | null) => void): () => void;
 
   createRestorePoint(desc: string): Promise<{ ok: boolean; message: string }>;
   ensureRestorePoint(desc: string, minDays: number): Promise<{ ok: boolean; skipped?: boolean; message: string }>;
@@ -207,6 +212,7 @@ export interface Profile {
   restorePolicy: "weekly" | "monthly" | "always";
   bootWatch: boolean;
   theme: string;
+  seasonalLogos: boolean;
   background: string;
   userId: string;
   accessToken: string;

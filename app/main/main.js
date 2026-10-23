@@ -17,9 +17,32 @@ const diskbench = require("./services/diskbench");
 const cleanup = require("./services/cleanup");
 const background = require("./services/background");
 const games = require("./services/games");
+const { seasonFor } = require("./services/season");
 
 let win;
 let tray = null;
+
+// The logo dresses up for Halloween unless Account → Appearance → "Seasonal
+// logos" is off. Other seasons are ready but switched off (ACTIVE in
+// services/season.js). The icons ship under main/ because build/ is not
+// packaged into the app.
+function currentSeason() {
+  return profile.loadProfile().seasonalLogos === false ? null : seasonFor(new Date());
+}
+let season = currentSeason();
+const appIcon = () => path.join(__dirname, "assets", "icons", `anchor${season ? `-${season}` : ""}.ico`);
+
+/** Re-checks the date and setting; swaps the window and tray icon and tells the page. */
+function refreshSeason() {
+  const next = currentSeason();
+  if (next === season) return;
+  season = next;
+  if (win && !win.isDestroyed()) {
+    win.setIcon(appIcon());
+    win.webContents.send("app:season", season);
+  }
+  tray?.setImage(appIcon());
+}
 
 // anchor-img://fetch?u=<https url>: a news picture fetched by main, readable by
 // the page (feeds' image hosts send no CORS headers). The page shrinks it to
@@ -61,7 +84,7 @@ function bringToFront() {
 const notes = new Set();
 const MAX_NOTES = 10;
 function showNote({ title, body }, onClick) {
-  const note = new Notification({ title, body, icon: path.join(__dirname, "..", "build", "icon.ico") });
+  const note = new Notification({ title, body, icon: appIcon() });
   notes.add(note);
   if (notes.size > MAX_NOTES) notes.delete(notes.values().next().value);
   note.on("click", () => { notes.delete(note); if (bringToFront()) onClick?.(); });
@@ -78,7 +101,7 @@ function createWindow() {
     show: false,
     backgroundColor: "#09090b",
     title: "Anchor",
-    icon: path.join(__dirname, "..", "build", "icon.ico"),
+    icon: appIcon(),
     titleBarStyle: "hidden",
     titleBarOverlay: { color: "#00000000", symbolColor: "#a1a1aa", height: 40 },
     webPreferences: {
@@ -121,8 +144,7 @@ function createWindow() {
 }
 
 function createTray() {
-  const icon = path.join(__dirname, "..", "build", "icon.ico");
-  try { tray = new Tray(icon); } catch { return; }
+  try { tray = new Tray(appIcon()); } catch { return; }
   tray.setToolTip("Anchor — watching startup activity");
   tray.setContextMenu(
     Menu.buildFromTemplate([
@@ -139,6 +161,7 @@ app.whenReady().then(async () => {
   createWindow();
   createTray();
   warmUp();                       // start the PowerShell host before it's needed
+  setInterval(refreshSeason, 60 * 60 * 1000);   // seasons start and end at midnight; an hour late is fine
   updater.init(win.webContents);
 
   // Boot Watch: if the user enabled it, watch process starts and, when launched
@@ -177,6 +200,7 @@ handle("win:minimize", () => win?.minimize());
 handle("win:maximize", () => (win?.isMaximized() ? win.unmaximize() : win?.maximize()));
 handle("win:close", () => win?.close());
 handle("app:version", () => app.getVersion());
+handle("app:season", () => season);
 
 handle("boost:restorePoint", (desc) => boost.createRestorePoint(desc ?? "Anchor"));
 handle("boost:ensureRestorePoint", (desc, minDays) =>
@@ -236,7 +260,9 @@ handle("profile:load", () => profile.loadProfile());
 // `background` is owned by services/background.js; a stale copy from the UI must not undo a pick/reset.
 handle("profile:save", (p) => {
   const { background: _ignored, ...rest } = p ?? {};
-  return profile.saveProfile(rest);
+  const saved = profile.saveProfile(rest);
+  refreshSeason();                // "Seasonal logos" may have changed
+  return saved;
 });
 handle("bg:pick", () => background.pickBackground(win));
 handle("bg:get", () => background.getBackground());

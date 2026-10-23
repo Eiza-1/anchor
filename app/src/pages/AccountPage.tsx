@@ -321,6 +321,12 @@ export default function AccountPage() {
           </div>
           <BackgroundPicker />
           <ReduceMotionToggle />
+          <Toggle
+            label="Seasonal logos"
+            hint="Anchor's logo dresses up for Halloween, in the app and on the taskbar"
+            checked={p.seasonalLogos ?? true}
+            onChange={(v) => persist({ seasonalLogos: v })}
+          />
         </CardContent>
       </Card>
 
