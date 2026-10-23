@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui";
 import { useAppState } from "@/lib/store";
 import { useTask } from "@/lib/tasks";
 import { INSTANT, SPRING, SPRING_SOFT, useReduceMotion } from "@/lib/motion";
-import { cn } from "@/lib/utils";
+import { cn, formatBytes } from "@/lib/utils";
 
 // Which runs were dismissed, by their start time. Module-level so it survives
 // page switches; a new run has a new start time and shows again.
@@ -34,6 +34,7 @@ export function ResultPanel() {
 
   const healthPct = health.total ? (health.done / health.total) * 100 : 0;
   const boostRunning = boostTask?.status === "running" || boost.running;
+  const showItems = showBoost && !boostRunning && !!boost.items?.length;
   const boostText = boostTask?.status === "error"
     ? `Boost failed: ${boostTask.error ?? "something went wrong"}`
     : boost.message || (boostRunning ? "Boosting…" : boostTask?.summary ?? "");
@@ -61,7 +62,7 @@ export function ResultPanel() {
               </button>
 
               {showBoost && (
-                <div className={cn("flex items-center gap-3", showHealth && "mb-5")}>
+                <div className={cn("flex items-center gap-3", showHealth && !showItems && "mb-5")}>
                   <span className="grid size-8 shrink-0 place-items-center rounded-md bg-primary/15 text-primary">
                     {boostRunning ? <Loader2 className="size-4 animate-spin" /> : <Zap className="size-4" />}
                   </span>
@@ -72,6 +73,18 @@ export function ResultPanel() {
                     </p>
                   </div>
                 </div>
+              )}
+              {showItems && (
+                <ul className={cn("ml-11 mt-3 max-w-md space-y-1 text-xs", showHealth && "mb-5")}>
+                  {boost.items!.map((i) => (
+                    <li key={i.name} className="flex justify-between gap-4">
+                      <span className="truncate text-foreground/85">{i.name}</span>
+                      <span className={cn("shrink-0 tabular-nums", i.freed > 0 ? "text-foreground" : "text-muted-foreground")}>
+                        {i.freed > 0 ? formatBytes(i.freed) : "already clean"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               )}
 
               {showHealth && (

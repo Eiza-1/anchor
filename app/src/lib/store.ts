@@ -33,6 +33,8 @@ export interface BoostState {
   message: string;
   skipped: string[];
   finishedAt: number | null;
+  /** What each location freed, biggest first (Boost only). */
+  items?: Array<{ name: string; freed: number }>;
 }
 
 interface AppState {
@@ -506,6 +508,7 @@ export async function runBoost() {
           ...idle,
           finishedAt: Date.now(),
           message: `Freed ${formatBytes(r.freed)} from ${r.cleaned.length} location${r.cleaned.length === 1 ? "" : "s"}.`,
+          items: [...(r.items ?? [])].sort((a, b) => b.freed - a.freed),
         });
         return r;
       } catch (e) {

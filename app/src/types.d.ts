@@ -44,8 +44,8 @@ export interface AnchorApi {
     id: string; name: string; detail: string;
     default: boolean; oneWay: boolean; bytes: number;
   }>>;
-  cleanupRun(ids: string[]): Promise<{ freed: number; cleaned: string[] }>;
-  cleanupQuick(): Promise<{ freed: number; cleaned: string[] }>;
+  cleanupRun(ids: string[]): Promise<{ freed: number; cleaned: string[]; items: Array<{ name: string; freed: number }> }>;
+  cleanupQuick(): Promise<{ freed: number; cleaned: string[]; items: Array<{ name: string; freed: number }> }>;
 
   buildInfo(): Promise<{ ProductName: string; DisplayVersion: string; CurrentBuild: string; UBR: number } | null>;
   checkUpdates(): Promise<{ pending?: number; titles?: string[]; last?: string | null; error?: string }>;
