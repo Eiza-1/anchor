@@ -8,7 +8,10 @@
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];
   const root = document.documentElement;
-  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // Like the Anchor app, the site animates whatever Windows' "Animation effects" says:
+  // the people who switch that off are mostly tuning for speed. The header's motion
+  // switch turns animation off for anyone who wants a still page (remembered per browser).
+  const reduced = root.classList.contains("reduce-motion");
   const finePointer = matchMedia("(pointer: fine)").matches;
   const get = (path) => path.split(".").reduce((o, k) => (o == null ? o : o[k]), C);
   const el = (tag, props = {}, ...kids) => {
@@ -908,6 +911,17 @@
       p.style.setProperty("--py", `${e.clientY - r.top}px`);
     }));
   }
+
+  /* ---------------- motion switch ---------------- */
+  (() => {
+    const btn = $(".motion-toggle");
+    btn.setAttribute("aria-pressed", String(reduced));
+    btn.title = reduced ? "Turn animation back on" : "Reduce motion";
+    btn.addEventListener("click", () => {
+      try { reduced ? localStorage.removeItem("anchor-site:reduce-motion") : localStorage.setItem("anchor-site:reduce-motion", "1"); } catch { /* storage unavailable */ }
+      location.reload();
+    });
+  })();
 
   /* ---------------- easter eggs ---------------- */
   // type "drop" anywhere: replay the anchor drop. Konami code: Windows 95.
