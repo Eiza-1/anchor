@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+<clipPath id="christmas-clip"><rect x="32" y="32" width="960" height="960" rx="224"/></clipPath>
+  <defs>
+    <linearGradient id="christmas-bg" x1="0.15" y1="0" x2="0.85" y2="1"><stop offset="0" stop-color="#178A55"/><stop offset="0.5" stop-color="#0E6A42"/><stop offset="1" stop-color="#08432A"/></linearGradient>
+    <radialGradient id="christmas-glow" cx="0.28" cy="0.12" r="0.75"><stop offset="0" stop-color="#fff" stop-opacity="0.14"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#christmas-bg)"/>
+  <g clip-path="url(#christmas-clip)"><circle cx="190" cy="200" r="9" fill="#fff" opacity="1"/><circle cx="300" cy="150" r="6" fill="#fff" opacity="0.8"/><circle cx="250" cy="380" r="5" fill="#fff" opacity="0.7"/><circle cx="820" cy="360" r="8" fill="#fff" opacity="0.9"/><circle cx="760" cy="560" r="5" fill="#fff" opacity="0.6"/><circle cx="180" cy="620" r="7" fill="#fff" opacity="0.8"/><circle cx="860" cy="720" r="6" fill="#fff" opacity="0.7"/><circle cx="300" cy="820" r="5" fill="#fff" opacity="0.6"/><circle cx="690" cy="860" r="7" fill="#fff" opacity="0.8"/><circle cx="870" cy="200" r="5" fill="#fff" opacity="0.6"/><g transform="translate(200 300)" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity="0.9"><line x1="-26" y1="0" x2="26" y2="0"/><line x1="-13" y1="-22.52" x2="13" y2="22.52"/><line x1="13" y1="-22.52" x2="-13" y2="22.52"/></g><g transform="translate(840 560)" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity="0.9"><line x1="-20" y1="0" x2="20" y2="0"/><line x1="-10" y1="-17.32" x2="10" y2="17.32"/><line x1="10" y1="-17.32" x2="-10" y2="17.32"/></g><g transform="translate(217 217) scale(5.9)"><g>
+      <circle cx="50" cy="17.75" r="12" fill="none" stroke="#FFFFFF" stroke-width="9"/>
+      <g transform="rotate(-10 50 4.25)">
+        <path d="M36.5 4.25C38 -11.75 55 -18.75 68 -10.75C72 -8.25 74 -3.75 73 1.25L63.5 4.25Z" fill="#E5322D"/>
+        <rect x="33" y="-0.25" width="34" height="9" rx="4.5" fill="#FFFFFF" stroke="#0D1321" stroke-opacity="0.12" stroke-width="0.8"/>
+        <circle cx="73" cy="1.25" r="5" fill="#FFFFFF" stroke="#0D1321" stroke-opacity="0.12" stroke-width="0.8"/>
+      </g>
+    </g>
+  <rect x="44.5" y="40.25" width="11" height="53" rx="5.5" fill="#FFFFFF"/>
+  <path d="M7.73 60.69A42.5 42.5 0 0 0 92.27 60.69L81.33 59.54A31.5 31.5 0 0 1 18.67 59.54Z" fill="#FFFFFF"/></g></g>
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#christmas-glow)"/>
+</svg>

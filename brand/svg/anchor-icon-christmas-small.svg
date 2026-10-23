@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+<defs>
+    <linearGradient id="christmass-bg" x1="0.15" y1="0" x2="0.85" y2="1"><stop offset="0" stop-color="#178A55"/><stop offset="0.5" stop-color="#0E6A42"/><stop offset="1" stop-color="#08432A"/></linearGradient>
+    <radialGradient id="christmass-glow" cx="0.28" cy="0.12" r="0.75"><stop offset="0" stop-color="#fff" stop-opacity="0.14"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#christmass-bg)"/>
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#christmass-glow)"/>
+  <g transform="translate(207 207) scale(6.1)"><g>
+      <circle cx="50" cy="19" r="12" fill="none" stroke="#FFFFFF" stroke-width="11.5"/>
+      <g transform="rotate(-10 50 4.25)">
+        <path d="M36.5 4.25C38 -11.75 55 -18.75 68 -10.75C72 -8.25 74 -3.75 73 1.25L63.5 4.25Z" fill="#E5322D"/>
+        <rect x="33" y="-0.25" width="34" height="9" rx="4.5" fill="#FFFFFF" stroke="#0D1321" stroke-opacity="0.12" stroke-width="0.8"/>
+        <circle cx="73" cy="1.25" r="5" fill="#FFFFFF" stroke="#0D1321" stroke-opacity="0.12" stroke-width="0.8"/>
+      </g>
+    </g>
+  <rect x="43" y="41.75" width="14" height="50" rx="7" fill="#FFFFFF"/>
+  <path d="M7.53 57.73A42.5 42.5 0 0 0 92.47 57.73L78.48 57.24A28.5 28.5 0 0 1 21.52 57.24Z" fill="#FFFFFF"/></g>
+</svg>

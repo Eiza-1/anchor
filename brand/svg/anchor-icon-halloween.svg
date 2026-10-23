@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+<clipPath id="halloween-clip"><rect x="32" y="32" width="960" height="960" rx="224"/></clipPath>
+  <defs>
+    <linearGradient id="halloween-bg" x1="0.15" y1="0" x2="0.85" y2="1"><stop offset="0" stop-color="#3A1A5C"/><stop offset="0.55" stop-color="#21103A"/><stop offset="1" stop-color="#120A22"/></linearGradient>
+    <radialGradient id="halloween-glow" cx="0.28" cy="0.12" r="0.75"><stop offset="0" stop-color="#fff" stop-opacity="0.1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#halloween-bg)"/>
+  <g clip-path="url(#halloween-clip)"><circle cx="230" cy="210" r="5" fill="#F4E9FF" opacity="0.9"/><circle cx="300" cy="330" r="3.5" fill="#F4E9FF" opacity="0.6"/><circle cx="196" cy="480" r="4" fill="#F4E9FF" opacity="0.7"/><circle cx="860" cy="470" r="3.5" fill="#F4E9FF" opacity="0.6"/><circle cx="640" cy="150" r="3" fill="#F4E9FF" opacity="0.5"/><circle cx="752" cy="250" r="92" fill="#FFE6B8"/><circle cx="790" cy="226" r="92" fill="#2B1446" opacity="0.0"/><path transform="translate(712 262) scale(2.1)" d="M0 0c6-8 14-10 20-8-3 2-4 5-3 8 3-2 6-2 8 0 1-3 3-4 5-4l1-4 2 4 2-4 1 4c2 0 4 1 5 4 2-2 5-2 8 0 1-3 0-6-3-8 6-2 14 0 20 8-6-2-11-1-14 3-2-3-6-3-9 0-2-2-5-3-8-1-1 2-3 3-5 3-2 0-4-1-5-3-3-2-6-1-8 1-3-3-7-3-9 0-3-4-8-5-14-3z" fill="#1A0B2B"/><g transform="translate(217 217) scale(5.9)"><g>
+      <path d="M50 6.25c0-4.5 1.8-7.5 5.2-8.5" stroke="#3F6B2A" stroke-width="3.6" stroke-linecap="round" fill="none"/>
+      <ellipse cx="42.5" cy="19.25" rx="11.5" ry="14.2" fill="#EC420E"/>
+      <ellipse cx="57.5" cy="19.25" rx="11.5" ry="14.2" fill="#EC420E"/>
+      <ellipse cx="50" cy="19.25" rx="11" ry="15" fill="#FF5A1F"/>
+      <path d="M43 15.75l4 4.2h-8zM57 15.75l4 4.2h-8z" fill="#2A1238"/>
+      <path d="M39.5 23.75q10.5 7.5 21 0l-3 0.5-2.2 2.5-2.4-2.4-2.4 2.4-2.4-2.4-2.4 2.4-2.2-2.5z" fill="#2A1238"/>
+    </g>
+  <rect x="44.5" y="40.25" width="11" height="53" rx="5.5" fill="#FF5A1F"/>
+  <path d="M7.73 60.69A42.5 42.5 0 0 0 92.27 60.69L81.33 59.54A31.5 31.5 0 0 1 18.67 59.54Z" fill="#FF5A1F"/></g><line x1="789.3" y1="571" x2="789.3" y2="760" stroke="#E9DDF7" stroke-width="3" opacity="0.7"/><g transform="translate(789.3 778)" fill="#E9DDF7"><ellipse rx="15" ry="18"/><circle cy="-22" r="10"/>
+        <g stroke="#E9DDF7" stroke-width="4" stroke-linecap="round" fill="none"><path d="M-12-6l-20-12-8 10M-13 2l-24-4-8 12M-12 9l-20 8-4 14M12-6l20-12 8 10M13 2l24-4 8 12M12 9l20 8 4 14"/></g></g></g>
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#halloween-glow)"/>
+</svg>
