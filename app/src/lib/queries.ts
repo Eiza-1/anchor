@@ -1,7 +1,8 @@
 // Every page's data, in one place: the cache key, how long it stays fresh, and
 // how to fetch it. Pages and the launch-time prefetch both go through here, so
 // a tab opened right after launch usually finds its data already loaded.
-import { cached } from "@/lib/store";
+import { cached, peek } from "@/lib/store";
+import { mergeVideos } from "@/lib/spotlight";
 import type { GamesResult, NewsItem } from "@/types";
 
 const MIN = 60_000;
@@ -39,7 +40,11 @@ export const Q = {
   diagRepairs: q("diag:repairs", Infinity, "diagRepairs"),
   lastRestorePoint: q("restore:last", 10 * MIN, "lastRestorePoint"),
   feeds: q("news:feeds", Infinity, "feeds"),
-  videos: q("news:videos", 10 * MIN, "videos"),
+  // Channels YouTube didn't answer this time keep their last videos (see mergeVideos).
+  videos: () => cached("news:videos", 10 * MIN, async () => {
+    const [fresh, feeds] = await Promise.all([window.anchor.videos(), Q.feeds()]);
+    return mergeVideos(fresh, peek<NewsItem[]>("news:videos") ?? [], feeds.videos);
+  }),
   releases: () => cached("games:releases", 24 * 60 * MIN, () => unwrap(window.anchor.gameReleases())),
   freeGames: () => cached("games:free", 6 * 60 * MIN, () => unwrap(window.anchor.freeGames())),
 };

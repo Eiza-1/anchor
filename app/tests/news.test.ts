@@ -1,10 +1,12 @@
 import { createRequire } from "module";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 const require = createRequire(import.meta.url);
 const news = require("../main/services/news.js") as {
   strip(html: string): string;
   videoFromEntry(e: Record<string, unknown>, source: string): { link: string; isShort: boolean; imageUrl: string }[];
+  fetchVideos(): Promise<{ link: string; source: string }[]>;
+  VIDEO_CHANNELS: Record<string, string>;
 };
 
 describe("strip", () => {
@@ -52,5 +54,26 @@ describe("videoFromEntry", () => {
 
   it("skips entries without a video id", () => {
     expect(news.videoFromEntry({ title: "x" }, "MKBHD")).toEqual([]);
+  });
+});
+
+describe("fetchVideos", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const feed = (id: string) =>
+    `<feed><entry><yt:videoId>${id}</yt:videoId><title>Clip</title><published>2026-10-20T10:00:00Z</published>` +
+    `<link rel="alternate" href="https://www.youtube.com/watch?v=${id}"/></entry></feed>`;
+
+  it("rejects when YouTube answers every channel with an error page", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("<!DOCTYPE html><title>Error 404</title>", { status: 404 })));
+    await expect(news.fetchVideos()).rejects.toThrow(/YouTube/);
+  });
+
+  it("keeps the channels that answered when others fail", async () => {
+    const [firstId] = Object.values(news.VIDEO_CHANNELS);
+    vi.stubGlobal("fetch", vi.fn(async (url: string) =>
+      url.includes(firstId) ? new Response(feed("abc123"), { status: 200 }) : new Response("", { status: 500 })));
+    const videos = await news.fetchVideos();
+    expect(videos.map((v) => v.link)).toEqual(["https://www.youtube.com/watch?v=abc123"]);
   });
 });

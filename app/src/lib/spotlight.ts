@@ -30,3 +30,15 @@ export function groupByDay<T extends { published: number }>(items: T[], now = Da
     .filter((label) => groups[label].length)
     .map((label) => ({ label, items: groups[label] }));
 }
+
+/**
+ * YouTube's feed server often fails for some channels while others answer. Keep
+ * the last videos of every channel that didn't answer this time (and is still
+ * in the list), so one bad fetch doesn't empty half the page. Newest first.
+ */
+export function mergeVideos<T extends { source: string; published: number }>(fresh: T[], prev: T[], channels: string[]): T[] {
+  const answered = new Set(fresh.map((v) => v.source));
+  const kept = new Set(channels);
+  const carried = prev.filter((v) => !answered.has(v.source) && kept.has(v.source));
+  return [...fresh, ...carried].sort((a, b) => b.published - a.published);
+}

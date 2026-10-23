@@ -2,198 +2,243 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Anchor — Take control of your Windows PC</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KPGRlZnM+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9ImZ2LWJnIiB4MT0iMC4xNSIgeTE9IjAiIHgyPSIwLjg1IiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjRkY3QTMzIi8+PHN0b3Agb2Zmc2V0PSIwLjQ1IiBzdG9wLWNvbG9yPSIjRkY1QTFGIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjRUM0MjBFIi8+PC9saW5lYXJHcmFkaWVudD4KICAgIDxyYWRpYWxHcmFkaWVudCBpZD0iZnYtZ2xvdyIgY3g9IjAuMjgiIGN5PSIwLjEyIiByPSIwLjc1Ij48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNmZmYiIHN0b3Atb3BhY2l0eT0iMC4xMiIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iI2ZmZiIgc3RvcC1vcGFjaXR5PSIwIi8+PC9yYWRpYWxHcmFkaWVudD4KICA8L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIHJ4PSIyNCIgZmlsbD0idXJsKCNmdi1iZykiLz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNiAxNikgc2NhbGUoMC42OCkiPjxjaXJjbGUgY3g9IjUwIiBjeT0iMTkiIHI9IjEyIiBmaWxsPSJub25lIiBzdHJva2U9IiNGRkZGRkYiIHN0cm9rZS13aWR0aD0iMTEuNSIvPgogIDxyZWN0IHg9IjQzIiB5PSI0MS43NSIgd2lkdGg9IjE0IiBoZWlnaHQ9IjUwIiByeD0iNyIgZmlsbD0iI0ZGRkZGRiIvPgogIDxwYXRoIGQ9Ik03LjUzIDU3LjczQTQyLjUgNDIuNSAwIDAgMCA5Mi40NyA1Ny43M0w3OC40OCA1Ny4yNEEyOC41IDI4LjUgMCAwIDEgMjEuNTIgNTcuMjRaIiBmaWxsPSIjRkZGRkZGIi8+PC9nPgo8L3N2Zz4K">
-<meta name="description" content="Anchor is a free Windows utility to boost performance, remove bloatware, protect your privacy, and keep your PC running clean.">
-<style>
-  :root {
-    --bg: #0B101B;
-    --bg-2: #11151f;
-    --card: #161b28;
-    --border: #232a3b;
-    --text: #e6e9f0;
-    --muted: #9aa3b5;
-    --accent: #FF5A1F;
-    --accent-2: #FF7A33;
-    --accent-glow: rgba(255, 90, 31, 0.22);
-    --on-accent: #0D1321;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-    line-height: 1.6;
-  }
-  .container { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Anchor — free, open-source Windows optimizer</title>
+<meta name="description" content="Anchor is a free, open-source Windows optimizer. It explains every change it makes and creates a restore point before touching anything.">
+<link rel="canonical" href="https://eiza-1.github.io/anchor/">
+<meta name="theme-color" content="#0D1321">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 
-  /* Nav */
-  nav {
-    position: sticky; top: 0; z-index: 10;
-    background: rgba(11, 16, 27, 0.85);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border);
-  }
-  .nav-inner {
-    display: flex; align-items: center; justify-content: space-between;
-    height: 64px;
-  }
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.15rem; color: var(--text); text-decoration: none; }
-  .brand .lockup { height: 30px; width: auto; display: block; }
-  .nav-links { display: flex; gap: 28px; align-items: center; }
-  .nav-links a { color: var(--muted); text-decoration: none; font-size: 0.95rem; transition: color .2s; }
-  .nav-links a:hover { color: var(--text); }
-  .btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    background: var(--accent); color: var(--on-accent);
-    padding: 10px 22px; border-radius: 8px;
-    font-weight: 600; text-decoration: none; font-size: 0.95rem;
-    transition: background .2s, transform .15s, box-shadow .2s;
-  }
-  .btn:hover { background: var(--accent-2); transform: translateY(-1px); box-shadow: 0 6px 24px var(--accent-glow); }
-  .btn.big { padding: 15px 34px; font-size: 1.1rem; border-radius: 10px; }
-  .btn.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
-  .btn.ghost:hover { border-color: var(--accent); box-shadow: none; }
+<meta property="og:type" content="website">
+<meta property="og:title" content="Anchor — drop the dead weight">
+<meta property="og:description" content="A free, open-source Windows optimizer that explains every change it makes.">
+<meta property="og:image" content="https://eiza-1.github.io/anchor/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 
-  /* Hero */
-  .hero {
-    text-align: center;
-    padding: 110px 0 90px;
-    background:
-      radial-gradient(600px 300px at 50% 0%, var(--accent-glow), transparent 70%),
-      var(--bg);
-  }
-  .hero .logo-mark { width: 104px; height: 104px; margin-bottom: 28px; filter: drop-shadow(0 12px 32px var(--accent-glow)); }
-  .hero h1 { font-size: clamp(2.2rem, 5vw, 3.4rem); font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
-  .hero h1 span { color: var(--accent); }
-  .hero p.sub { color: var(--muted); font-size: 1.2rem; max-width: 620px; margin: 20px auto 36px; }
-  .hero .cta-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
-  .hero .meta { color: var(--muted); font-size: 0.85rem; margin-top: 18px; }
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Anchor",
+  "operatingSystem": "Windows 10, Windows 11",
+  "applicationCategory": "UtilitiesApplication",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "license": "https://opensource.org/licenses/MIT",
+  "downloadUrl": "https://github.com/Eiza-1/anchor/releases/latest",
+  "codeRepository": "https://github.com/Eiza-1/anchor",
+  "image": "https://eiza-1.github.io/anchor/assets/og.png"
+}
+</script>
 
-  /* Sections */
-  section { padding: 80px 0; }
-  section.alt { background: var(--bg-2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-  .section-head { text-align: center; margin-bottom: 52px; }
-  .section-head h2 { font-size: 2rem; font-weight: 700; letter-spacing: -0.01em; }
-  .section-head p { color: var(--muted); margin-top: 10px; max-width: 560px; margin-left: auto; margin-right: auto; }
-
-  /* Features */
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
-  .card {
-    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-    padding: 26px; transition: border-color .2s, transform .2s;
-  }
-  .card:hover { border-color: var(--accent); transform: translateY(-3px); }
-  .card .icon {
-    width: 42px; height: 42px; border-radius: 9px;
-    background: rgba(255, 90, 31, 0.12);
-    display: flex; align-items: center; justify-content: center;
-    margin-bottom: 16px; font-size: 1.3rem;
-  }
-  .card h3 { font-size: 1.08rem; margin-bottom: 8px; }
-  .card p { color: var(--muted); font-size: 0.93rem; }
-
-  /* Download */
-  .dl-box {
-    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-    padding: 48px 36px; text-align: center; max-width: 640px; margin: 0 auto;
-    background-image: radial-gradient(400px 200px at 50% -20%, var(--accent-glow), transparent 70%);
-  }
-  .dl-box h2 { font-size: 1.8rem; margin-bottom: 10px; }
-  .dl-box p { color: var(--muted); margin-bottom: 28px; }
-  .dl-reqs {
-    display: flex; justify-content: center; gap: 26px; flex-wrap: wrap;
-    margin-top: 28px; color: var(--muted); font-size: 0.87rem;
-  }
-  .dl-reqs span::before { content: "✓ "; color: var(--accent); }
-
-  footer {
-    border-top: 1px solid var(--border);
-    padding: 32px 0; text-align: center; color: var(--muted); font-size: 0.88rem;
-  }
-  footer a { color: var(--muted); }
-</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 
-<nav>
-  <div class="container nav-inner">
-    <a class="brand" href="#">
-      <svg class="lockup" viewBox="0 0 464.27 117.19" role="img" aria-label="anchor"><g transform="translate(0 0) scale(1.17)"><circle cx="50" cy="17.75" r="12" fill="none" stroke="#FF5A1F" stroke-width="9"/>
-  <rect x="44.5" y="40.25" width="11" height="53" rx="5.5" fill="#FF5A1F"/>
-  <path d="M7.73 60.69A42.5 42.5 0 0 0 92.27 60.69L81.33 59.54A31.5 31.5 0 0 1 18.67 59.54Z" fill="#FF5A1F"/></g><path transform="translate(141.75 95.21)" d="M21.68 1.22L21.68 1.22Q16.55 1.22 12.45-0.63Q8.35-2.49 5.96-6.03Q3.56-9.57 3.56-14.50L3.56-14.50Q3.56-19.82 6.67-23.80Q9.77-27.78 15.84-29.98Q21.92-32.18 30.91-32.18L30.91-32.18L38.82-32.18L37.94-31.01L37.94-33.98Q37.94-39.65 35.79-42.53Q33.64-45.41 28.66-45.41L28.66-45.41Q23.93-45.41 21.39-42.92Q18.85-40.43 18.46-36.04L18.46-36.04L5.81-38.43Q6.45-42.77 9.35-46.29Q12.26-49.80 17.29-51.90Q22.31-54.00 29.39-54.00L29.39-54.00Q36.13-54.00 40.67-51.71Q45.21-49.41 47.49-44.60Q49.76-39.79 49.76-32.18L49.76-32.18L49.76-11.91Q49.76-10.25 50.22-9.72Q50.68-9.18 52.20-9.18L52.20-9.18L54.83-9.18L54.83 0L48.54 0Q43.75 0 41.06-2.56Q38.38-5.13 38.38-9.62L38.38-9.62L38.38-12.60L40.43-12.01Q39.75-9.91 38.43-7.62Q37.11-5.32 34.91-3.32Q32.71-1.32 29.47-0.05Q26.22 1.22 21.68 1.22ZM25-7.52L25-7.52Q28.66-7.52 31.62-9.25Q34.57-10.99 36.30-14.58Q38.04-18.16 38.04-23.63L38.04-23.63L38.04-24.51L31.10-24.51Q25.39-24.51 22.17-23.02Q18.95-21.53 17.63-19.36Q16.31-17.19 16.31-15.04L16.31-15.04Q16.31-13.18 17.16-11.45Q18.02-9.72 19.92-8.62Q21.83-7.52 25-7.52ZM74.45 0L62.39 0L62.39-52.73L73.96-52.73L73.96-40.67L73.62-42.82Q75.91-47.80 80.35-50.88Q84.80-53.96 91.15-53.96L91.15-53.96Q97.05-53.96 101.03-51.29Q105.01-48.63 107.04-43.82Q109.07-39.01 109.07-32.57L109.07-32.57L109.07 0L96.96 0L96.96-31.74Q96.96-37.70 94.78-41.14Q92.61-44.58 87.48-44.58L87.48-44.58Q81.58-44.58 78.01-39.79Q74.45-35.01 74.45-25.49L74.45-25.49L74.45 0ZM142.64 1.22L142.64 1.22Q134.63 1.22 128.82-2.15Q123.01-5.52 119.86-11.72Q116.71-17.92 116.71-26.37L116.71-26.37Q116.71-34.86 119.86-41.06Q123.01-47.27 128.82-50.61Q134.63-53.96 142.59-53.96L142.59-53.96Q148.40-53.96 153.29-51.86Q158.17-49.76 161.59-45.65Q165.01-41.55 166.37-35.60L166.37-35.60L154.65-32.96Q153.48-38.77 150.38-41.77Q147.28-44.78 142.54-44.78L142.54-44.78Q136.10-44.78 132.83-39.79Q129.56-34.81 129.56-26.27L129.56-26.27Q129.56-17.72 132.80-12.84Q136.05-7.96 142.54-7.96L142.54-7.96Q147.18-7.96 150.31-10.74Q153.43-13.53 154.75-19.04L154.75-19.04L166.18-16.60Q165.10-12.11 162.86-8.76Q160.61-5.42 157.46-3.20Q154.31-0.98 150.55 0.12Q146.79 1.22 142.64 1.22ZM186.03 0L173.97 0L173.97-73.24L186.03-73.24L186.03-40.33L185.20-42.53Q187.45-47.75 191.92-50.85Q196.39-53.96 202.78-53.96L202.78-53.96Q208.69-53.96 212.64-51.29Q216.60-48.63 218.63-43.82Q220.65-39.01 220.65-32.57L220.65-32.57L220.65 0L208.54 0L208.54-31.25Q208.54-37.79 206.52-41.19Q204.49-44.58 199.12-44.58L199.12-44.58Q192.97-44.58 189.50-40.04Q186.03-35.50 186.03-26.42L186.03-26.42L186.03 0ZM254.42 1.22L254.42 1.22Q246.66 1.22 240.73-2.27Q234.80-5.76 231.50-11.99Q228.20-18.21 228.20-26.37L228.20-26.37Q228.20-34.52 231.50-40.75Q234.80-46.97 240.73-50.46Q246.66-53.96 254.42-53.96L254.42-53.96Q262.19-53.96 268.10-50.46Q274.01-46.97 277.33-40.75Q280.65-34.52 280.65-26.37L280.65-26.37Q280.65-18.21 277.33-11.99Q274.01-5.76 268.07-2.27Q262.14 1.22 254.42 1.22ZM254.42-7.96L254.42-7.96Q260.63-7.96 264.24-12.92Q267.85-17.87 267.85-26.37L267.85-26.37Q267.85-34.91 264.24-39.84Q260.63-44.78 254.42-44.78L254.42-44.78Q248.17-44.78 244.59-39.84Q241.00-34.91 241.00-26.37L241.00-26.37Q241.00-17.87 244.59-12.92Q248.17-7.96 254.42-7.96ZM300.84 0L288.78 0L288.78-52.73L300.36-52.73L300.36-41.11L299.92-42.58Q302.36-48.29 306.95-51.12Q311.54-53.96 316.71-53.96L316.71-53.96Q318.18-53.96 319.67-53.71Q321.16-53.47 322.52-52.88L322.52-52.88L321.45-42.29Q318.47-43.16 315.64-43.16L315.64-43.16Q313.54-43.16 310.98-42.41Q308.41-41.65 306.12-39.60Q303.82-37.55 302.33-33.72Q300.84-29.88 300.84-23.78L300.84-23.78L300.84 0Z" fill="#FFFFFF"/></svg>
-    </a>
-    <div class="nav-links">
-      <a href="#features">Features</a>
-      <a href="#download">Download</a>
-      <a href="https://github.com/Eiza-1/anchor" target="_blank" rel="noopener">GitHub</a>
-    </div>
-  </div>
-</nav>
+<!-- Instruments that stay on screen: chain (left), depth gauge (right), top progress (phones) -->
+<div class="chain" aria-hidden="true">
+  <svg class="chain__links" preserveAspectRatio="none"><defs>
+    <pattern id="link" width="14" height="22" patternUnits="userSpaceOnUse">
+      <rect x="3" y="1" width="8" height="13" rx="4" fill="none" stroke="currentColor" stroke-width="2"/>
+      <rect x="6" y="12" width="2" height="10" rx="1" fill="currentColor"/>
+    </pattern></defs>
+    <rect class="chain__rope" x="0" y="0" width="14" height="0" fill="url(#link)"/>
+  </svg>
+  <img class="chain__anchor" src="assets/anchor-mark.svg" alt="" width="34" height="34">
+</div>
+<nav class="gauge" aria-label="Depth"><ol class="gauge__marks"></ol><output class="gauge__now">0 m</output></nav>
+<div class="progress" aria-hidden="true"><span></span></div>
 
-<header class="hero">
-  <div class="container">
-    <svg class="logo-mark" viewBox="0 0 1024 1024" aria-hidden="true"><defs>
-    <linearGradient id="ic-bg" x1="0.15" y1="0" x2="0.85" y2="1"><stop offset="0" stop-color="#FF7A33"/><stop offset="0.45" stop-color="#FF5A1F"/><stop offset="1" stop-color="#EC420E"/></linearGradient>
-    <radialGradient id="ic-glow" cx="0.28" cy="0.12" r="0.75"><stop offset="0" stop-color="#fff" stop-opacity="0.16"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
-  </defs>
-  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#ic-bg)"/>
-  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#ic-glow)"/>
-  <g transform="translate(217 217) scale(5.9)"><circle cx="50" cy="17.75" r="12" fill="none" stroke="#FFFFFF" stroke-width="9"/>
-  <rect x="44.5" y="40.25" width="11" height="53" rx="5.5" fill="#FFFFFF"/>
-  <path d="M7.73 60.69A42.5 42.5 0 0 0 92.27 60.69L81.33 59.54A31.5 31.5 0 0 1 18.67 59.54Z" fill="#FFFFFF"/></g></svg>
-    <h1>Take back control of <span>your Windows PC</span></h1>
-    <p class="sub">Anchor boosts performance, strips bloatware, locks down privacy, and keeps your machine running the way it should — all from one clean dashboard.</p>
-    <div class="cta-row">
-      <a class="btn big" href="https://github.com/Eiza-1/anchor/releases/latest" target="_blank" rel="noopener">⬇ Download for Windows</a>
-      <a class="btn big ghost" href="#features">See features</a>
-    </div>
-    <p class="meta">Free · Windows 10 &amp; 11 · x64 / ARM64 · No install required</p>
+<header class="top">
+  <a class="top__brand" href="#surface" aria-label="anchor, back to the surface">
+    <img class="brand-lockup" src="assets/anchor-lockup-white.svg" alt="anchor" width="118" height="32">
+  </a>
+  <div class="top__actions">
+    <button class="sound" type="button" aria-pressed="false" title="Ambient sound">
+      <span class="sound__bars" aria-hidden="true"><i></i><i></i><i></i></span><span class="sr">Ambient sound</span>
+    </button>
+    <a class="top__gh" data-gh-link>GitHub <span class="stars" data-stars hidden></span></a>
   </div>
 </header>
 
-<section id="features" class="alt">
-  <div class="container">
-    <div class="section-head">
-      <h2>Everything your PC needs, anchored in one place</h2>
-      <p>Ten focused tools. Zero clutter. No ads, no nags, no background junk.</p>
-    </div>
-    <div class="grid">
-      <div class="card"><div class="icon">🚀</div><h3>Boost</h3><p>Free up memory and kill resource hogs with one click to instantly speed up your system.</p></div>
-      <div class="card"><div class="icon">🧹</div><h3>Bloatware Removal</h3><p>Find and uninstall pre-installed junk apps that slow you down and waste disk space.</p></div>
-      <div class="card"><div class="icon">🔒</div><h3>Privacy</h3><p>Disable telemetry, ad tracking, and data collection with clear, reversible toggles.</p></div>
-      <div class="card"><div class="icon">⚡</div><h3>Startup Manager</h3><p>See exactly what launches at boot and cut the dead weight for faster start times.</p></div>
-      <div class="card"><div class="icon">🔄</div><h3>Windows Updates</h3><p>Take charge of when and how Windows updates — pause, defer, and review on your terms.</p></div>
-      <div class="card"><div class="icon">💾</div><h3>Drives</h3><p>Monitor disk health and space usage, and clean out temp files before they pile up.</p></div>
-      <div class="card"><div class="icon">📊</div><h3>Performance Monitor</h3><p>Live CPU, RAM, and disk stats so you always know what your machine is doing.</p></div>
-      <div class="card"><div class="icon">✨</div><h3>Spotlight</h3><p>Manage Windows Spotlight and lock-screen content the way you want it.</p></div>
-      <div class="card"><div class="icon">🛠️</div><h3>Tools</h3><p>A toolbox of handy system utilities — all the fiddly Windows settings in one spot.</p></div>
-    </div>
-  </div>
-</section>
-
-<section id="download">
-  <div class="container">
-    <div class="dl-box">
-      <h2>Ready to anchor down?</h2>
-      <p>Grab the latest release from GitHub. Portable — just unzip and run.</p>
-      <a class="btn big" href="https://github.com/Eiza-1/anchor/releases/latest" target="_blank" rel="noopener">⬇ Download latest release</a>
-      <div class="dl-reqs">
-        <span>Windows 10 (1809+) or 11</span>
-        <span>x64 &amp; ARM64</span>
-        <span>Self-contained, no runtime needed</span>
+<main id="main">
+  <!-- 0 m -->
+  <section id="surface" class="layer surface" data-depth="0">
+    <div class="junk" aria-hidden="true"></div>
+    <div class="surface__inner">
+      <h1 class="surface__title" data-c="hero.title"></h1>
+      <p class="surface__sub" data-c="hero.sub"></p>
+      <div class="surface__cta">
+        <button class="btn btn--drop" type="button" data-drop><span data-c="hero.drop"></span></button>
+        <a class="btn btn--primary" data-download><span class="dl-label">Download for Windows</span></a>
+        <a class="btn btn--ghost" data-gh-link><span data-c="hero.github"></span> <span class="stars" data-stars hidden></span></a>
       </div>
     </div>
-  </div>
-</section>
+    <div class="plunge" aria-hidden="true"><img src="assets/anchor-mark.svg" alt=""></div>
+  </section>
 
-<footer>
-  <div class="container">
-    Anchor v0.1.0 · <a href="https://github.com/Eiza-1/anchor" target="_blank" rel="noopener">Source on GitHub</a> · Made for Windows
-  </div>
+  <!-- 100 m -->
+  <section id="drag" class="layer" data-depth="100" aria-labelledby="drag-title">
+    <div class="wrap">
+      <header class="layer__head">
+        <p class="depth-tag">100 m</p>
+        <h2 id="drag-title" data-c="drag.title"></h2>
+        <p data-c="drag.sub"></p>
+      </header>
+      <div class="sim">
+        <ul class="sim__items" aria-label="Extras on this simulated PC"></ul>
+        <div class="sim__readout" aria-live="polite">
+          <div class="sim__boot">
+            <span class="k">Boot to desktop</span>
+            <span class="v"><b data-sim="boot">0</b> s</span>
+            <div class="bar"><span data-sim="bootbar"></span></div>
+            <button class="btn btn--small" type="button" data-sim="replay">Replay boot</button>
+          </div>
+          <div class="sim__ram">
+            <span class="k">Memory in use at idle</span>
+            <span class="v"><b data-sim="ram">0</b> GB <small>of 8 GB</small></span>
+            <div class="bar"><span data-sim="rambar"></span></div>
+          </div>
+          <div class="sim__cpu">
+            <span class="k">CPU at idle</span>
+            <span class="v"><b data-sim="cpu">0</b>%</span>
+            <canvas data-sim="graph" height="72" aria-hidden="true"></canvas>
+          </div>
+        </div>
+        <p class="label-sim" data-c="drag.label"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 300 m -->
+  <section id="cut" class="layer" data-depth="300" aria-labelledby="cut-title">
+    <div class="wrap">
+      <header class="layer__head">
+        <p class="depth-tag">300 m</p>
+        <h2 id="cut-title" data-c="cut.title"></h2>
+        <p data-c="cut.sub"></p>
+      </header>
+      <div class="modules"></div>
+      <p class="label-sim" data-c="cut.label"></p>
+      <aside class="safety" aria-labelledby="safety-title">
+        <div class="safety__ring" aria-hidden="true"><img src="assets/anchor-mark-white.svg" alt=""></div>
+        <div>
+          <h3 id="safety-title" data-c="cut.safety.title"></h3>
+          <ul class="safety__lines"></ul>
+          <p class="safety__readout mono" data-c="cut.safety.readout"></p>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- 500 m -->
+  <section id="demo" class="layer" data-depth="500" aria-labelledby="demo-title">
+    <div class="wrap">
+      <header class="layer__head">
+        <p class="depth-tag">500 m</p>
+        <h2 id="demo-title" data-c="demo.title"></h2>
+        <p data-c="demo.sub"></p>
+      </header>
+      <div class="dock">
+        <div class="win" role="region" aria-label="Anchor demo window">
+          <div class="win__bar" data-drag-handle>
+            <img src="assets/anchor-mark.svg" alt="" width="16" height="16"><span>Anchor</span>
+            <div class="win__ctl">
+              <button type="button" data-win="min" aria-label="Minimize demo"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5h8" stroke="currentColor"/></svg></button>
+              <button type="button" data-win="close" aria-label="Close demo"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1l8 8M9 1L1 9" stroke="currentColor"/></svg></button>
+            </div>
+          </div>
+          <div class="win__body">
+            <nav class="win__nav" aria-label="Demo sections"></nav>
+            <div class="win__page" tabindex="-1"></div>
+          </div>
+          <pre class="win__log mono" aria-live="polite" aria-label="Demo log"></pre>
+        </div>
+        <button class="btn btn--ghost reopen" type="button" data-win="open" hidden>Reopen the demo</button>
+      </div>
+      <p class="label-sim" data-c="demo.label"></p>
+    </div>
+  </section>
+
+  <!-- 700 m -->
+  <section id="open" class="layer" data-depth="700" aria-labelledby="open-title">
+    <div class="wrap">
+      <header class="layer__head">
+        <p class="depth-tag">700 m</p>
+        <h2 id="open-title" data-c="open.title"></h2>
+        <p data-c="open.sub"></p>
+      </header>
+      <div class="open">
+        <dl class="stats" data-stats>
+          <div><dt>Stars</dt><dd data-stat="stars">—</dd></div>
+          <div><dt>Forks</dt><dd data-stat="forks">—</dd></div>
+          <div><dt>Contributors</dt><dd data-stat="contributors">—</dd></div>
+          <div><dt>Latest release</dt><dd data-stat="release">—</dd></div>
+          <div><dt>Last commit</dt><dd data-stat="commit">—</dd></div>
+        </dl>
+        <div class="sonar"><div class="sonar__sweep" aria-hidden="true"></div><ul class="sonar__blips" aria-label="Contributors"></ul></div>
+        <div class="term">
+          <div class="term__bar"><span class="mono">PowerShell</span><button class="btn btn--small" type="button" data-copy>Copy</button></div>
+          <pre class="term__body mono"></pre>
+          <p class="term__note" data-c="open.terminalNote"></p>
+        </div>
+        <ul class="manifesto"></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 850 m -->
+  <section id="sonar" class="layer" data-depth="850" aria-labelledby="faq-title">
+    <div class="wrap wrap--narrow">
+      <header class="layer__head">
+        <p class="depth-tag">850 m</p>
+        <h2 id="faq-title">Sonar.</h2>
+        <p>Questions people send down.</p>
+      </header>
+      <div class="faq"></div>
+    </div>
+  </section>
+
+  <!-- 1,000 m -->
+  <section id="seabed" class="layer seabed" data-depth="1000" aria-labelledby="seabed-title">
+    <div class="wrap seabed__inner">
+      <p class="depth-tag">1,000 m</p>
+      <h2 id="seabed-title" data-c="seabed.title"></h2>
+      <p data-c="seabed.sub"></p>
+      <a class="btn btn--primary btn--big" data-download><span class="dl-label">Download for Windows</span></a>
+      <dl class="dl-meta mono" data-dl-meta hidden>
+        <div><dt>Version</dt><dd data-dl="version"></dd></div>
+        <div><dt>Size</dt><dd data-dl="size"></dd></div>
+        <div data-dl-sha><dt>SHA-256</dt><dd data-dl="sha"></dd></div>
+      </dl>
+      <p class="dl-alt"><a data-zip hidden>Portable .zip (no install)</a></p>
+      <p class="requires" data-c="seabed.requires"></p>
+      <p class="seabed__links"><a data-link="releases">All releases and changelog</a> · <a data-gh-link>Source on GitHub</a></p>
+    </div>
+    <div class="bed" aria-hidden="true">
+      <img class="bed__anchor" src="assets/anchor-mark.svg" alt="">
+      <span class="bed__dust"></span>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <img src="assets/anchor-mark-white.svg" alt="" width="18" height="18">
+  <span>MIT licence</span> · <a data-gh-link>GitHub</a> · <span>Made for Windows</span>
 </footer>
 
+<div class="cursor" aria-hidden="true"></div>
+<noscript><p class="noscript">Anchor’s site works best with JavaScript. <a href="https://github.com/Eiza-1/anchor/releases/latest">Download the latest release from GitHub</a>.</p></noscript>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
+<script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js" defer></script>
+<script src="content.js" defer></script>
+<script src="main.js" defer></script>
 </body>
 </html>
