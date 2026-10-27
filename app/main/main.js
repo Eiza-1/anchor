@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, Tray, Menu, Notification, protocol, net } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, dialog, Tray, Menu, Notification, protocol, net, safeStorage } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
@@ -7,6 +7,7 @@ const sys = require("./services/system");
 const news = require("./services/news");
 const profile = require("./services/profile");
 const auth = require("./services/auth");
+const { createSessionStore, validToken, migrate } = require("./services/session");
 const perf = require("./services/perftweaks");
 const updater = require("./services/updater");
 const { warmUp, shutdown } = require("./services/ps");
@@ -214,8 +215,16 @@ function createTray() {
   tray.on("double-click", () => openWindow());
 }
 
+// Created in whenReady (safeStorage needs a ready app); the auth handlers only run after that.
+let sessionStore = null;
+
 app.whenReady().then(async () => {
   if (!gotLock) return;
+  sessionStore = createSessionStore({
+    file: path.join(app.getPath("userData"), "session.bin"),
+    crypto: safeStorage,
+  });
+  migrate(sessionStore, profile); // 1.1.1 kept the token in profile.json
   // Anchor.exe is asInvoker, so a taskbar click on a running Anchor hands over
   // without UAC. A launch with nothing to hand over to relaunches elevated.
   if (app.isPackaged && !process.argv.includes(instance.ELEVATED_FLAG) && !(await instance.isElevated())) {
@@ -328,21 +337,27 @@ handle("games:releases", () => {
 });
 handle("games:free", () => games.freeGames());
 
-handle("profile:load", () => profile.loadProfile());
+// Tokens never go to the renderer; an upgraded profile.json may still carry empty userId/accessToken keys.
+const forRenderer = ({ userId: _u, accessToken: _t, ...rest }) => rest;
+handle("profile:load", () => forRenderer(profile.loadProfile()));
 // `background` is owned by services/background.js; a stale copy from the UI must not undo a pick/reset.
 handle("profile:save", (p) => {
-  const { background: _ignored, ...rest } = p ?? {};
+  const { background: _ignored, userId: _u, accessToken: _t, ...rest } = p ?? {};
   const saved = profile.saveProfile(rest);
   refreshSeason();                // "Seasonal logos" may have changed
-  return saved;
+  return forRenderer(saved);
 });
 handle("bg:pick", () => background.pickBackground(win));
 handle("bg:get", () => background.getBackground());
 handle("bg:reset", () => background.resetBackground());
+// Keep the session here and hand the renderer only who signed in.
+function adopt({ session, ...user }) {
+  sessionStore.save(session);
+  return { ok: true, user };
+}
 handle("auth:signIn", async (provider) => {
   try {
-    const user = await auth.signIn(provider);
-    return { ok: true, user };
+    return adopt(await auth.signIn(provider));
   } catch (e) {
     return { ok: false, error: e.message };
   }
@@ -350,14 +365,23 @@ handle("auth:signIn", async (provider) => {
 handle("auth:configured", () => auth.isConfigured());
 handle("auth:providers", () => auth.PROVIDERS);
 handle("auth:saveSubscription", async (prefs) => {
-  const p = profile.loadProfile();
-  return auth.saveSubscription({
-    accessToken: p.accessToken, userId: p.userId, email: p.email, prefs,
-  });
+  const session = await validToken(sessionStore, auth.refreshSession);
+  if (!session) return { ok: false, error: "signed-out" };
+  return auth.saveSubscription({ session, prefs });
 });
 handle("auth:deleteSubscription", async () => {
-  const p = profile.loadProfile();
-  return auth.deleteSubscription({ accessToken: p.accessToken, userId: p.userId });
+  const session = await validToken(sessionStore, auth.refreshSession);
+  if (!session) return { ok: false, error: "signed-out" };
+  return auth.deleteSubscription({ session });
+});
+handle("auth:signOut", async () => {
+  // Best effort: leave the mailing lists while we still hold a token, then forget it.
+  try {
+    const session = await validToken(sessionStore, auth.refreshSession);
+    if (session) await auth.deleteSubscription({ session });
+  } catch { /* offline: still sign out locally */ }
+  sessionStore.clear();
+  return { ok: true };
 });
 handle("auth:sendEmailCode", async (email) => {
   try {
@@ -369,8 +393,7 @@ handle("auth:sendEmailCode", async (email) => {
 });
 handle("auth:verifyEmailCode", async (email, code) => {
   try {
-    const user = await auth.verifyEmailCode(email, code);
-    return { ok: true, user };
+    return adopt(await auth.verifyEmailCode(email, code));
   } catch (e) {
     return { ok: false, error: e.message };
   }

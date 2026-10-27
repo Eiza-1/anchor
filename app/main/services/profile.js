@@ -25,9 +25,6 @@ const DEFAULTS = {
   seasonalLogos: true,
   // Your own background picture, copied into userData (e.g. "background.jpg"); "" = theme picture.
   background: "",
-  // Supabase session, kept so mail preferences can be saved to your account.
-  userId: "",
-  accessToken: "",
 };
 
 function loadProfile() {

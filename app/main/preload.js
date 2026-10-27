@@ -88,6 +88,7 @@ contextBridge.exposeInMainWorld("anchor", {
   authProviders: () => call("auth:providers"),
   saveSubscription: (prefs) => call("auth:saveSubscription", prefs),
   deleteSubscription: () => call("auth:deleteSubscription"),
+  signOut: () => call("auth:signOut"),
   sendEmailCode: (email) => call("auth:sendEmailCode", email),
   verifyEmailCode: (email, code) => call("auth:verifyEmailCode", email, code),
 

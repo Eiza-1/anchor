@@ -97,17 +97,18 @@ export interface AnchorApi {
   resetBackground(): Promise<void>;
   signIn(provider: string): Promise<{
     ok: boolean;
-    user?: { name: string; email: string; userId: string; accessToken: string };
+    user?: { name: string; email: string };
     error?: string;
   }>;
   saveSubscription(prefs: Partial<Profile>): Promise<{ ok: boolean; error?: string }>;
   deleteSubscription(): Promise<{ ok: boolean; error?: string }>;
+  signOut(): Promise<{ ok: boolean }>;
   authConfigured(): Promise<boolean>;
   authProviders(): Promise<string[]>;
   sendEmailCode(email: string): Promise<{ ok: boolean; error?: string }>;
   verifyEmailCode(email: string, code: string): Promise<{
     ok: boolean;
-    user?: { name: string; email: string; userId: string; accessToken: string };
+    user?: { name: string; email: string };
     error?: string;
   }>;
 
@@ -243,8 +244,6 @@ export interface Profile {
   theme: string;
   seasonalLogos: boolean;
   background: string;
-  userId: string;
-  accessToken: string;
 }
 
 declare global {

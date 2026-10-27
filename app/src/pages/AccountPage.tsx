@@ -66,6 +66,8 @@ export default function AccountPage() {
     setMailMsg(
       r.ok
         ? "Preferences saved."
+        : r.error === "signed-out"
+        ? "Your sign-in expired — sign in again to save mail preferences."
         : "Saved on this PC, but couldn't reach the mail service — it'll sync next time you sign in."
     );
   }
@@ -83,7 +85,6 @@ export default function AccountPage() {
     if (r.ok && r.user) {
       await persist({
         name: r.user.name, email: r.user.email, provider,
-        userId: r.user.userId, accessToken: r.user.accessToken,
       });
       setAuthMsg("");
     } else {
@@ -111,7 +112,6 @@ export default function AccountPage() {
     if (r.ok && r.user) {
       await persist({
         name: r.user.name, email: r.user.email, provider: "email",
-        userId: r.user.userId, accessToken: r.user.accessToken,
       });
       setAuthMsg("");
       setCode("");
@@ -123,8 +123,8 @@ export default function AccountPage() {
   }
 
   async function signOut() {
-    await window.anchor.deleteSubscription().catch(() => {});
-    await persist({ provider: "Local", name: "", email: "", userId: "", accessToken: "" });
+    await window.anchor.signOut().catch(() => {});
+    await persist({ provider: "Local", name: "", email: "" });
     setAuthMsg("Signed out.");
     setCodeSent(false);
     setEmail("");
