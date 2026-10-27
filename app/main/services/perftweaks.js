@@ -7,7 +7,7 @@
 // default. Nothing here touches security features.
 const fs = require("fs");
 const path = require("path");
-const { psQuote, runPS, runPSJson } = require("./ps");
+const { psQuote: q, runPS, runPSJson } = require("./ps");
 
 // What a tweak actually changes, shown as a badge so nobody expects a desktop
 // tweak to raise their frame rate.
@@ -154,7 +154,6 @@ function saveBackup(b) {
 }
 
 /* --------------------------- PowerShell helpers --------------------------- */
-const q = psQuote;
 const regPath = (x) => q(`${x.hive}\\${x.key}`);
 
 // Reads a value as {e: exists, v: value, t: kind}.
@@ -505,7 +504,7 @@ if ($t -match '\\((.+)\\)') { $ult = $Matches[1].Trim() }
 /** Tells Windows to run a specific .exe on the high-performance GPU.
  *  Registry: HKCU\Software\Microsoft\DirectX\UserGpuPreferences */
 async function setAppGpuPreference(exePath, high = true) {
-  const p = psQuote(exePath);
+  const p = q(exePath);
   const { code, err } = await runPS(`
 $key='HKCU:\\Software\\Microsoft\\DirectX\\UserGpuPreferences'
 if(-not (Test-Path $key)){ New-Item -Path $key -Force | Out-Null }

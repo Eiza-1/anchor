@@ -25,9 +25,8 @@ function isElevated() {
 
 /** Relaunches this exe elevated with `args`. Resolves false if UAC was declined. */
 async function relaunchElevated(args) {
-  const quote = psQuote;
-  const argList = [...args, ELEVATED_FLAG].map(quote).join(",");
-  const { code } = await runPS(`Start-Process -FilePath ${quote(process.execPath)} -Verb RunAs -ArgumentList @(${argList})`);
+  const argList = [...args, ELEVATED_FLAG].map(psQuote).join(",");
+  const { code } = await runPS(`Start-Process -FilePath ${psQuote(process.execPath)} -Verb RunAs -ArgumentList @(${argList})`);
   return code === 0;
 }
 

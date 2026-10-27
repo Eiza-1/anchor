@@ -24,7 +24,23 @@ describe("Boot Watch disableEntry", () => {
 
   it("keeps a Run value name with a curly quote inside its literal", async () => {
     await bw.disableEntry("run|HKCU:\\Software\\Run|a\u2019; calc; \u2019b");
-    expect(ran[0]).toBe("Remove-ItemProperty -Path 'HKCU:\\Software\\Run' -Name 'a\u2019\u2019; calc; \u2019\u2019b' -Force");
+    expect(ran[0]).toBe("Remove-ItemProperty -LiteralPath 'HKCU:\\Software\\Run' -Name 'a\u2019\u2019; calc; \u2019\u2019b' -Force");
+  });
+
+  it("splits a Run id at the first | only, keeping a | in the value name", async () => {
+    await bw.disableEntry("run|HKCU:\\Software\\Run|a|b");
+    expect(ran[0]).toBe("Remove-ItemProperty -LiteralPath 'HKCU:\\Software\\Run' -Name 'a|b' -Force");
+  });
+
+  it("refuses a Run entry with an empty value name", async () => {
+    expect((await bw.disableEntry("run|HKCU:\\Software\\Run|")).ok).toBe(false);
+    expect((await bw.disableEntry("run|HKCU:\\Software\\Run")).ok).toBe(false);
+    expect(ran).toEqual([]);
+  });
+
+  it("removes an IFEO debugger by literal path", async () => {
+    await bw.disableEntry("ifeo|a*.exe");
+    expect(ran[0]).toBe("Remove-ItemProperty -LiteralPath 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\a*.exe' -Name Debugger -Force");
   });
 
   it("refuses a Run key that isn't a registry path", async () => {
