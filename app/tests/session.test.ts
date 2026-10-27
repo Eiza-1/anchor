@@ -101,7 +101,7 @@ describe("validToken", () => {
     const fresh = sess({ accessToken: "new", refreshToken: "r2", expiresAt: 9_999_999 });
     const refresh = vi.fn().mockResolvedValue(fresh);
     expect(await validToken(store, refresh, 5000)).toEqual(fresh);
-    expect(refresh).toHaveBeenCalledWith("r1");
+    expect(refresh).toHaveBeenCalledWith("r1", "a@b.c"); // the email survives a refresh that omits the user
     expect(await store.load()).toEqual(fresh);
   });
 
@@ -126,17 +126,40 @@ describe("validToken", () => {
 });
 
 describe("migrate", () => {
+  const jwt = (payload: unknown) =>
+    ["e30", Buffer.from(JSON.stringify(payload)).toString("base64url"), "sig"].join(".");
+  const fakeProfile = (prof: any) => {
+    const removeKeys = vi.fn((keys: string[]) => { for (const k of keys) delete prof[k]; });
+    return { api: { loadProfile: () => ({ ...prof }), saveProfile: vi.fn(), removeKeys }, prof: () => prof };
+  };
+
   it("migrates plaintext token", async () => {
     const store = createSessionStore({ file, crypto: fakeCrypto });
-    let prof: any = { userId: "u9", email: "x@y.z", accessToken: "t" };
-    const saveProfile = vi.fn((p) => { prof = { ...prof, ...p }; });
-    const api = { loadProfile: () => prof, saveProfile };
+    const token = jwt({ sub: "u9", exp: 2_000_000_000 });
+    const { api, prof } = fakeProfile({ userId: "u9", email: "x@y.z", accessToken: token, theme: "dark" });
     await migrate(store, api);
     expect(await store.load()).toEqual({
-      userId: "u9", email: "x@y.z", accessToken: "t", refreshToken: "", expiresAt: 0,
+      userId: "u9", email: "x@y.z", accessToken: token, refreshToken: "", expiresAt: 2_000_000_000_000,
     });
-    expect(saveProfile).toHaveBeenCalledWith({ accessToken: "", userId: "" });
+    expect(prof()).toEqual({ email: "x@y.z", theme: "dark" }); // keys deleted, not blanked
+    expect(api.saveProfile).not.toHaveBeenCalled();
     await migrate(store, api);
-    expect(saveProfile).toHaveBeenCalledTimes(1);
+    expect(api.removeKeys).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a migrated token usable until its own expiry", async () => {
+    const store = createSessionStore({ file, crypto: fakeCrypto });
+    const { api } = fakeProfile({ userId: "u9", email: "x@y.z", accessToken: jwt({ exp: 2_000 }) });
+    await migrate(store, api);
+    const refresh = vi.fn(async () => null);
+    expect((await validToken(store, refresh, 1_000_000))?.accessToken).toBeTruthy();
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("treats an undecodable token as expired", async () => {
+    const store = createSessionStore({ file, crypto: fakeCrypto });
+    const { api } = fakeProfile({ userId: "u9", email: "x@y.z", accessToken: "not-a-jwt" });
+    await migrate(store, api);
+    expect((await store.load()).expiresAt).toBe(0);
   });
 });

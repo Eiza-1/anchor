@@ -61,7 +61,7 @@ async function validToken(store, refresh, now = Date.now()) {
   if (!s) return null;
   if (s.expiresAt - 60_000 > now) return s;
   // A throw (offline, 5xx) propagates with the store untouched: the refresh token is still good.
-  const fresh = s.refreshToken ? await refresh(s.refreshToken) : null;
+  const fresh = s.refreshToken ? await refresh(s.refreshToken, s.email) : null;
   if (!fresh) {
     await store.clear();
     return null;
@@ -70,15 +70,27 @@ async function validToken(store, refresh, now = Date.now()) {
   return fresh;
 }
 
-/** Moves a token that 1.1.1 left in profile.json into the store. Idempotent. */
+/** A JWT's `exp` in ms, or 0 if it can't be read (then it counts as expired). */
+function jwtExpiry(token) {
+  try {
+    const payload = JSON.parse(Buffer.from(String(token).split(".")[1], "base64url").toString("utf8"));
+    return Number.isFinite(payload.exp) ? payload.exp * 1000 : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Moves a token that 1.1.1 left in profile.json into the store. Idempotent.
+ *  1.1.1 kept no refresh token, so the token's own expiry keeps it usable for
+ *  the rest of its life; after that the user is asked to sign in again. */
 async function migrate(store, profile) {
   const p = profile.loadProfile();
   if (!p.accessToken) return;
   await store.save({
     userId: p.userId ?? "", email: p.email ?? "", accessToken: p.accessToken,
-    refreshToken: "", expiresAt: 0,
+    refreshToken: "", expiresAt: jwtExpiry(p.accessToken),
   });
-  profile.saveProfile({ accessToken: "", userId: "" });
+  profile.removeKeys(["accessToken", "userId"]);
 }
 
 module.exports = { createSessionStore, validToken, migrate };

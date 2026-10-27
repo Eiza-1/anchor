@@ -214,7 +214,6 @@ app.whenReady().then(async () => {
     file: path.join(app.getPath("userData"), "session.bin"),
     crypto: safeStorage,
   });
-  await migrate(sessionStore, profile); // 1.1.1 kept the token in profile.json
   // Anchor.exe is asInvoker, so a taskbar click on a running Anchor hands over
   // without UAC. A launch with nothing to hand over to relaunches elevated.
   if (app.isPackaged && !process.argv.includes(instance.ELEVATED_FLAG) && !(await instance.isElevated())) {
@@ -222,6 +221,9 @@ app.whenReady().then(async () => {
     await instance.relaunchElevated(process.argv.slice(1).filter((a) => a === "--startup"));
     return app.exit(0);
   }
+  // 1.1.1 kept the token in profile.json. Only the process that stays runs this,
+  // and a locked or read-only profile must not stop the window, tray and listen().
+  try { await migrate(sessionStore, profile); } catch { /* retried next launch */ }
   instance.listen(app.getPath("userData"), () => openWindow());
   protocol.handle("anchor-img", (req) => imgproxy.proxyImage(req, createManualFetch(net, imgproxy.MAX_BYTES)));
   // A login launch waits in the tray without loading the window — the user
