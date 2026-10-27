@@ -1,5 +1,6 @@
 // anchor-img://fetch?u=<https url>: the news-picture proxy. Kept free of an
-// Electron import (main.js injects net.fetch) so it can be unit-tested.
+// Electron import (main.js injects the services/manualfetch.js adapter over
+// net.request, which hands back each redirect to vet) so it can be unit-tested.
 // The page picks the URL, so main must not become a way to reach the user's
 // own machine or LAN: local/private targets and oversized bodies are refused.
 

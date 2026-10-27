@@ -226,7 +226,8 @@ app.whenReady().then(async () => {
   // and a locked or read-only profile must not stop the window, tray and listen().
   try { await migrate(sessionStore, profile); } catch { /* retried next launch */ }
   instance.listen(app.getPath("userData"), () => openWindow());
-  protocol.handle("anchor-img", (req) => imgproxy.proxyImage(req, createManualFetch(net, imgproxy.MAX_BYTES)));
+  const imageFetch = createManualFetch(net, imgproxy.MAX_BYTES);
+  protocol.handle("anchor-img", (req) => imgproxy.proxyImage(req, imageFetch));
   // A login launch waits in the tray without loading the window — the user
   // hasn't asked to see it, and an unopened window still costs ~300 MB.
   if (!startedHidden) {
