@@ -38,7 +38,7 @@ contextBridge.exposeInMainWorld("anchor", {
 
   // windows update
   buildInfo: () => call("sys:buildInfo"),
-  checkUpdates: () => call("sys:checkUpdates"),
+  checkUpdates: (opts) => call("sys:checkUpdates", opts),
   prefetchUpdates: () => call("sys:prefetchUpdates"),
 
   // drives / performance

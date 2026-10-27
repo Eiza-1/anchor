@@ -42,7 +42,7 @@ export default function UpdatesPage() {
         isError: (r: UpdateResult) => r.error ?? null,
         summarize: (r) => (r.pending === 0 ? "Up to date" : `${r.pending} update${r.pending === 1 ? "" : "s"} pending`),
       },
-      () => window.anchor.checkUpdates(),
+      () => window.anchor.checkUpdates({ fresh: true }), // the user asked now: skip the prefetch cache
     );
   }
 

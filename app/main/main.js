@@ -288,7 +288,7 @@ handle("cleanup:run", (ids) => cleanup.clean(ids ?? []));
 handle("cleanup:quick", () => cleanup.quickClean());
 
 handle("sys:buildInfo", () => sys.buildInfo());
-handle("sys:checkUpdates", () => sys.checkUpdates());
+handle("sys:checkUpdates", (opts) => sys.checkUpdates({ fresh: !!opts?.fresh }));
 handle("sys:prefetchUpdates", () => void sys.prefetchUpdates());
 handle("sys:driveHealth", () => sys.driveHealth());
 handle("sys:volumes", () => sys.volumes());

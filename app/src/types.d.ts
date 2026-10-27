@@ -51,7 +51,7 @@ export interface AnchorApi {
 
   buildInfo(): Promise<{ ProductName: string; DisplayVersion: string; CurrentBuild: string; UBR: number } | null>;
   prefetchUpdates(): Promise<void>;
-  checkUpdates(): Promise<{ pending?: number; titles?: string[]; last?: string | null; error?: string }>;
+  checkUpdates(opts?: { fresh?: boolean }): Promise<{ pending?: number; titles?: string[]; last?: string | null; error?: string }>;
 
   driveHealth(): Promise<Array<{
     name: string; media: string; health: string; size: number;

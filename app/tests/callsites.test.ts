@@ -9,10 +9,14 @@ const require = createRequire(import.meta.url);
 const ps = require("../main/services/ps.js") as Record<string, unknown>;
 const ran: string[] = [];
 ps.runPS = async (cmd: string) => { ran.push(cmd); return { code: 0, out: "", err: "" }; };
-ps.runPSJson = async () => [];
+let psJson: (cmd: string) => Promise<unknown> = async () => [];
+ps.runPSJson = (cmd: string) => psJson(cmd);
 for (const f of ["bootwatch", "system"]) delete require.cache[require.resolve(`../main/services/${f}.js`)];
 const bw = require("../main/services/bootwatch.js") as { disableEntry(id: string): Promise<{ ok: boolean; error?: string }> };
-const sys = require("../main/services/system.js") as { startupToggle(n: string, scope: string, enable: boolean): Promise<{ ok: boolean; error?: string }> };
+const sys = require("../main/services/system.js") as {
+  startupToggle(n: string, scope: string, enable: boolean): Promise<{ ok: boolean; error?: string }>;
+  checkUpdates(opts?: { fresh?: boolean }): Promise<{ pending?: number; error?: string }>;
+};
 
 beforeEach(() => { ran.length = 0; });
 
@@ -60,5 +64,25 @@ describe("startupToggle", () => {
     const r = await sys.startupToggle("x", "Everyone'; calc; '", true);
     expect(r.ok).toBe(false);
     expect(ran).toEqual([]);
+  });
+});
+
+describe("checkUpdates", () => {
+  it("caches the local read, but a fresh check reads again", async () => {
+    const calls: string[] = [];
+    psJson = async (cmd) => { calls.push(cmd); return { pending: calls.length }; };
+    expect(await sys.checkUpdates({ fresh: true })).toEqual({ pending: 1 });
+    expect(await sys.checkUpdates()).toEqual({ pending: 1 });          // prefetch/diagnostics: cached
+    expect(await sys.checkUpdates({ fresh: true })).toEqual({ pending: 2 });
+    psJson = async () => [];
+  });
+
+  it("passes PowerShell's error text through, and doesn't cache it", async () => {
+    psJson = async () => ({ error: "Exception from HRESULT: 0x8024402C" });
+    expect(await sys.checkUpdates({ fresh: true })).toEqual({ error: "Exception from HRESULT: 0x8024402C" });
+    psJson = async () => ({ pending: 0 });
+    await new Promise((r) => setTimeout(r, 0)); // let the failure drop out of the cache
+    expect(await sys.checkUpdates()).toEqual({ pending: 0 });
+    psJson = async () => [];
   });
 });

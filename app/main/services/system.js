@@ -27,8 +27,10 @@ if ($build -ge 22000 -and $name -notmatch 'Server') {
 // What Windows Update already knows locally — the same list Settings shows —
 // read with Online=$false (its own last scan, plus install history). That costs
 // ~3s, so it's prefetched and kept for a while; a live online search would
-// take 10–60s.
-async function checkUpdates() {
+// take 10–60s. `fresh` (the "Check for updates" button) skips the cache: the
+// user asked now, and Windows may have scanned or installed since.
+async function checkUpdates({ fresh = false } = {}) {
+  if (fresh) localCache = null;
   return (await prefetchUpdates()) ?? { error: "Windows Update Agent unavailable." };
 }
 
@@ -37,7 +39,7 @@ let localCache = null;             // { at, promise }
 function prefetchUpdates() {
   if (!localCache || Date.now() - localCache.at > LOCAL_TTL_MS) {
     const entry = { at: Date.now(), promise: localUpdates() };
-    entry.promise.then((r) => { if (!r && localCache === entry) localCache = null; }); // don't keep a failure
+    entry.promise.then((r) => { if ((!r || r.error) && localCache === entry) localCache = null; }); // don't keep a failure
     localCache = entry;
   }
   return localCache.promise;
@@ -58,7 +60,7 @@ try {
     for($i=0;$i -lt $h.Count;$i++){ if($h.Item($i).ResultCode -eq 2){ $last=$h.Item($i).Title+' — '+$h.Item($i).Date.ToLocalTime().ToShortDateString(); break } }
   }
   [PSCustomObject]@{pending=$result.Updates.Count; titles=$titles; last=$last} | ConvertTo-Json -Compress
-} catch {}
+} catch { [PSCustomObject]@{error=$_.Exception.Message} | ConvertTo-Json -Compress } # the real reason, shown on the page
 `);
 }
 
@@ -430,5 +432,5 @@ function generateAutounattend(o) {
 module.exports = {
   buildInfo, checkUpdates, prefetchUpdates, driveHealth, volumes, isAdmin, perfSample, topProcesses, deviceHealth, cpuInfo,
   startupList, startupToggle, bloatwareList, bloatwareRemove,
-  privacyList, privacyApply, openTool, TOOLS, generateAutounattend,
+  privacyList, privacyApply, openTool, generateAutounattend,
 };
