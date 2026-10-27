@@ -20,6 +20,7 @@ const background = require("./services/background");
 const games = require("./services/games");
 const { seasonFor } = require("./services/season");
 const instance = require("./services/instance");
+const imgproxy = require("./services/imgproxy");
 
 let win;
 let tray = null;
@@ -68,22 +69,10 @@ function refreshSeason() {
 // anchor-img://fetch?u=<https url>: a news picture fetched by main, readable by
 // the page (feeds' image hosts send no CORS headers). The page shrinks it to
 // card size once (lib/thumbs.ts) instead of decoding multi-megapixel photos
-// while you scroll. Images only; anything else is refused.
+// while you scroll. Images only, never local/private hosts (services/imgproxy.js).
 protocol.registerSchemesAsPrivileged([
   { scheme: "anchor-img", privileges: { supportFetchAPI: true, corsEnabled: true, secure: true } },
 ]);
-async function proxyImage(req) {
-  const target = new URL(req.url).searchParams.get("u") ?? "";
-  if (!target.startsWith("https://")) return new Response(null, { status: 400 });
-  try {
-    const res = await net.fetch(target, { headers: { "User-Agent": "Mozilla/5.0 Anchor" } });
-    const type = res.headers.get("content-type") ?? "";
-    if (!res.ok || !type.startsWith("image/")) return new Response(null, { status: 502 });
-    return new Response(res.body, { headers: { "content-type": type, "access-control-allow-origin": "*" } });
-  } catch {
-    return new Response(null, { status: 502 });
-  }
-}
 // Launched by Windows at login (see setLoginItemSettings) — start in the tray.
 const startedHidden = process.argv.includes("--startup");
 // Windows matches toasts to the installer's shortcut by this id.
@@ -233,7 +222,7 @@ app.whenReady().then(async () => {
     return app.exit(0);
   }
   instance.listen(app.getPath("userData"), () => openWindow());
-  protocol.handle("anchor-img", proxyImage);
+  protocol.handle("anchor-img", (req) => imgproxy.proxyImage(req, net.fetch));
   // A login launch waits in the tray without loading the window — the user
   // hasn't asked to see it, and an unopened window still costs ~300 MB.
   if (!startedHidden) {
