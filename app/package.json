@@ -11,8 +11,8 @@
     "test": "vitest run",
     "dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
     "build:ui": "vite build",
-    "build": "node scripts/release-icon.js && npm run build:ui && electron-builder --win --x64 --arm64 --publish never",
-    "release": "node scripts/release-icon.js && npm run build:ui && electron-builder --win --x64 --arm64 --publish always"
+    "build": "node scripts/release-icon.js && npm run build:ui && node scripts/scan-artifacts.js dist main && electron-builder --win --x64 --arm64 --publish never",
+    "release": "node scripts/release-icon.js && npm run build:ui && node scripts/scan-artifacts.js dist main && electron-builder --win --x64 --arm64 --publish always"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.0",
@@ -26,6 +26,7 @@
     "tailwind-merge": "^2.4.0"
   },
   "devDependencies": {
+    "@electron/asar": "^4.3.1",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
@@ -59,7 +60,8 @@
     "files": [
       "dist/**",
       "main/**",
-      "package.json"
+      "package.json",
+      "!**/*.map"
     ],
     "win": {
       "target": [
