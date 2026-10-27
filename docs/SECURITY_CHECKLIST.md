@@ -31,6 +31,11 @@ Tick them off once, then re-check after any change to auth or the Edge Functions
 
 ## Before each release
 
-- [ ] Run `npm run release` from `app/`. It runs `scripts/scan-artifacts.js` first.
-- [ ] After building, scan the packaged files:
+- [ ] Run `npm run release` from `app/`. It scans `dist/` and `main/` with
+  `scripts/scan-artifacts.js` before packing, and electron-builder's `afterPack`
+  hook (`scripts/after-pack.js`) scans each packed `resources/app.asar`, x64 and
+  arm64, before any installer is made or anything is published. A secret or a
+  source map stops the release; the build log shows
+  `release gate  OK: no secrets or source maps in N file(s)` for each arch.
+- [ ] Optional re-check of a finished build:
   `node scripts/scan-artifacts.js <path to app.asar>`. It must report no secrets.

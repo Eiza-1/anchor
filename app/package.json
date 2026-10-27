@@ -57,6 +57,7 @@
       "buildResources": "build",
       "output": "release"
     },
+    "afterPack": "scripts/after-pack.js",
     "files": [
       "dist/**",
       "main/**",

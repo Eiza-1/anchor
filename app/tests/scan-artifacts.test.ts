@@ -57,3 +57,33 @@ describe("scanText false positives", () => {
     expect(scanText("xxKAKIAABCDEFGHIJKLMNOPRxx")).toEqual([]);
   });
 });
+
+describe("afterPack hook", () => {
+  const afterPack = require("../scripts/after-pack.js") as (ctx: { appOutDir: string }) => Promise<void>;
+  const { createPackage } = require("@electron/asar") as { createPackage(src: string, dest: string): Promise<void> };
+  const os = require("os") as typeof import("os");
+
+  async function packed(files: Record<string, string>) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "anchor-afterpack-"));
+    const src = path.join(root, "src");
+    for (const [name, body] of Object.entries(files)) {
+      fs.mkdirSync(path.dirname(path.join(src, name)), { recursive: true });
+      fs.writeFileSync(path.join(src, name), body);
+    }
+    fs.mkdirSync(path.join(root, "out", "resources"), { recursive: true });
+    await createPackage(src, path.join(root, "out", "resources", "app.asar"));
+    return { appOutDir: path.join(root, "out"), cleanup: () => fs.rmSync(root, { recursive: true, force: true }) };
+  }
+
+  it("passes a clean packed app", async () => {
+    const { appOutDir, cleanup } = await packed({ "main/main.js": "console.log(1)" });
+    try { await expect(afterPack({ appOutDir })).resolves.toBeUndefined(); } finally { cleanup(); }
+  });
+
+  it("throws on a source map or secret inside app.asar", async () => {
+    const { appOutDir, cleanup } = await packed({ "dist/a.js.map": "{}", "main/x.js": "sk_live_abcdef123456" });
+    try {
+      await expect(afterPack({ appOutDir })).rejects.toThrow(/source map present[\s\S]*stripe-key/);
+    } finally { cleanup(); }
+  });
+});

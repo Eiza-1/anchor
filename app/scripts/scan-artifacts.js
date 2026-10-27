@@ -1,6 +1,7 @@
 // Release gate: refuses to let a secret or a source map ship. `npm run release`
 // runs it over dist/ and main/ (what electron-builder packs into app.asar)
-// before publishing; run it by hand on a built app.asar afterwards.
+// before packing, and scripts/after-pack.js runs it on every packed app.asar
+// before anything is published. It also works by hand on a built app.asar.
 // Findings are redacted to 6 characters so the output is safe to paste anywhere.
 const fs = require("fs");
 const os = require("os");
