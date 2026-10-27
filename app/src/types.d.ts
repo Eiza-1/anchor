@@ -11,6 +11,7 @@ export interface NewsItem {
   isShort?: boolean;
 }
 
+export type ToolId = "cleanmgr" | "storagesense" | "taskschd" | "rstrui" | "resmon" | "dfrgui" | "windowsupdate";
 export type Platform = "pc" | "playstation" | "xbox" | "switch";
 export interface GameRelease {
   id: number; name: string; slug: string;
@@ -79,7 +80,7 @@ export interface AnchorApi {
   privacyList(): Promise<Array<{ id: string; name: string; desc: string; applied: boolean }>>;
   privacyApply(id: string, on: boolean): Promise<{ ok: boolean; error: string }>;
 
-  openTool(cmd: string): Promise<void>;
+  openTool(id: ToolId): Promise<boolean>;
   saveAutounattend(opts: Record<string, unknown>): Promise<{ ok: boolean; message: string }>;
 
   feeds(): Promise<{ articles: string[]; videos: string[] }>;

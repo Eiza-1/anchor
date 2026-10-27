@@ -66,7 +66,7 @@ contextBridge.exposeInMainWorld("anchor", {
   privacyApply: (id, on) => call("sys:privacyApply", id, on),
 
   // tools
-  openTool: (cmd) => call("sys:openTool", cmd),
+  openTool: (id) => call("sys:openTool", id),
   saveAutounattend: (opts) => call("sys:saveAutounattend", opts),
 
   // news

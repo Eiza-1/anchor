@@ -301,7 +301,7 @@ handle("sys:bloatwareList", () => sys.bloatwareList());
 handle("sys:bloatwareRemove", (pkgs) => sys.bloatwareRemove(pkgs));
 handle("sys:privacyList", () => sys.privacyList());
 handle("sys:privacyApply", (id, on) => sys.privacyApply(id, on));
-handle("sys:openTool", (cmd) => sys.openTool(cmd));
+handle("sys:openTool", (id) => sys.openTool(id));
 
 handle("sys:saveAutounattend", async (opts) => {
   const xml = sys.generateAutounattend(opts);

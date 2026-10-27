@@ -340,8 +340,23 @@ Set-ItemProperty -Path '${t.hive}\\${t.key}' -Name '${t.value}' -Value ${on ? t.
 }
 
 // ---------- Tools & Autounattend ----------
-function openTool(cmd) {
-  spawn("cmd", ["/c", "start", "", cmd], { windowsHide: true, detached: true });
+// The renderer names a tool id; main owns the command. Anchor runs elevated, so a
+// renderer-supplied string must never reach `cmd /c start`.
+const TOOLS = {
+  cleanmgr: "cleanmgr.exe",
+  storagesense: "ms-settings:storagesense",
+  taskschd: "taskschd.msc",
+  rstrui: "rstrui.exe",
+  resmon: "resmon.exe",
+  dfrgui: "dfrgui.exe",
+  windowsupdate: "ms-settings:windowsupdate",
+};
+
+function openTool(id) {
+  // hasOwn: "constructor" and friends must not resolve through the prototype.
+  if (typeof id !== "string" || !Object.hasOwn(TOOLS, id)) return false;
+  spawn("cmd", ["/c", "start", "", TOOLS[id]], { windowsHide: true, detached: true });
+  return true;
 }
 
 function generateAutounattend(o) {
@@ -415,5 +430,5 @@ function generateAutounattend(o) {
 module.exports = {
   buildInfo, checkUpdates, prefetchUpdates, driveHealth, volumes, isAdmin, perfSample, topProcesses, deviceHealth, cpuInfo,
   startupList, startupToggle, bloatwareList, bloatwareRemove,
-  privacyList, privacyApply, openTool, generateAutounattend,
+  privacyList, privacyApply, openTool, TOOLS, generateAutounattend,
 };

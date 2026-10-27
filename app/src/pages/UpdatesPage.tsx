@@ -63,7 +63,7 @@ export default function UpdatesPage() {
         <CardContent className="space-y-3">
           <div className="flex flex-wrap gap-2">
             <Button onClick={check} loading={checking}>Check for updates</Button>
-            <Button variant="outline" onClick={() => window.anchor.openTool("ms-settings:windowsupdate")}>
+            <Button variant="outline" onClick={() => window.anchor.openTool("windowsupdate")}>
               Open Windows Update settings
             </Button>
           </div>
