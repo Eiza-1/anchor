@@ -45,9 +45,10 @@ async function proxyImage(req, fetchFn) {
   if (!isAllowedTarget(target)) return new Response(null, { status: 400 });
   try {
     let res;
-    // Redirects are followed here so every hop is checked, not just the first.
+    // fetchFn must not follow redirects itself (see manualfetch.js): they are
+    // followed here so every hop is checked, not just the first.
     for (let hop = 0; ; hop++) {
-      res = await fetchFn(target, { headers: { "User-Agent": "Mozilla/5.0 Anchor" }, redirect: "manual" });
+      res = await fetchFn(target, { headers: { "User-Agent": "Mozilla/5.0 Anchor" } });
       if (res.status < 300 || res.status >= 400) break;
       const loc = res.headers.get("location");
       if (!loc || hop >= MAX_REDIRECTS) return new Response(null, { status: 502 });

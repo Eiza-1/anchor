@@ -86,4 +86,13 @@ describe("proxyImage", () => {
         : png();
     expect((await proxyImage(req("https://example.com/a.png"), f)).status).toBe(200);
   });
+  it("502 after more than 3 redirect hops", async () => {
+    let n = 0;
+    const f = async () => new Response(null, { status: 302, headers: { location: `https://example.com/${++n}` } });
+    expect((await proxyImage(req("https://example.com/a.png"), f)).status).toBe(502);
+    expect(n).toBe(4);
+  });
+  it("502 for a redirect without Location", async () => {
+    expect((await proxyImage(req("https://example.com/a.png"), async () => new Response(null, { status: 302 }))).status).toBe(502);
+  });
 });

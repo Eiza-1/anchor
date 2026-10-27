@@ -21,6 +21,7 @@ const games = require("./services/games");
 const { seasonFor } = require("./services/season");
 const instance = require("./services/instance");
 const imgproxy = require("./services/imgproxy");
+const { createManualFetch } = require("./services/manualfetch");
 
 let win;
 let tray = null;
@@ -222,7 +223,7 @@ app.whenReady().then(async () => {
     return app.exit(0);
   }
   instance.listen(app.getPath("userData"), () => openWindow());
-  protocol.handle("anchor-img", (req) => imgproxy.proxyImage(req, net.fetch));
+  protocol.handle("anchor-img", (req) => imgproxy.proxyImage(req, createManualFetch(net, imgproxy.MAX_BYTES)));
   // A login launch waits in the tray without loading the window — the user
   // hasn't asked to see it, and an unopened window still costs ~300 MB.
   if (!startedHidden) {
