@@ -63,11 +63,16 @@ export default function AccountPage() {
     const saved = await persist(patch);
     setMailMsg("Saving…");
     const r = await window.anchor.saveSubscription(saved);
+    if (r.error === "signed-out") {
+      // Main has already forgotten the session: drop to the signed-out view, where the sign-in controls are.
+      await persist({ provider: "Local", name: "", email: "" });
+      setMailMsg("");
+      setAuthMsg("Your sign-in expired — sign in again to save mail preferences.");
+      return;
+    }
     setMailMsg(
       r.ok
         ? "Preferences saved."
-        : r.error === "signed-out"
-        ? "Your sign-in expired — sign in again to save mail preferences."
         : "Saved on this PC, but couldn't reach the mail service — it'll sync next time you sign in."
     );
   }

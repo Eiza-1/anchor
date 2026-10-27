@@ -83,6 +83,13 @@ describe("validToken", () => {
     expect(store.load()).toBeNull();
   });
 
+  it("keeps the session when the refresh cannot be attempted", async () => {
+    const store = createSessionStore({ file, crypto: fakeCrypto });
+    store.save(sess({ expiresAt: 1000 }));
+    await expect(validToken(store, async () => { throw new Error("offline"); }, 5000)).rejects.toThrow("offline");
+    expect(store.load()).toEqual(sess({ expiresAt: 1000 }));
+  });
+
   it("returns null with no session", async () => {
     const store = createSessionStore({ file, crypto: fakeCrypto });
     expect(await validToken(store, vi.fn(), 0)).toBeNull();

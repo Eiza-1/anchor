@@ -36,15 +36,13 @@ function createSessionStore({ file, crypto }) {
   };
 }
 
-/** A usable session, refreshed if it is within a minute of expiring; null = signed out. */
+/** A usable session, refreshed if it is within a minute of expiring; null = signed out (refused or nothing to refresh with); throws if the refresh could not be attempted. */
 async function validToken(store, refresh, now = Date.now()) {
   const s = store.load();
   if (!s) return null;
   if (s.expiresAt - 60_000 > now) return s;
-  let fresh = null;
-  try {
-    fresh = s.refreshToken ? await refresh(s.refreshToken) : null;
-  } catch { /* treated as a failed refresh */ }
+  // A throw (offline, 5xx) propagates with the store untouched: the refresh token is still good.
+  const fresh = s.refreshToken ? await refresh(s.refreshToken) : null;
   if (!fresh) {
     store.clear();
     return null;

@@ -364,15 +364,22 @@ handle("auth:signIn", async (provider) => {
 });
 handle("auth:configured", () => auth.isConfigured());
 handle("auth:providers", () => auth.PROVIDERS);
+// null = signed out; a throw means the refresh couldn't be tried (offline) and the session is kept.
+async function sessionOrReason() {
+  try {
+    const session = await validToken(sessionStore, auth.refreshSession);
+    return session ? { session } : { fail: { ok: false, error: "signed-out" } };
+  } catch (e) {
+    return { fail: { ok: false, error: `offline: ${e.message}` } };
+  }
+}
 handle("auth:saveSubscription", async (prefs) => {
-  const session = await validToken(sessionStore, auth.refreshSession);
-  if (!session) return { ok: false, error: "signed-out" };
-  return auth.saveSubscription({ session, prefs });
+  const { session, fail } = await sessionOrReason();
+  return session ? auth.saveSubscription({ session, prefs }) : fail;
 });
 handle("auth:deleteSubscription", async () => {
-  const session = await validToken(sessionStore, auth.refreshSession);
-  if (!session) return { ok: false, error: "signed-out" };
-  return auth.deleteSubscription({ session });
+  const { session, fail } = await sessionOrReason();
+  return session ? auth.deleteSubscription({ session }) : fail;
 });
 handle("auth:signOut", async () => {
   // Best effort: leave the mailing lists while we still hold a token, then forget it.

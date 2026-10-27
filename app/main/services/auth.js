@@ -48,21 +48,20 @@ function toSession(json, email) {
   };
 }
 
-/** Trades a refresh token for a new session; null if Supabase refuses it. */
+/** Trades a refresh token for a new session. null = Supabase refused it (400/401);
+ *  network errors and 5xx throw, so a flaky connection never costs the user their sign-in. */
 async function refreshSession(refreshToken) {
   if (!isConfigured() || !refreshToken) return null;
-  try {
-    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY },
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    });
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok || !json.access_token) return null;
-    return toSession(json, json.user?.email ?? "");
-  } catch {
-    return null;
-  }
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+  if (res.status === 400 || res.status === 401) return null;
+  if (!res.ok) throw new Error(`Refresh failed (${res.status}).`);
+  const json = await res.json();
+  if (!json.access_token) throw new Error("Refresh returned no token.");
+  return toSession(json, json.user?.email ?? "");
 }
 
 async function signIn(provider = "google") {
