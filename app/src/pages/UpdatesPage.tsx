@@ -29,6 +29,7 @@ export default function UpdatesPage() {
 
   useEffect(() => {
     Q.buildInfo().then((b) => setBuild(describe(b)), () => {});
+    window.anchor.prefetchUpdates().catch(() => {}); // a no-op when launch already did it
     articles().then((list) => setNews(windowsNews(list).slice(0, 12)), () => setNews([]));
   }, []);
 

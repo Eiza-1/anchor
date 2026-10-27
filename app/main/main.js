@@ -216,6 +216,7 @@ app.whenReady().then(async () => {
   if (!startedHidden) {
     createWindow({ show: true });
     warmUp();                     // start the PowerShell host before it's needed
+    setTimeout(() => sys.prefetchUpdates(), 4000); // so "Check for updates" answers at once; after the first page's reads
   }
   createTray();
   setInterval(refreshSeason, 60 * 60 * 1000);   // seasons start and end at midnight; an hour late is fine
@@ -270,6 +271,7 @@ handle("cleanup:quick", () => cleanup.quickClean());
 
 handle("sys:buildInfo", () => sys.buildInfo());
 handle("sys:checkUpdates", () => sys.checkUpdates());
+handle("sys:prefetchUpdates", () => void sys.prefetchUpdates());
 handle("sys:driveHealth", () => sys.driveHealth());
 handle("sys:volumes", () => sys.volumes());
 handle("sys:isAdmin", () => sys.isAdmin());

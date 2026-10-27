@@ -49,6 +49,7 @@ export interface AnchorApi {
   cleanupQuick(): Promise<{ freed: number; cleaned: string[]; items: Array<{ name: string; freed: number }> }>;
 
   buildInfo(): Promise<{ ProductName: string; DisplayVersion: string; CurrentBuild: string; UBR: number } | null>;
+  prefetchUpdates(): Promise<void>;
   checkUpdates(): Promise<{ pending?: number; titles?: string[]; last?: string | null; error?: string }>;
 
   driveHealth(): Promise<Array<{

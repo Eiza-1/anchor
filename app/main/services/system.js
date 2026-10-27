@@ -24,12 +24,31 @@ if ($build -ge 22000 -and $name -notmatch 'Server') {
 `);
 }
 
+// What Windows Update already knows locally — the same list Settings shows —
+// read with Online=$false (its own last scan, plus install history). That costs
+// ~3s, so it's prefetched and kept for a while; a live online search would
+// take 10–60s.
 async function checkUpdates() {
-  const r = await runPSJson(`
+  return (await prefetchUpdates()) ?? { error: "Windows Update Agent unavailable." };
+}
+
+const LOCAL_TTL_MS = 10 * 60_000; // the local store only changes when Windows scans or installs
+let localCache = null;             // { at, promise }
+function prefetchUpdates() {
+  if (!localCache || Date.now() - localCache.at > LOCAL_TTL_MS) {
+    const entry = { at: Date.now(), promise: localUpdates() };
+    entry.promise.then((r) => { if (!r && localCache === entry) localCache = null; }); // don't keep a failure
+    localCache = entry;
+  }
+  return localCache.promise;
+}
+
+async function localUpdates() {
+  return await runPSJson(`
 $ErrorActionPreference='Stop'
 try {
-  $session=New-Object -ComObject Microsoft.Update.Session
-  $searcher=$session.CreateUpdateSearcher()
+  $searcher=(New-Object -ComObject Microsoft.Update.Session).CreateUpdateSearcher()
+  $searcher.Online=$false
   $result=$searcher.Search("IsInstalled=0 and Type='Software' and IsHidden=0")
   $titles=@(); for($i=0;$i -lt [math]::Min($result.Updates.Count,15);$i++){ $titles+=$result.Updates.Item($i).Title }
   $last=$null
@@ -39,9 +58,8 @@ try {
     for($i=0;$i -lt $h.Count;$i++){ if($h.Item($i).ResultCode -eq 2){ $last=$h.Item($i).Title+' — '+$h.Item($i).Date.ToLocalTime().ToShortDateString(); break } }
   }
   [PSCustomObject]@{pending=$result.Updates.Count; titles=$titles; last=$last} | ConvertTo-Json -Compress
-} catch { [PSCustomObject]@{error=$_.Exception.Message} | ConvertTo-Json -Compress }
-`, { long: true }); // a Windows Update search can take minutes
-  return r ?? { error: "Windows Update Agent unavailable." };
+} catch {}
+`);
 }
 
 // ---------- Drives ----------
@@ -395,7 +413,7 @@ function generateAutounattend(o) {
 }
 
 module.exports = {
-  buildInfo, checkUpdates, driveHealth, volumes, isAdmin, perfSample, topProcesses, deviceHealth, cpuInfo,
+  buildInfo, checkUpdates, prefetchUpdates, driveHealth, volumes, isAdmin, perfSample, topProcesses, deviceHealth, cpuInfo,
   startupList, startupToggle, bloatwareList, bloatwareRemove,
   privacyList, privacyApply, openTool, generateAutounattend,
 };
