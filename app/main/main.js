@@ -262,6 +262,7 @@ app.on("before-quit", () => {
   shutdown();
   monitor.stop();
   bootwatch.stopWatching();
+  if (gotLock) instance.clearPort(app.getPath("userData")); // so a later launch can't poke whatever takes the port next
 });
 
 // ---------------- IPC ----------------

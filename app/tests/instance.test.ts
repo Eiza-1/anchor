@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const require = createRequire(import.meta.url);
 const instance = require("../main/services/instance.js") as {
   listen(userData: string, onShow: () => void): import("net").Server;
+  clearPort(userData: string): void;
   poke(userData: string): Promise<boolean>;
   isElevated(): Promise<boolean>;
 };
@@ -49,6 +50,27 @@ describe("listen / poke", () => {
     const dir = tmp();
     expect(await instance.poke(dir)).toBe(false);          // no port file
     fs.writeFileSync(path.join(dir, "instance.port"), "1"); // stale port
+    expect(await instance.poke(dir)).toBe(false);
+  });
+
+  it("drops a crashed instance's port file before listening", async () => {
+    const dir = tmp();
+    const file = path.join(dir, "instance.port");
+    fs.writeFileSync(file, "1"); // left behind by a crash
+    const s = instance.listen(dir, vi.fn());
+    servers.push(s);
+    expect(fs.existsSync(file)).toBe(false); // gone before our own port is known
+    await listening(s);
+    expect(+fs.readFileSync(file, "utf8")).toBe((s.address() as import("net").AddressInfo).port);
+  });
+
+  it("clearPort on quit stops later launches poking the old port", async () => {
+    const dir = tmp();
+    const s = instance.listen(dir, vi.fn());
+    servers.push(s);
+    await listening(s);
+    instance.clearPort(dir);
+    expect(fs.existsSync(path.join(dir, "instance.port"))).toBe(false);
     expect(await instance.poke(dir)).toBe(false);
   });
 });

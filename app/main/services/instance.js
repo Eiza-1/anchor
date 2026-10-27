@@ -33,6 +33,9 @@ async function relaunchElevated(args) {
 
 /** In the running Anchor: answer "show" from later launches. */
 function listen(userData, onShow) {
+  // A crashed Anchor leaves its port file behind, and that port may since have
+  // gone to another program: drop it so poke() can't "succeed" against it.
+  clearPort(userData);
   const server = net.createServer((sock) => {
     sock.setTimeout(2000, () => sock.destroy());
     sock.once("data", (d) => {
@@ -48,6 +51,11 @@ function listen(userData, onShow) {
   return server;
 }
 
+/** Forgets the port (before listening, and on quit) so a stale one is never poked. */
+function clearPort(userData) {
+  try { fs.rmSync(portFile(userData), { force: true }); } catch {}
+}
+
 /** In a later launch: ask the running Anchor to show its window. */
 function poke(userData) {
   return new Promise((resolve) => {
@@ -60,4 +68,4 @@ function poke(userData) {
   });
 }
 
-module.exports = { ELEVATED_FLAG, isElevated, relaunchElevated, listen, poke };
+module.exports = { ELEVATED_FLAG, isElevated, relaunchElevated, listen, clearPort, poke };
