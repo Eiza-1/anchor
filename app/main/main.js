@@ -18,6 +18,7 @@ const cleanup = require("./services/cleanup");
 const background = require("./services/background");
 const games = require("./services/games");
 const { seasonFor } = require("./services/season");
+const instance = require("./services/instance");
 
 let win;
 let tray = null;
@@ -30,8 +31,13 @@ if (process.env.VITE_DEV_SERVER_URL) app.setPath("userData", `${app.getPath("use
 // One Anchor per user: a second launch (shortcut clicked while Anchor sits in
 // the tray, or a login launch on top of an open one) hands over and exits, so
 // there's never a second tray icon or a second set of PowerShell processes.
+// Electron hands over to an Anchor at the same elevation; poke() also reaches
+// an elevated one from an unelevated launch (see services/instance.js).
 const gotLock = app.requestSingleInstanceLock();
-if (!gotLock) app.exit(0);
+if (!gotLock) {
+  if (process.argv.includes("--startup")) app.exit(0);
+  else instance.poke(app.getPath("userData")).finally(() => app.exit(0));
+}
 app.on("second-instance", (_e, argv) => {
   if (!argv.includes("--startup")) openWindow();
 });
@@ -210,6 +216,14 @@ function createTray() {
 
 app.whenReady().then(async () => {
   if (!gotLock) return;
+  // Anchor.exe is asInvoker, so a taskbar click on a running Anchor hands over
+  // without UAC. A launch with nothing to hand over to relaunches elevated.
+  if (app.isPackaged && !process.argv.includes(instance.ELEVATED_FLAG) && !(await instance.isElevated())) {
+    app.releaseSingleInstanceLock(); // so the elevated copy gets it
+    await instance.relaunchElevated(process.argv.slice(1).filter((a) => a === "--startup"));
+    return app.exit(0);
+  }
+  instance.listen(app.getPath("userData"), () => openWindow());
   protocol.handle("anchor-img", proxyImage);
   // A login launch waits in the tray without loading the window — the user
   // hasn't asked to see it, and an unopened window still costs ~300 MB.
