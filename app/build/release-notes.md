@@ -1,7 +1,12 @@
-## Anchor 1.1.1
+## Anchor 1.2.0
 
-Fixes for the Performance page after updating, and Boot Watch no longer flags Windows' own security.
+A security release: Anchor moves to a much newer Electron, keeps your sign-in locked away, and no longer carries any private keys inside the app.
 
-- **The Performance page no longer opens blank after an update.** Anchor was showing data saved by the previous version, which the new page couldn't read. Each update now starts fresh, so this can't happen again.
-- **Your graphics card's video memory shows straight away.** After updating, the GPU card could show a dash instead of your video memory for up to half an hour.
-- **Boot Watch leaves Windows alone.** Microsoft Defender and Windows' own startup tasks were marked Suspicious and offered for disabling, which could leave your PC unprotected. Anything signed by Microsoft is now shown as "Part of Windows" and can't be disabled from Anchor. Anchor still flags anything else that looks suspicious, including Windows tools like PowerShell when they're used to run hidden or downloaded commands.
+- **Your sign-in is encrypted on your PC.** Your session is now stored with Windows' own encryption and stays inside Anchor's background process, never in the window. It refreshes itself, so you stay signed in. If it expires, Anchor tells you to sign in again instead of quietly failing. You won't be signed out by this update.
+- **No private keys inside Anchor.** The game release calendar used to carry its own key in the app. It now goes through Anchor's server, so there's nothing to pull out of the install.
+- **Built on Electron 45.** Anchor moves from Electron 31 to 45, picking up more than a year of Chromium security fixes, and every window now runs in Chromium's sandbox.
+- **Safer system commands.** Every PowerShell command Anchor runs now quotes its input the same, tested way. "Open Windows tool" only opens tools from a fixed list.
+- **Safer news images.** Article images are only fetched from public web addresses, with a size limit and a time limit.
+- **Windows Update answers faster and more accurately.** Anchor reads Windows' own list of updates, checks it ahead of time, and checks again when you press Check. If Windows reports an error, you now see the real one.
+- **Boot Watch removes exactly the entry you picked,** and nothing with a similar name.
+- **Clicking Anchor on the taskbar while it's open** brings the window back without a second administrator prompt.
