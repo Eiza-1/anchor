@@ -29,6 +29,7 @@ export default function UpdatesPage() {
 
   useEffect(() => {
     Q.buildInfo().then((b) => setBuild(describe(b)), () => {});
+    window.anchor.prefetchUpdates().catch(() => {}); // a no-op when launch already did it
     articles().then((list) => setNews(windowsNews(list).slice(0, 12)), () => setNews([]));
   }, []);
 
@@ -41,7 +42,7 @@ export default function UpdatesPage() {
         isError: (r: UpdateResult) => r.error ?? null,
         summarize: (r) => (r.pending === 0 ? "Up to date" : `${r.pending} update${r.pending === 1 ? "" : "s"} pending`),
       },
-      () => window.anchor.checkUpdates(),
+      () => window.anchor.checkUpdates({ fresh: true }), // the user asked now: skip the prefetch cache
     );
   }
 
@@ -62,7 +63,7 @@ export default function UpdatesPage() {
         <CardContent className="space-y-3">
           <div className="flex flex-wrap gap-2">
             <Button onClick={check} loading={checking}>Check for updates</Button>
-            <Button variant="outline" onClick={() => window.anchor.openTool("ms-settings:windowsupdate")}>
+            <Button variant="outline" onClick={() => window.anchor.openTool("windowsupdate")}>
               Open Windows Update settings
             </Button>
           </div>

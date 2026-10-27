@@ -2,31 +2,15 @@
 // The whole flow runs in the user's DEFAULT BROWSER — Anchor never embeds a web
 // view and never sees the password. Public client: only the anon key is used,
 // which is safe to ship (it's the same key any web page using Supabase exposes).
-// Setup: see docs/SUPABASE_SETUP.md, then fill in the two constants below.
+// Setup: see docs/SUPABASE_SETUP.md; the settings come from services/config.js.
 const http = require("http");
 const crypto = require("crypto");
 const { shell } = require("electron");
 
-// Settings live in main/config.js, which is gitignored. Cloning the repo gives
-// you config.example.js to copy — see docs/SUPABASE_SETUP.md.
-let config;
-try {
-  config = require("../config");
-} catch {
-  config = require("../config.example");
-}
-
-const SUPABASE_URL = config.supabaseUrl;
-const SUPABASE_ANON_KEY = config.supabaseAnonKey;
+const { SUPABASE_URL, SUPABASE_ANON_KEY, isConfigured } = require("./config");
 
 const PORT = 53682;
 const REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
-
-// Providers offered in the UI. Enable the matching ones in the Supabase dashboard.
-const PROVIDERS = config.providers ?? ["google", "github"];
-
-const isConfigured = () =>
-  !SUPABASE_URL.includes("YOUR_") && !SUPABASE_ANON_KEY.includes("YOUR_");
 
 const b64url = (buf) =>
   buf.toString("base64").replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
@@ -35,6 +19,34 @@ function page(body) {
   return `<!doctype html><html><head><meta charset="utf-8"><title>Anchor</title>
 <style>body{font-family:'Segoe UI',sans-serif;display:grid;place-items:center;height:100vh;margin:0;background:#09090b;color:#fafafa;text-align:center}</style>
 </head><body><div>${body}</div></body></html>`;
+}
+
+// Supabase token response -> the Session kept (encrypted) by services/session.js.
+function toSession(json, email) {
+  return {
+    userId: json.user?.id ?? "",
+    email,
+    accessToken: json.access_token ?? "",
+    refreshToken: json.refresh_token ?? "",
+    expiresAt: Date.now() + (Number(json.expires_in) || 3600) * 1000,
+  };
+}
+
+/** Trades a refresh token for a new session. null = Supabase refused it (400/401);
+ *  network errors and 5xx throw, so a flaky connection never costs the user their sign-in.
+ *  `prevEmail` is kept when the response carries no user, so the mail row keeps its address. */
+async function refreshSession(refreshToken, prevEmail = "") {
+  if (!isConfigured() || !refreshToken) return null;
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+  if (res.status === 400 || res.status === 401) return null;
+  if (!res.ok) throw new Error(`Refresh failed (${res.status}).`);
+  const json = await res.json();
+  if (!json.access_token) throw new Error("Refresh returned no token.");
+  return toSession(json, json.user?.email || prevEmail);
 }
 
 async function signIn(provider = "google") {
@@ -95,19 +107,15 @@ async function signIn(provider = "google") {
   const meta = json.user?.user_metadata ?? {};
   const name =
     meta.full_name || meta.name || meta.user_name || meta.preferred_username || json.user?.email || "";
-  return {
-    name,
-    email: json.user?.email ?? "",
-    userId: json.user?.id ?? "",
-    accessToken: json.access_token ?? "",
-  };
+  return { name, email: json.user?.email ?? "", session: toSession(json, json.user?.email ?? "") };
 }
 
 /* ------------------------- newsletter subscription ------------------------ *
  * Preferences live in a Supabase table so the mail service can read them.
  * Row-level security ties each row to the signed-in user, so the token below
  * only ever grants access to that user's own row.                            */
-async function saveSubscription({ accessToken, userId, email, prefs }) {
+async function saveSubscription({ session, prefs }) {
+  const { accessToken, userId, email } = session ?? {};
   if (!isConfigured() || !accessToken || !userId) return { ok: false, error: "Not signed in." };
   const res = await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?on_conflict=user_id`, {
     method: "POST",
@@ -132,7 +140,8 @@ async function saveSubscription({ accessToken, userId, email, prefs }) {
 }
 
 /** Removes the user from every mailing list. */
-async function deleteSubscription({ accessToken, userId }) {
+async function deleteSubscription({ session }) {
+  const { accessToken, userId } = session ?? {};
   if (!accessToken || !userId) return { ok: false, error: "Not signed in." };
   const res = await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${userId}`, {
     method: "DELETE",
@@ -182,15 +191,11 @@ async function verifyEmailCode(email, token) {
     throw new Error(json.error_description ?? json.msg ?? "That code wasn't accepted. Try again.");
   const meta = json.user?.user_metadata ?? {};
   const name = meta.full_name || meta.name || (json.user?.email ?? "").split("@")[0] || "";
-  return {
-    name,
-    email: json.user?.email ?? email,
-    userId: json.user?.id ?? "",
-    accessToken: json.access_token ?? "",
-  };
+  const mail = json.user?.email ?? email;
+  return { name, email: mail, session: toSession(json, mail) };
 }
 
 module.exports = {
-  signIn, isConfigured, PROVIDERS, sendEmailCode, verifyEmailCode,
-  saveSubscription, deleteSubscription,
+  signIn, sendEmailCode, verifyEmailCode,
+  saveSubscription, deleteSubscription, refreshSession,
 };

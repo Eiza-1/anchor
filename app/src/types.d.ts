@@ -11,6 +11,7 @@ export interface NewsItem {
   isShort?: boolean;
 }
 
+export type ToolId = "cleanmgr" | "storagesense" | "taskschd" | "rstrui" | "resmon" | "dfrgui" | "windowsupdate";
 export type Platform = "pc" | "playstation" | "xbox" | "switch";
 export interface GameRelease {
   id: number; name: string; slug: string;
@@ -49,7 +50,8 @@ export interface AnchorApi {
   cleanupQuick(): Promise<{ freed: number; cleaned: string[]; items: Array<{ name: string; freed: number }> }>;
 
   buildInfo(): Promise<{ ProductName: string; DisplayVersion: string; CurrentBuild: string; UBR: number } | null>;
-  checkUpdates(): Promise<{ pending?: number; titles?: string[]; last?: string | null; error?: string }>;
+  prefetchUpdates(): Promise<void>;
+  checkUpdates(opts?: { fresh?: boolean }): Promise<{ pending?: number; titles?: string[]; last?: string | null; error?: string }>;
 
   driveHealth(): Promise<Array<{
     name: string; media: string; health: string; size: number;
@@ -78,7 +80,7 @@ export interface AnchorApi {
   privacyList(): Promise<Array<{ id: string; name: string; desc: string; applied: boolean }>>;
   privacyApply(id: string, on: boolean): Promise<{ ok: boolean; error: string }>;
 
-  openTool(cmd: string): Promise<void>;
+  openTool(id: ToolId): Promise<boolean>;
   saveAutounattend(opts: Record<string, unknown>): Promise<{ ok: boolean; message: string }>;
 
   feeds(): Promise<{ articles: string[]; videos: string[] }>;
@@ -95,17 +97,17 @@ export interface AnchorApi {
   resetBackground(): Promise<void>;
   signIn(provider: string): Promise<{
     ok: boolean;
-    user?: { name: string; email: string; userId: string; accessToken: string };
+    user?: { name: string; email: string };
     error?: string;
   }>;
   saveSubscription(prefs: Partial<Profile>): Promise<{ ok: boolean; error?: string }>;
-  deleteSubscription(): Promise<{ ok: boolean; error?: string }>;
+  signOut(): Promise<{ ok: boolean }>;
   authConfigured(): Promise<boolean>;
   authProviders(): Promise<string[]>;
   sendEmailCode(email: string): Promise<{ ok: boolean; error?: string }>;
   verifyEmailCode(email: string, code: string): Promise<{
     ok: boolean;
-    user?: { name: string; email: string; userId: string; accessToken: string };
+    user?: { name: string; email: string };
     error?: string;
   }>;
 
@@ -241,8 +243,6 @@ export interface Profile {
   theme: string;
   seasonalLogos: boolean;
   background: string;
-  userId: string;
-  accessToken: string;
 }
 
 declare global {

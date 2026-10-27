@@ -1,7 +1,7 @@
 // Windows Update, drives, performance, startup apps, bloatware, privacy, tools,
 // autounattend — all via documented Windows mechanisms (WUA API, CIM/WMI, registry).
 const { spawn } = require("child_process");
-const { runPS, runPSJson } = require("./ps");
+const { psQuote, runPS, runPSJson } = require("./ps");
 
 // ---------- Windows Update ----------
 async function buildInfo() {
@@ -24,12 +24,33 @@ if ($build -ge 22000 -and $name -notmatch 'Server') {
 `);
 }
 
-async function checkUpdates() {
-  const r = await runPSJson(`
+// What Windows Update already knows locally — the same list Settings shows —
+// read with Online=$false (its own last scan, plus install history). That costs
+// ~3s, so it's prefetched and kept for a while; a live online search would
+// take 10–60s. `fresh` (the "Check for updates" button) skips the cache: the
+// user asked now, and Windows may have scanned or installed since.
+async function checkUpdates({ fresh = false } = {}) {
+  if (fresh) localCache = null;
+  return (await prefetchUpdates()) ?? { error: "Windows Update Agent unavailable." };
+}
+
+const LOCAL_TTL_MS = 10 * 60_000; // the local store only changes when Windows scans or installs
+let localCache = null;             // { at, promise }
+function prefetchUpdates() {
+  if (!localCache || Date.now() - localCache.at > LOCAL_TTL_MS) {
+    const entry = { at: Date.now(), promise: localUpdates() };
+    entry.promise.then((r) => { if ((!r || r.error) && localCache === entry) localCache = null; }); // don't keep a failure
+    localCache = entry;
+  }
+  return localCache.promise;
+}
+
+async function localUpdates() {
+  return await runPSJson(`
 $ErrorActionPreference='Stop'
 try {
-  $session=New-Object -ComObject Microsoft.Update.Session
-  $searcher=$session.CreateUpdateSearcher()
+  $searcher=(New-Object -ComObject Microsoft.Update.Session).CreateUpdateSearcher()
+  $searcher.Online=$false
   $result=$searcher.Search("IsInstalled=0 and Type='Software' and IsHidden=0")
   $titles=@(); for($i=0;$i -lt [math]::Min($result.Updates.Count,15);$i++){ $titles+=$result.Updates.Item($i).Title }
   $last=$null
@@ -39,9 +60,8 @@ try {
     for($i=0;$i -lt $h.Count;$i++){ if($h.Item($i).ResultCode -eq 2){ $last=$h.Item($i).Title+' — '+$h.Item($i).Date.ToLocalTime().ToShortDateString(); break } }
   }
   [PSCustomObject]@{pending=$result.Updates.Count; titles=$titles; last=$last} | ConvertTo-Json -Compress
-} catch { [PSCustomObject]@{error=$_.Exception.Message} | ConvertTo-Json -Compress }
-`, { long: true }); // a Windows Update search can take minutes
-  return r ?? { error: "Windows Update Agent unavailable." };
+} catch { [PSCustomObject]@{error=$_.Exception.Message} | ConvertTo-Json -Compress } # the real reason, shown on the page
+`);
 }
 
 // ---------- Drives ----------
@@ -201,8 +221,8 @@ ConvertTo-Json @($out) -Compress
 }
 
 async function startupToggle(name, scope, enable) {
+  if (scope !== "You" && scope !== "All users") return { ok: false, error: "Unknown startup scope." };
   const root = scope === "You" ? "HKCU:" : "HKLM:";
-  const safe = name.replace(/'/g, "''");
   const { code, err } = await runPS(`
 $key='${root}\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run'
 if(-not (Test-Path $key)){ New-Item -Path $key -Force | Out-Null }
@@ -210,7 +230,7 @@ $bytes=New-Object byte[] 12
 ${enable
     ? "$bytes[0]=2"
     : "$bytes[0]=3; $ft=[BitConverter]::GetBytes([DateTime]::UtcNow.ToFileTimeUtc()); [Array]::Copy($ft,0,$bytes,4,8)"}
-Set-ItemProperty -Path $key -Name '${safe}' -Value $bytes -Type Binary
+Set-ItemProperty -Path $key -Name ${psQuote(name)} -Value $bytes -Type Binary
 `);
   return { ok: code === 0, error: err };
 }
@@ -256,7 +276,7 @@ async function bloatwareList() {
 // builds reject -AllUsers, so a plain removal is the fallback.
 async function bloatwareRemove(packages) {
   if (!packages.length) return [];
-  const list = packages.map((p) => `'${p.packageFullName.replace(/'/g, "''")}'`).join(",");
+  const list = packages.map((p) => psQuote(p.packageFullName)).join(",");
   const r = await runPSJson(`
 $ProgressPreference='SilentlyContinue'
 $res = foreach ($pkg in @(${list})) {
@@ -322,8 +342,23 @@ Set-ItemProperty -Path '${t.hive}\\${t.key}' -Name '${t.value}' -Value ${on ? t.
 }
 
 // ---------- Tools & Autounattend ----------
-function openTool(cmd) {
-  spawn("cmd", ["/c", "start", "", cmd], { windowsHide: true, detached: true });
+// The renderer names a tool id; main owns the command. Anchor runs elevated, so a
+// renderer-supplied string must never reach `cmd /c start`.
+const TOOLS = {
+  cleanmgr: "cleanmgr.exe",
+  storagesense: "ms-settings:storagesense",
+  taskschd: "taskschd.msc",
+  rstrui: "rstrui.exe",
+  resmon: "resmon.exe",
+  dfrgui: "dfrgui.exe",
+  windowsupdate: "ms-settings:windowsupdate",
+};
+
+function openTool(id) {
+  // hasOwn: "constructor" and friends must not resolve through the prototype.
+  if (typeof id !== "string" || !Object.hasOwn(TOOLS, id)) return false;
+  spawn("cmd", ["/c", "start", "", TOOLS[id]], { windowsHide: true, detached: true });
+  return true;
 }
 
 function generateAutounattend(o) {
@@ -395,7 +430,7 @@ function generateAutounattend(o) {
 }
 
 module.exports = {
-  buildInfo, checkUpdates, driveHealth, volumes, isAdmin, perfSample, topProcesses, deviceHealth, cpuInfo,
+  buildInfo, checkUpdates, prefetchUpdates, driveHealth, volumes, isAdmin, perfSample, topProcesses, deviceHealth, cpuInfo,
   startupList, startupToggle, bloatwareList, bloatwareRemove,
   privacyList, privacyApply, openTool, generateAutounattend,
 };

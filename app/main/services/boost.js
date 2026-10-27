@@ -3,7 +3,7 @@
 // Trim safety rules: never touches processes with a visible window, never
 // touches critical system processes, and only *trims* memory — kills nothing.
 // "RAM freed" is measured system-wide (available memory before vs after).
-const { runPS, runPSJson } = require("./ps");
+const { psQuote, runPS, runPSJson } = require("./ps");
 
 const CRITICAL = [
   "System", "Idle", "Registry", "Memory Compression", "smss", "csrss", "wininit",
@@ -143,7 +143,7 @@ async function createRestorePoint(description) {
   const { code, err } = await runPS(`
 Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\SystemRestore' -Name SystemRestorePointCreationFrequency -Value 0 -Type DWord -Force
 Enable-ComputerRestore -Drive $env:SystemDrive
-Checkpoint-Computer -Description '${description.replace(/'/g, "")}' -RestorePointType MODIFY_SETTINGS
+Checkpoint-Computer -Description ${psQuote(description)} -RestorePointType MODIFY_SETTINGS
 `);
   return code === 0
     ? { ok: true, message: "Restore point created. You can roll back any change from Windows System Restore." }

@@ -17,6 +17,13 @@ const { spawn } = require("child_process");
 
 const PS_ARGS = ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass"];
 
+/** A PowerShell single-quoted literal for `value`, quotes included. PowerShell
+ *  treats U+2018-U+201B like ' inside a literal, so all of them are doubled;
+ *  doubling only ASCII lets a name with a curly quote end the string early. */
+function psQuote(value) {
+  return "'" + String(value).replace(/['‘-‛]/g, (c) => c + c) + "'";
+}
+
 function runPS(command) {
   return spawnPS(["-Command", command]);
 }
@@ -192,4 +199,4 @@ function shutdown() {
   hosts.clear();
 }
 
-module.exports = { runPS, runPSJson, warmUp, shutdown };
+module.exports = { psQuote, runPS, runPSJson, warmUp, shutdown };

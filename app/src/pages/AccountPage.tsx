@@ -63,6 +63,13 @@ export default function AccountPage() {
     const saved = await persist(patch);
     setMailMsg("Saving…");
     const r = await window.anchor.saveSubscription(saved);
+    if (r.error === "signed-out") {
+      // Main has already forgotten the session: drop to the signed-out view, where the sign-in controls are.
+      await persist({ provider: "Local", name: "", email: "" });
+      setMailMsg("");
+      setAuthMsg("Your sign-in expired — sign in again to save mail preferences.");
+      return;
+    }
     setMailMsg(
       r.ok
         ? "Preferences saved."
@@ -83,7 +90,6 @@ export default function AccountPage() {
     if (r.ok && r.user) {
       await persist({
         name: r.user.name, email: r.user.email, provider,
-        userId: r.user.userId, accessToken: r.user.accessToken,
       });
       setAuthMsg("");
     } else {
@@ -111,7 +117,6 @@ export default function AccountPage() {
     if (r.ok && r.user) {
       await persist({
         name: r.user.name, email: r.user.email, provider: "email",
-        userId: r.user.userId, accessToken: r.user.accessToken,
       });
       setAuthMsg("");
       setCode("");
@@ -123,8 +128,8 @@ export default function AccountPage() {
   }
 
   async function signOut() {
-    await window.anchor.deleteSubscription().catch(() => {});
-    await persist({ provider: "Local", name: "", email: "", userId: "", accessToken: "" });
+    await window.anchor.signOut().catch(() => {});
+    await persist({ provider: "Local", name: "", email: "" });
     setAuthMsg("Signed out.");
     setCodeSent(false);
     setEmail("");

@@ -38,7 +38,8 @@ contextBridge.exposeInMainWorld("anchor", {
 
   // windows update
   buildInfo: () => call("sys:buildInfo"),
-  checkUpdates: () => call("sys:checkUpdates"),
+  checkUpdates: (opts) => call("sys:checkUpdates", opts),
+  prefetchUpdates: () => call("sys:prefetchUpdates"),
 
   // drives / performance
   driveHealth: () => call("sys:driveHealth"),
@@ -65,7 +66,7 @@ contextBridge.exposeInMainWorld("anchor", {
   privacyApply: (id, on) => call("sys:privacyApply", id, on),
 
   // tools
-  openTool: (cmd) => call("sys:openTool", cmd),
+  openTool: (id) => call("sys:openTool", id),
   saveAutounattend: (opts) => call("sys:saveAutounattend", opts),
 
   // news
@@ -86,7 +87,7 @@ contextBridge.exposeInMainWorld("anchor", {
   authConfigured: () => call("auth:configured"),
   authProviders: () => call("auth:providers"),
   saveSubscription: (prefs) => call("auth:saveSubscription", prefs),
-  deleteSubscription: () => call("auth:deleteSubscription"),
+  signOut: () => call("auth:signOut"),
   sendEmailCode: (email) => call("auth:sendEmailCode", email),
   verifyEmailCode: (email, code) => call("auth:verifyEmailCode", email, code),
 

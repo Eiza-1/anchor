@@ -104,3 +104,34 @@ describe("host pool", () => {
     expect(hosts()).toHaveLength(2);
   });
 });
+
+describe("psQuote", () => {
+  const psQuote = (v: unknown) => (ps as unknown as { psQuote(v: unknown): string }).psQuote(v);
+
+  it("wraps and doubles ASCII quotes", () => {
+    expect(psQuote("it's")).toBe("'it''s'");
+  });
+
+  // PowerShell treats U+2018-U+201B as quote characters too; an undoubled one
+  // would close the literal early.
+  it("neutralises curly quotes", () => {
+    for (const ch of ["‘", "’", "‚", "‛"]) {
+      expect(psQuote("a" + ch + "b")).toBe("'a" + ch + ch + "b'");
+    }
+  });
+
+  it("stringifies non-strings", () => {
+    expect(psQuote(42)).toBe("'42'");
+  });
+
+  it("round-trips through PowerShell", async () => {
+    // this test needs the real powershell.exe, not the fake the suite installs
+    cp.spawn = realSpawn;
+    delete require.cache[require.resolve("../main/services/ps.js")];
+    const real = require("../main/services/ps.js") as ReturnType<typeof require>;
+    const input = "x’; Write-Output PWNED; ’";
+    const r = await real.runPS("[Console]::OutputEncoding=[Text.Encoding]::UTF8; Write-Output " + real.psQuote(input));
+    expect(r.out).toBe(input);
+    expect(r.out.split(/\r?\n/)).not.toContain("PWNED");
+  }, 30000);
+});

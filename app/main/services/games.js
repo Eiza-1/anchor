@@ -1,5 +1,6 @@
 // Game data for Home: upcoming releases (RAWG) and free giveaways (GamerPower).
 // No Electron imports so it can be unit-tested.
+const { isPlaceholder } = require("./config");
 const UA = { "User-Agent": "Anchor/1.0 (Windows optimization app; open-source)" };
 const PLATFORM_MAP = { pc: "pc", playstation: "playstation", xbox: "xbox", nintendo: "switch" };
 
@@ -61,24 +62,23 @@ function mapGamerPower(json) {
   return out;
 }
 
-/** Calendar-date arithmetic on YYYY-MM-DD, independent of timezone/DST. */
-function addDays(ymd, days) {
-  const [y, m, d] = ymd.split("-").map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d + days));
-  return dt.toISOString().slice(0, 10);
-}
-
 async function getJson(url) {
   const res = await fetch(url, { headers: UA, signal: AbortSignal.timeout(8000) });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
-async function upcomingReleases(key, today, days = 45) {
-  if (!key) return { ok: false, reason: "no-key" };
+// RAWG is reached through our Supabase Edge Function so the RAWG key never
+// ships in the app. The function adds the date window; the anon key is public.
+async function upcomingReleases({ url, anonKey } = {}, fetchFn = fetch) {
+  if (isPlaceholder(url) || isPlaceholder(anonKey)) return { ok: false, reason: "no-key" };
   try {
-    const url = `https://api.rawg.io/api/games?key=${encodeURIComponent(key)}&dates=${today},${addDays(today, days)}&ordering=-added&page_size=40`;
-    return { ok: true, items: mapRawg(await getJson(url)) };
+    const res = await fetchFn(url, {
+      headers: { ...UA, apikey: anonKey, Authorization: `Bearer ${anonKey}` },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return { ok: true, items: mapRawg(await res.json()) };
   } catch {
     return { ok: false, reason: "network" };
   }

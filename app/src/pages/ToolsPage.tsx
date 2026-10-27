@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Checkbox, Input, Label } from "@/components/ui";
+import type { ToolId } from "@/types";
 
-const TOOLS = [
-  { label: "Disk Cleanup", cmd: "cleanmgr.exe" },
-  { label: "Storage Sense", cmd: "ms-settings:storagesense" },
-  { label: "Task Scheduler", cmd: "taskschd.msc" },
-  { label: "System Restore", cmd: "rstrui.exe" },
-  { label: "Resource Monitor", cmd: "resmon.exe" },
-  { label: "Optimize Drives", cmd: "dfrgui.exe" },
+const TOOLS: { label: string; id: ToolId }[] = [
+  { label: "Disk Cleanup", id: "cleanmgr" },
+  { label: "Storage Sense", id: "storagesense" },
+  { label: "Task Scheduler", id: "taskschd" },
+  { label: "System Restore", id: "rstrui" },
+  { label: "Resource Monitor", id: "resmon" },
+  { label: "Optimize Drives", id: "dfrgui" },
 ];
 
 export default function ToolsPage() {
@@ -35,7 +36,7 @@ export default function ToolsPage() {
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           {TOOLS.map((t) => (
-            <Button key={t.cmd} variant="outline" size="sm" onClick={() => window.anchor.openTool(t.cmd)}>
+            <Button key={t.id} variant="outline" size="sm" onClick={() => window.anchor.openTool(t.id)}>
               {t.label}
             </Button>
           ))}

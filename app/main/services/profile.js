@@ -25,9 +25,6 @@ const DEFAULTS = {
   seasonalLogos: true,
   // Your own background picture, copied into userData (e.g. "background.jpg"); "" = theme picture.
   background: "",
-  // Supabase session, kept so mail preferences can be saved to your account.
-  userId: "",
-  accessToken: "",
 };
 
 function loadProfile() {
@@ -38,11 +35,21 @@ function loadProfile() {
   }
 }
 
-function saveProfile(profile) {
-  const merged = { ...loadProfile(), ...profile };
+function write(profile) {
   fs.mkdirSync(path.dirname(file()), { recursive: true });
-  fs.writeFileSync(file(), JSON.stringify(merged, null, 2));
-  return merged;
+  fs.writeFileSync(file(), JSON.stringify(profile, null, 2));
+  return profile;
 }
 
-module.exports = { loadProfile, saveProfile };
+function saveProfile(profile) {
+  return write({ ...loadProfile(), ...profile });
+}
+
+/** Deletes keys outright (e.g. 1.1.1's token, moved out by services/session.js). */
+function removeKeys(keys) {
+  const p = loadProfile();
+  for (const k of keys) delete p[k];
+  return write(p);
+}
+
+module.exports = { loadProfile, saveProfile, removeKeys };

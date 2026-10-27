@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, Tray, Menu, Notification, protocol, net } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, dialog, Tray, Menu, Notification, protocol, net, safeStorage } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
@@ -7,6 +7,8 @@ const sys = require("./services/system");
 const news = require("./services/news");
 const profile = require("./services/profile");
 const auth = require("./services/auth");
+const config = require("./services/config");
+const { createSessionStore, validToken, migrate } = require("./services/session");
 const perf = require("./services/perftweaks");
 const updater = require("./services/updater");
 const { warmUp, shutdown } = require("./services/ps");
@@ -18,6 +20,9 @@ const cleanup = require("./services/cleanup");
 const background = require("./services/background");
 const games = require("./services/games");
 const { seasonFor } = require("./services/season");
+const instance = require("./services/instance");
+const imgproxy = require("./services/imgproxy");
+const { createManualFetch } = require("./services/manualfetch");
 
 let win;
 let tray = null;
@@ -30,8 +35,13 @@ if (process.env.VITE_DEV_SERVER_URL) app.setPath("userData", `${app.getPath("use
 // One Anchor per user: a second launch (shortcut clicked while Anchor sits in
 // the tray, or a login launch on top of an open one) hands over and exits, so
 // there's never a second tray icon or a second set of PowerShell processes.
+// Electron hands over to an Anchor at the same elevation; poke() also reaches
+// an elevated one from an unelevated launch (see services/instance.js).
 const gotLock = app.requestSingleInstanceLock();
-if (!gotLock) app.exit(0);
+if (!gotLock) {
+  if (process.argv.includes("--startup")) app.exit(0);
+  else instance.poke(app.getPath("userData")).finally(() => app.exit(0));
+}
 app.on("second-instance", (_e, argv) => {
   if (!argv.includes("--startup")) openWindow();
 });
@@ -61,22 +71,10 @@ function refreshSeason() {
 // anchor-img://fetch?u=<https url>: a news picture fetched by main, readable by
 // the page (feeds' image hosts send no CORS headers). The page shrinks it to
 // card size once (lib/thumbs.ts) instead of decoding multi-megapixel photos
-// while you scroll. Images only; anything else is refused.
+// while you scroll. Images only, never local/private hosts (services/imgproxy.js).
 protocol.registerSchemesAsPrivileged([
   { scheme: "anchor-img", privileges: { supportFetchAPI: true, corsEnabled: true, secure: true } },
 ]);
-async function proxyImage(req) {
-  const target = new URL(req.url).searchParams.get("u") ?? "";
-  if (!target.startsWith("https://")) return new Response(null, { status: 400 });
-  try {
-    const res = await net.fetch(target, { headers: { "User-Agent": "Mozilla/5.0 Anchor" } });
-    const type = res.headers.get("content-type") ?? "";
-    if (!res.ok || !type.startsWith("image/")) return new Response(null, { status: 502 });
-    return new Response(res.body, { headers: { "content-type": type, "access-control-allow-origin": "*" } });
-  } catch {
-    return new Response(null, { status: 502 });
-  }
-}
 // Launched by Windows at login (see setLoginItemSettings) — start in the tray.
 const startedHidden = process.argv.includes("--startup");
 // Windows matches toasts to the installer's shortcut by this id.
@@ -157,7 +155,7 @@ function createWindow({ show }) {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true, // the preload only needs contextBridge/ipcRenderer, which sandboxed preloads allow
     },
   });
 
@@ -208,14 +206,34 @@ function createTray() {
   tray.on("double-click", () => openWindow());
 }
 
+// Created in whenReady (safeStorage needs a ready app); the auth handlers only run after that.
+let sessionStore = null;
+
 app.whenReady().then(async () => {
   if (!gotLock) return;
-  protocol.handle("anchor-img", proxyImage);
+  sessionStore = createSessionStore({
+    file: path.join(app.getPath("userData"), "session.bin"),
+    crypto: safeStorage,
+  });
+  // Anchor.exe is asInvoker, so a taskbar click on a running Anchor hands over
+  // without UAC. A launch with nothing to hand over to relaunches elevated.
+  if (app.isPackaged && !process.argv.includes(instance.ELEVATED_FLAG) && !(await instance.isElevated())) {
+    app.releaseSingleInstanceLock(); // so the elevated copy gets it
+    await instance.relaunchElevated(process.argv.slice(1).filter((a) => a === "--startup"));
+    return app.exit(0);
+  }
+  // 1.1.1 kept the token in profile.json. Only the process that stays runs this,
+  // and a locked or read-only profile must not stop the window, tray and listen().
+  try { await migrate(sessionStore, profile); } catch { /* retried next launch */ }
+  instance.listen(app.getPath("userData"), () => openWindow());
+  const imageFetch = createManualFetch(net, imgproxy.MAX_BYTES);
+  protocol.handle("anchor-img", (req) => imgproxy.proxyImage(req, imageFetch));
   // A login launch waits in the tray without loading the window — the user
   // hasn't asked to see it, and an unopened window still costs ~300 MB.
   if (!startedHidden) {
     createWindow({ show: true });
     warmUp();                     // start the PowerShell host before it's needed
+    setTimeout(() => sys.prefetchUpdates(), 4000); // so "Check for updates" answers at once; after the first page's reads
   }
   createTray();
   setInterval(refreshSeason, 60 * 60 * 1000);   // seasons start and end at midnight; an hour late is fine
@@ -246,6 +264,7 @@ app.on("before-quit", () => {
   shutdown();
   monitor.stop();
   bootwatch.stopWatching();
+  if (gotLock) instance.clearPort(app.getPath("userData")); // so a later launch can't poke whatever takes the port next
 });
 
 // ---------------- IPC ----------------
@@ -269,7 +288,8 @@ handle("cleanup:run", (ids) => cleanup.clean(ids ?? []));
 handle("cleanup:quick", () => cleanup.quickClean());
 
 handle("sys:buildInfo", () => sys.buildInfo());
-handle("sys:checkUpdates", () => sys.checkUpdates());
+handle("sys:checkUpdates", (opts) => sys.checkUpdates({ fresh: !!opts?.fresh }));
+handle("sys:prefetchUpdates", () => void sys.prefetchUpdates());
 handle("sys:driveHealth", () => sys.driveHealth());
 handle("sys:volumes", () => sys.volumes());
 handle("sys:isAdmin", () => sys.isAdmin());
@@ -285,7 +305,7 @@ handle("sys:bloatwareList", () => sys.bloatwareList());
 handle("sys:bloatwareRemove", (pkgs) => sys.bloatwareRemove(pkgs));
 handle("sys:privacyList", () => sys.privacyList());
 handle("sys:privacyApply", (id, on) => sys.privacyApply(id, on));
-handle("sys:openTool", (cmd) => sys.openTool(cmd));
+handle("sys:openTool", (id) => sys.openTool(id));
 
 handle("sys:saveAutounattend", async (opts) => {
   const xml = sys.generateAutounattend(opts);
@@ -303,45 +323,62 @@ handle("news:feeds", () => ({ articles: Object.keys(news.FEEDS), videos: Object.
 handle("news:articles", (sources) => news.fetchArticles(sources));
 handle("news:videos", () => news.fetchVideos());
 handle("news:backfill", (links) => news.backfillImages(links ?? []));
-handle("games:releases", () => {
-  let key = "";
-  try { key = require("./config").rawgKey ?? ""; } catch { /* no config.js */ }
-  const d = new Date(), p = (n) => String(n).padStart(2, "0");
-  const today = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-  return games.upcomingReleases(key, today);
-});
+// Unconfigured builds (example config) get "no-key" from games.js.
+handle("games:releases", () =>
+  games.upcomingReleases({
+    url: `${config.SUPABASE_URL}/functions/v1/game-releases`,
+    anonKey: config.SUPABASE_ANON_KEY,
+  }));
 handle("games:free", () => games.freeGames());
 
-handle("profile:load", () => profile.loadProfile());
+// Tokens never go to the renderer; an upgraded profile.json may still carry empty userId/accessToken keys.
+const forRenderer = ({ userId: _u, accessToken: _t, ...rest }) => rest;
+handle("profile:load", () => forRenderer(profile.loadProfile()));
 // `background` is owned by services/background.js; a stale copy from the UI must not undo a pick/reset.
 handle("profile:save", (p) => {
-  const { background: _ignored, ...rest } = p ?? {};
+  const { background: _ignored, userId: _u, accessToken: _t, ...rest } = p ?? {};
   const saved = profile.saveProfile(rest);
   refreshSeason();                // "Seasonal logos" may have changed
-  return saved;
+  return forRenderer(saved);
 });
 handle("bg:pick", () => background.pickBackground(win));
 handle("bg:get", () => background.getBackground());
 handle("bg:reset", () => background.resetBackground());
+// Keep the session here and hand the renderer only who signed in.
+async function adopt({ session, ...user }) {
+  await sessionStore.save(session);
+  return { ok: true, user };
+}
 handle("auth:signIn", async (provider) => {
   try {
-    const user = await auth.signIn(provider);
-    return { ok: true, user };
+    return await adopt(await auth.signIn(provider));
   } catch (e) {
     return { ok: false, error: e.message };
   }
 });
-handle("auth:configured", () => auth.isConfigured());
-handle("auth:providers", () => auth.PROVIDERS);
+handle("auth:configured", () => config.isConfigured());
+handle("auth:providers", () => config.PROVIDERS);
+// null = signed out; a throw means the refresh couldn't be tried (offline) and the session is kept.
+async function sessionOrReason() {
+  try {
+    const session = await validToken(sessionStore, auth.refreshSession);
+    return session ? { session } : { fail: { ok: false, error: "signed-out" } };
+  } catch (e) {
+    return { fail: { ok: false, error: `offline: ${e.message}` } };
+  }
+}
 handle("auth:saveSubscription", async (prefs) => {
-  const p = profile.loadProfile();
-  return auth.saveSubscription({
-    accessToken: p.accessToken, userId: p.userId, email: p.email, prefs,
-  });
+  const { session, fail } = await sessionOrReason();
+  return session ? auth.saveSubscription({ session, prefs }) : fail;
 });
-handle("auth:deleteSubscription", async () => {
-  const p = profile.loadProfile();
-  return auth.deleteSubscription({ accessToken: p.accessToken, userId: p.userId });
+handle("auth:signOut", async () => {
+  // Best effort: leave the mailing lists while we still hold a token, then forget it.
+  try {
+    const session = await validToken(sessionStore, auth.refreshSession);
+    if (session) await auth.deleteSubscription({ session });
+  } catch { /* offline: still sign out locally */ }
+  await sessionStore.clear();
+  return { ok: true };
 });
 handle("auth:sendEmailCode", async (email) => {
   try {
@@ -353,8 +390,7 @@ handle("auth:sendEmailCode", async (email) => {
 });
 handle("auth:verifyEmailCode", async (email, code) => {
   try {
-    const user = await auth.verifyEmailCode(email, code);
-    return { ok: true, user };
+    return await adopt(await auth.verifyEmailCode(email, code));
   } catch (e) {
     return { ok: false, error: e.message };
   }

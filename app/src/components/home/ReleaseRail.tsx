@@ -21,7 +21,7 @@ const CHIPS: ChipOption<Filter>[] = [
   { value: "xbox", label: "Xbox" },
   { value: "switch", label: "Switch" },
 ];
-const REASONS: Record<string, string> = { "no-key": "No RAWG key set", network: "Couldn't reach RAWG" };
+const REASONS: Record<string, string> = { "no-key": "Release calendar isn't set up in this build", network: "Couldn't reach RAWG" };
 
 const W_CLOSED = 108;
 const W_OPEN = 220;

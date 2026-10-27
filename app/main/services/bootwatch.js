@@ -11,7 +11,7 @@
 //
 // Nothing is removed automatically. Findings are explained; the user decides.
 const { spawn } = require("child_process");
-const { runPS, runPSJson } = require("./ps");
+const { psQuote: q, runPS, runPSJson } = require("./ps");
 
 /* ------------------------------ risk scoring ------------------------------ */
 
@@ -126,7 +126,6 @@ function filesIn(command) {
 async function microsoftSigned(files) {
   const unique = [...new Set(files.map((f) => f.toLowerCase()))];
   if (unique.length === 0) return new Set();
-  const q = (s) => `'${s.replace(/'/g, "''")}'`;
   const r = await runPSJson(`
 $roots = @(${MS_ROOTS.map(q).join(",")})
 $out = @()
@@ -374,12 +373,19 @@ async function disableEntry(id) {
     case "task": {
       const path = target.replace(/([^\\]+)$/, "");
       const name = target.slice(path.length);
-      cmd = `Disable-ScheduledTask -TaskPath '${path.replace(/'/g, "''")}' -TaskName '${name.replace(/'/g, "''")}'`;
+      cmd = `Disable-ScheduledTask -TaskPath ${q(path)} -TaskName ${q(name)}`;
       break;
     }
     case "run": {
-      const [key, valueName] = target.split("|");
-      cmd = `Remove-ItemProperty -Path '${key}' -Name '${valueName.replace(/'/g, "''")}' -Force`;
+      // "key|value name": a value name may itself hold "|", so split at the first one only
+      const bar = target.indexOf("|");
+      const key = bar === -1 ? target : target.slice(0, bar);
+      const valueName = bar === -1 ? "" : target.slice(bar + 1);
+      // the key is a registry path from our own scan; refuse anything else, and an
+      // empty name, which would address the key's default value rather than an entry
+      if (!/^(HKCU|HKLM):\\/.test(key) || !valueName) return { ok: false, error: "This entry can't be disabled automatically." };
+      // -LiteralPath: a scanned key name holding * or [ ] must not match other keys
+      cmd = `Remove-ItemProperty -LiteralPath ${q(key)} -Name ${q(valueName)} -Force`;
       break;
     }
     case "file":
@@ -387,16 +393,16 @@ async function disableEntry(id) {
       cmd = `
 $q = Join-Path $env:LOCALAPPDATA 'Anchor\\Quarantine'
 New-Item -ItemType Directory -Force $q | Out-Null
-Move-Item -LiteralPath '${target.replace(/'/g, "''")}' -Destination $q -Force`;
+Move-Item -LiteralPath ${q(target)} -Destination $q -Force`;
       break;
     case "service":
-      cmd = `Set-Service -Name '${target.replace(/'/g, "''")}' -StartupType Disabled; Stop-Service -Name '${target.replace(/'/g, "''")}' -Force`;
+      cmd = `Set-Service -Name ${q(target)} -StartupType Disabled; Stop-Service -Name ${q(target)} -Force`;
       break;
     case "wmi":
-      cmd = `Get-CimInstance -Namespace root\\subscription -ClassName CommandLineEventConsumer -Filter "Name='${target.replace(/'/g, "''")}'" | Remove-CimInstance`;
+      cmd = `Get-CimInstance -Namespace root\\subscription -ClassName CommandLineEventConsumer -Filter ${q(`Name='${target.replace(/[\\']/g, "\\$&")}'`)} | Remove-CimInstance`;
       break;
     case "ifeo":
-      cmd = `Remove-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\${target}' -Name Debugger -Force`;
+      cmd = `Remove-ItemProperty -LiteralPath ${q(`HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\${target}`)} -Name Debugger -Force`;
       break;
     default:
       return { ok: false, error: "This entry can't be disabled automatically." };
