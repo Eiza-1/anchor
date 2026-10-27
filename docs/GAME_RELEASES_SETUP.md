@@ -44,7 +44,16 @@ Invoke-RestMethod `
   -Headers @{ apikey = $anon; Authorization = "Bearer $anon" }
 ```
 
-You should get `{ results: [...] }` as RAWG returns it.
+You should get `{ results: [...] }`, each game trimmed to the fields Anchor
+uses. Confirm the response contains no `key=` anywhere — RAWG echoes its key
+in its paging links, and the function must strip them:
+
+```powershell
+(Invoke-WebRequest `
+  -Uri "https://YOUR_PROJECT_REF.supabase.co/functions/v1/game-releases" `
+  -Headers @{ apikey = $anon; Authorization = "Bearer $anon" }).Content -match "key="
+# must print False
+```
 
 ## Notes
 
