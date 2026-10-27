@@ -7,6 +7,7 @@ const sys = require("./services/system");
 const news = require("./services/news");
 const profile = require("./services/profile");
 const auth = require("./services/auth");
+const config = require("./services/config");
 const { createSessionStore, validToken, migrate } = require("./services/session");
 const perf = require("./services/perftweaks");
 const updater = require("./services/updater");
@@ -321,13 +322,11 @@ handle("news:feeds", () => ({ articles: Object.keys(news.FEEDS), videos: Object.
 handle("news:articles", (sources) => news.fetchArticles(sources));
 handle("news:videos", () => news.fetchVideos());
 handle("news:backfill", (links) => news.backfillImages(links ?? []));
-// Same config loading as auth.js: real config.js, else the example (which yields "no-key").
-let appConfig;
-try { appConfig = require("./config"); } catch { appConfig = require("./config.example"); }
+// Unconfigured builds (example config) get "no-key" from games.js.
 handle("games:releases", () =>
   games.upcomingReleases({
-    url: `${appConfig.supabaseUrl}/functions/v1/game-releases`,
-    anonKey: appConfig.supabaseAnonKey,
+    url: `${config.SUPABASE_URL}/functions/v1/game-releases`,
+    anonKey: config.SUPABASE_ANON_KEY,
   }));
 handle("games:free", () => games.freeGames());
 
@@ -356,8 +355,8 @@ handle("auth:signIn", async (provider) => {
     return { ok: false, error: e.message };
   }
 });
-handle("auth:configured", () => auth.isConfigured());
-handle("auth:providers", () => auth.PROVIDERS);
+handle("auth:configured", () => config.isConfigured());
+handle("auth:providers", () => config.PROVIDERS);
 // null = signed out; a throw means the refresh couldn't be tried (offline) and the session is kept.
 async function sessionOrReason() {
   try {
@@ -370,10 +369,6 @@ async function sessionOrReason() {
 handle("auth:saveSubscription", async (prefs) => {
   const { session, fail } = await sessionOrReason();
   return session ? auth.saveSubscription({ session, prefs }) : fail;
-});
-handle("auth:deleteSubscription", async () => {
-  const { session, fail } = await sessionOrReason();
-  return session ? auth.deleteSubscription({ session }) : fail;
 });
 handle("auth:signOut", async () => {
   // Best effort: leave the mailing lists while we still hold a token, then forget it.

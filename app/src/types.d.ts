@@ -101,7 +101,6 @@ export interface AnchorApi {
     error?: string;
   }>;
   saveSubscription(prefs: Partial<Profile>): Promise<{ ok: boolean; error?: string }>;
-  deleteSubscription(): Promise<{ ok: boolean; error?: string }>;
   signOut(): Promise<{ ok: boolean }>;
   authConfigured(): Promise<boolean>;
   authProviders(): Promise<string[]>;

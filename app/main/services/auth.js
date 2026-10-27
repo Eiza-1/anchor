@@ -2,31 +2,15 @@
 // The whole flow runs in the user's DEFAULT BROWSER — Anchor never embeds a web
 // view and never sees the password. Public client: only the anon key is used,
 // which is safe to ship (it's the same key any web page using Supabase exposes).
-// Setup: see docs/SUPABASE_SETUP.md, then fill in the two constants below.
+// Setup: see docs/SUPABASE_SETUP.md; the settings come from services/config.js.
 const http = require("http");
 const crypto = require("crypto");
 const { shell } = require("electron");
 
-// Settings live in main/config.js, which is gitignored. Cloning the repo gives
-// you config.example.js to copy — see docs/SUPABASE_SETUP.md.
-let config;
-try {
-  config = require("../config");
-} catch {
-  config = require("../config.example");
-}
-
-const SUPABASE_URL = config.supabaseUrl;
-const SUPABASE_ANON_KEY = config.supabaseAnonKey;
+const { SUPABASE_URL, SUPABASE_ANON_KEY, isConfigured } = require("./config");
 
 const PORT = 53682;
 const REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
-
-// Providers offered in the UI. Enable the matching ones in the Supabase dashboard.
-const PROVIDERS = config.providers ?? ["google", "github"];
-
-const isConfigured = () =>
-  !SUPABASE_URL.includes("YOUR_") && !SUPABASE_ANON_KEY.includes("YOUR_");
 
 const b64url = (buf) =>
   buf.toString("base64").replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
@@ -49,8 +33,9 @@ function toSession(json, email) {
 }
 
 /** Trades a refresh token for a new session. null = Supabase refused it (400/401);
- *  network errors and 5xx throw, so a flaky connection never costs the user their sign-in. */
-async function refreshSession(refreshToken) {
+ *  network errors and 5xx throw, so a flaky connection never costs the user their sign-in.
+ *  `prevEmail` is kept when the response carries no user, so the mail row keeps its address. */
+async function refreshSession(refreshToken, prevEmail = "") {
   if (!isConfigured() || !refreshToken) return null;
   const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
     method: "POST",
@@ -61,7 +46,7 @@ async function refreshSession(refreshToken) {
   if (!res.ok) throw new Error(`Refresh failed (${res.status}).`);
   const json = await res.json();
   if (!json.access_token) throw new Error("Refresh returned no token.");
-  return toSession(json, json.user?.email ?? "");
+  return toSession(json, json.user?.email || prevEmail);
 }
 
 async function signIn(provider = "google") {
@@ -211,6 +196,6 @@ async function verifyEmailCode(email, token) {
 }
 
 module.exports = {
-  signIn, isConfigured, PROVIDERS, sendEmailCode, verifyEmailCode,
+  signIn, sendEmailCode, verifyEmailCode,
   saveSubscription, deleteSubscription, refreshSession,
 };

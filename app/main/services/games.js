@@ -1,5 +1,6 @@
 // Game data for Home: upcoming releases (RAWG) and free giveaways (GamerPower).
 // No Electron imports so it can be unit-tested.
+const { isPlaceholder } = require("./config");
 const UA = { "User-Agent": "Anchor/1.0 (Windows optimization app; open-source)" };
 const PLATFORM_MAP = { pc: "pc", playstation: "playstation", xbox: "xbox", nintendo: "switch" };
 
@@ -70,7 +71,7 @@ async function getJson(url) {
 // RAWG is reached through our Supabase Edge Function so the RAWG key never
 // ships in the app. The function adds the date window; the anon key is public.
 async function upcomingReleases({ url, anonKey } = {}, fetchFn = fetch) {
-  if (!url || !anonKey || /YOUR_/.test(url) || /YOUR_/.test(anonKey)) return { ok: false, reason: "no-key" };
+  if (isPlaceholder(url) || isPlaceholder(anonKey)) return { ok: false, reason: "no-key" };
   try {
     const res = await fetchFn(url, {
       headers: { ...UA, apikey: anonKey, Authorization: `Bearer ${anonKey}` },
