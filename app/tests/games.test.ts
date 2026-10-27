@@ -1,5 +1,5 @@
 import { createRequire } from "module";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { releaseCountdown, filterByPlatform, dayMonth, rawgImage, timeAgo } from "@/lib/games";
 import type { GameRelease, GamesResult } from "@/types";
 
@@ -7,7 +7,7 @@ const require = createRequire(import.meta.url);
 const games = require("../main/services/games.js") as {
   mapRawg(json: unknown): GameRelease[];
   mapGamerPower(json: unknown): { title: string; store: string; endDate: string | null; worth: string | null; url: string }[];
-  upcomingReleases(key: string, today: string, days?: number): Promise<GamesResult<GameRelease>>;
+  upcomingReleases(cfg: { url: string; anonKey: string }, fetchFn?: unknown): Promise<GamesResult<GameRelease>>;
 };
 
 const pp = (...slugs: string[]) => slugs.map((s) => ({ platform: { slug: s } }));
@@ -68,28 +68,33 @@ describe("mapGamerPower", () => {
 });
 
 describe("upcomingReleases", () => {
-  afterEach(() => vi.unstubAllGlobals());
-  it("returns no-key without fetching", async () => {
-    const f = vi.fn(); vi.stubGlobal("fetch", f);
-    expect(await games.upcomingReleases("", "2026-10-20")).toEqual({ ok: false, reason: "no-key" });
-    expect(f).not.toHaveBeenCalled();
+  const cfg = { url: "https://proj.supabase.co/functions/v1/game-releases", anonKey: "anon-key" };
+  const ok = (body: unknown) => vi.fn(async () => ({ ok: true, status: 200, json: async () => body }));
+  it("calls the edge function with the anon key", async () => {
+    const f = ok({ results: [{ id: 1, name: "A", slug: "a", released: "2026-11-01", added: 3, parent_platforms: pp("pc"), genres: [] }] });
+    const r = await games.upcomingReleases(cfg, f);
+    expect(r.ok && r.items.map((g) => g.id)).toEqual([1]);
+    const [url, init] = f.mock.calls[0] as unknown as [string, { headers: Record<string, string> }];
+    expect(url).toBe(cfg.url);
+    expect(init.headers.apikey).toBe("anon-key");
+    expect(init.headers.Authorization).toBe("Bearer anon-key");
   });
-  it("maps non-2xx to network", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 401 })));
-    expect(await games.upcomingReleases("k", "2026-10-20")).toEqual({ ok: false, reason: "network" });
+  it("returns reason network on non-200", async () => {
+    const f = vi.fn(async () => ({ ok: false, status: 502 }));
+    expect(await games.upcomingReleases(cfg, f)).toEqual({ ok: false, reason: "network" });
   });
   it("maps thrown errors to network", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("down"); }));
-    expect(await games.upcomingReleases("k", "2026-10-20")).toEqual({ ok: false, reason: "network" });
+    const f = vi.fn(async () => { throw new Error("down"); });
+    expect(await games.upcomingReleases(cfg, f)).toEqual({ ok: false, reason: "network" });
   });
-  it("requests the 45-day window", async () => {
-    const f = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ results: [] }) }));
-    vi.stubGlobal("fetch", f);
-    const r = await games.upcomingReleases("k", "2026-10-20");
-    expect(r).toEqual({ ok: true, items: [] });
-    const url = String((f.mock.calls[0] as unknown[])[0]);
-    expect(url).toContain("dates=2026-10-20,2026-12-04");
-    expect(url).toContain("page_size=40");
+  it("returns no-key when unconfigured", async () => {
+    const f = vi.fn();
+    const none = { ok: false, reason: "no-key" };
+    expect(await games.upcomingReleases({ url: "", anonKey: "k" }, f)).toEqual(none);
+    expect(await games.upcomingReleases({ url: cfg.url, anonKey: "" }, f)).toEqual(none);
+    expect(await games.upcomingReleases({ url: "https://YOUR_PROJECT_REF.supabase.co/x", anonKey: "k" }, f)).toEqual(none);
+    expect(await games.upcomingReleases({ url: cfg.url, anonKey: "YOUR_SUPABASE_ANON_KEY" }, f)).toEqual(none);
+    expect(f).not.toHaveBeenCalled();
   });
 });
 

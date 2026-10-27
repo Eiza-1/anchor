@@ -328,13 +328,14 @@ handle("news:feeds", () => ({ articles: Object.keys(news.FEEDS), videos: Object.
 handle("news:articles", (sources) => news.fetchArticles(sources));
 handle("news:videos", () => news.fetchVideos());
 handle("news:backfill", (links) => news.backfillImages(links ?? []));
-handle("games:releases", () => {
-  let key = "";
-  try { key = require("./config").rawgKey ?? ""; } catch { /* no config.js */ }
-  const d = new Date(), p = (n) => String(n).padStart(2, "0");
-  const today = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-  return games.upcomingReleases(key, today);
-});
+// Same config loading as auth.js: real config.js, else the example (which yields "no-key").
+let appConfig;
+try { appConfig = require("./config"); } catch { appConfig = require("./config.example"); }
+handle("games:releases", () =>
+  games.upcomingReleases({
+    url: `${appConfig.supabaseUrl}/functions/v1/game-releases`,
+    anonKey: appConfig.supabaseAnonKey,
+  }));
 handle("games:free", () => games.freeGames());
 
 // Tokens never go to the renderer; an upgraded profile.json may still carry empty userId/accessToken keys.
