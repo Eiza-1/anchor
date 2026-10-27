@@ -214,7 +214,7 @@ app.whenReady().then(async () => {
     file: path.join(app.getPath("userData"), "session.bin"),
     crypto: safeStorage,
   });
-  migrate(sessionStore, profile); // 1.1.1 kept the token in profile.json
+  await migrate(sessionStore, profile); // 1.1.1 kept the token in profile.json
   // Anchor.exe is asInvoker, so a taskbar click on a running Anchor hands over
   // without UAC. A launch with nothing to hand over to relaunches elevated.
   if (app.isPackaged && !process.argv.includes(instance.ELEVATED_FLAG) && !(await instance.isElevated())) {
@@ -342,13 +342,13 @@ handle("bg:pick", () => background.pickBackground(win));
 handle("bg:get", () => background.getBackground());
 handle("bg:reset", () => background.resetBackground());
 // Keep the session here and hand the renderer only who signed in.
-function adopt({ session, ...user }) {
-  sessionStore.save(session);
+async function adopt({ session, ...user }) {
+  await sessionStore.save(session);
   return { ok: true, user };
 }
 handle("auth:signIn", async (provider) => {
   try {
-    return adopt(await auth.signIn(provider));
+    return await adopt(await auth.signIn(provider));
   } catch (e) {
     return { ok: false, error: e.message };
   }
@@ -378,7 +378,7 @@ handle("auth:signOut", async () => {
     const session = await validToken(sessionStore, auth.refreshSession);
     if (session) await auth.deleteSubscription({ session });
   } catch { /* offline: still sign out locally */ }
-  sessionStore.clear();
+  await sessionStore.clear();
   return { ok: true };
 });
 handle("auth:sendEmailCode", async (email) => {
@@ -391,7 +391,7 @@ handle("auth:sendEmailCode", async (email) => {
 });
 handle("auth:verifyEmailCode", async (email, code) => {
   try {
-    return adopt(await auth.verifyEmailCode(email, code));
+    return await adopt(await auth.verifyEmailCode(email, code));
   } catch (e) {
     return { ok: false, error: e.message };
   }
