@@ -1,7 +1,7 @@
 // Windows Update, drives, performance, startup apps, bloatware, privacy, tools,
 // autounattend — all via documented Windows mechanisms (WUA API, CIM/WMI, registry).
 const { spawn } = require("child_process");
-const { runPS, runPSJson } = require("./ps");
+const { psQuote, runPS, runPSJson } = require("./ps");
 
 // ---------- Windows Update ----------
 async function buildInfo() {
@@ -219,8 +219,8 @@ ConvertTo-Json @($out) -Compress
 }
 
 async function startupToggle(name, scope, enable) {
+  if (scope !== "You" && scope !== "All users") return { ok: false, error: "Unknown startup scope." };
   const root = scope === "You" ? "HKCU:" : "HKLM:";
-  const safe = name.replace(/'/g, "''");
   const { code, err } = await runPS(`
 $key='${root}\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run'
 if(-not (Test-Path $key)){ New-Item -Path $key -Force | Out-Null }
@@ -228,7 +228,7 @@ $bytes=New-Object byte[] 12
 ${enable
     ? "$bytes[0]=2"
     : "$bytes[0]=3; $ft=[BitConverter]::GetBytes([DateTime]::UtcNow.ToFileTimeUtc()); [Array]::Copy($ft,0,$bytes,4,8)"}
-Set-ItemProperty -Path $key -Name '${safe}' -Value $bytes -Type Binary
+Set-ItemProperty -Path $key -Name ${psQuote(name)} -Value $bytes -Type Binary
 `);
   return { ok: code === 0, error: err };
 }
@@ -274,7 +274,7 @@ async function bloatwareList() {
 // builds reject -AllUsers, so a plain removal is the fallback.
 async function bloatwareRemove(packages) {
   if (!packages.length) return [];
-  const list = packages.map((p) => `'${p.packageFullName.replace(/'/g, "''")}'`).join(",");
+  const list = packages.map((p) => psQuote(p.packageFullName)).join(",");
   const r = await runPSJson(`
 $ProgressPreference='SilentlyContinue'
 $res = foreach ($pkg in @(${list})) {

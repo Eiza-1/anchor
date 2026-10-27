@@ -10,7 +10,7 @@ const net = require("net");
 const fs = require("fs");
 const path = require("path");
 const { execFile } = require("child_process");
-const { runPS } = require("./ps");
+const { psQuote, runPS } = require("./ps");
 
 const ELEVATED_FLAG = "--elevated";
 const portFile = (userData) => path.join(userData, "instance.port");
@@ -25,7 +25,7 @@ function isElevated() {
 
 /** Relaunches this exe elevated with `args`. Resolves false if UAC was declined. */
 async function relaunchElevated(args) {
-  const quote = (s) => `'${String(s).replace(/'/g, "''")}'`;
+  const quote = psQuote;
   const argList = [...args, ELEVATED_FLAG].map(quote).join(",");
   const { code } = await runPS(`Start-Process -FilePath ${quote(process.execPath)} -Verb RunAs -ArgumentList @(${argList})`);
   return code === 0;
