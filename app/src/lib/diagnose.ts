@@ -125,7 +125,7 @@ export function uptimeAdvice(s: SystemState | null, leakCount: number): Advice {
   const reasons: string[] = [];
   if (pending) reasons.push(...s.pending);
   if (days >= 7) reasons.push(`it's been running for ${Math.floor(days)} days without a restart`);
-  if (poolMB > 600) reasons.push(`the non-paged memory pool has grown to ${Math.round(poolMB)} MB, which usually means a driver isn't releasing memory`);
+  if (poolMB > 600) reasons.push(`the non-paged pool is at ${Math.round(poolMB)} MB, a sign a driver is leaking memory`);
   if (leakCount > 0) reasons.push(`${leakCount} app${leakCount === 1 ? " appears" : "s appear"} to be leaking memory`);
   if (s.commitPercent > 90) reasons.push(`committed memory is at ${s.commitPercent}%, so Windows is leaning on the page file`);
   if (memUsedPct > 90) reasons.push("physical memory is nearly full");
@@ -134,7 +134,7 @@ export function uptimeAdvice(s: SystemState | null, leakCount: number): Advice {
     return {
       level: "urgent",
       headline: "Restart your PC",
-      detail: `A restart would fix this: ${reasons.join("; ")}. Restarting clears leaked memory, finishes queued updates, and resets driver state — things no cleanup tool can do while Windows is running.`,
+      detail: `A restart would fix this: ${reasons.join("; ")}. Restarting clears leaked memory, finishes queued updates and resets drivers, which no cleanup tool can do.`,
     };
 
   if (reasons.length)

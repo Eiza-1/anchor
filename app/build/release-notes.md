@@ -1,7 +1,13 @@
-## Anchor 1.1.1
+## Anchor 1.2.1
 
-Fixes for the Performance page after updating, and Boot Watch no longer flags Windows' own security.
+A smoothness and polish update: Home feels fluid again, video thumbnails load properly, and installing is simpler.
 
-- **The Performance page no longer opens blank after an update.** Anchor was showing data saved by the previous version, which the new page couldn't read. Each update now starts fresh, so this can't happen again.
-- **Your graphics card's video memory shows straight away.** After updating, the GPU card could show a dash instead of your video memory for up to half an hour.
-- **Boot Watch leaves Windows alone.** Microsoft Defender and Windows' own startup tasks were marked Suspicious and offered for disabling, which could leave your PC unprotected. Anything signed by Microsoft is now shown as "Part of Windows" and can't be disabled from Anchor. Anchor still flags anything else that looks suspicious, including Windows tools like PowerShell when they're used to run hidden or downloaded commands.
+- **Smoother Home.** Release cards spring open without overlapping, the last card opens fully, and the row no longer scrolls on its own near the edge.
+- **No more background flicker.** The art behind a card no longer flashes dark when you hover.
+- **Faster pages.** Pictures are shrunk in the background, so Tech Spotlight and Home stay responsive while they load.
+- **Sharper text.** Fixes blurry text and brief glitches while scrolling.
+- **Real video thumbnails.** YouTube videos and Shorts show their thumbnail instead of a grey placeholder.
+- **Official logos.** News sources show their site icon, and channels show their own profile picture.
+- **Simpler install.** The installer sets Anchor up for you without asking about all users, and carries the Anchor look.
+- **Update button fixed.** It no longer sits under the minimize, maximize and close buttons.
+- **Clearer wording.** Text across the app is shorter and easier to scan.

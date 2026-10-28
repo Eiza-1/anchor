@@ -9,7 +9,7 @@ import { runTask, useTask } from "@/lib/tasks";
 type UpdateResult = Awaited<ReturnType<typeof window.anchor.checkUpdates>>;
 
 const describe = (b: Awaited<ReturnType<typeof Q.buildInfo>>) =>
-  b ? `${b.ProductName} ${b.DisplayVersion} — build ${b.CurrentBuild}.${b.UBR}` : "";
+  b ? `${b.ProductName} ${b.DisplayVersion}, build ${b.CurrentBuild}.${b.UBR}` : "";
 
 export default function UpdatesPage() {
   const [build, setBuild] = useState(describe(peek("build") ?? null));
@@ -20,8 +20,8 @@ export default function UpdatesPage() {
     ? `Couldn't query Windows Update: ${task.error}. Open Settings > Windows Update to check manually.`
     : !u ? ""
     : u.error ? `Couldn't query Windows Update: ${u.error}. Open Settings > Windows Update to check manually.`
-    : u.pending === 0 ? "You're on a recent stable build — no cumulative, security, or feature updates are pending."
-    : `${u.pending} update(s) pending. Installing cumulative and security updates keeps your system stable and secure.`;
+    : u.pending === 0 ? "You're on a recent stable build with no cumulative, security or feature updates pending."
+    : `${u.pending} update(s) pending. Install cumulative and security updates to stay stable and secure.`;
   const pending = u?.titles ?? [];
   const last = u?.last ? `Last successful update: ${u.last}` : "";
   const cachedNews = peek<NewsItem[]>("news:articles");
@@ -79,10 +79,9 @@ export default function UpdatesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent — Windows update news</CardTitle>
+          <CardTitle>Recent Windows update news</CardTitle>
           <CardDescription>
-            Article previews about cumulative, security, and feature updates from WindowsLatest, the Windows Blog, and
-            Windows Central. Click to open in your browser.
+            Cumulative, security and feature update news from WindowsLatest, the Windows Blog and Windows Central. Click to open in your browser.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">

@@ -78,7 +78,7 @@ const NAV: Section[] = [
       { id: "boost", label: "Game & App Boost", page: GameBoostPage,
         intro: "Reversible Windows settings that free up resources for games and heavy apps." },
       { id: "monitor", label: "Live monitor", page: PerformancePage,
-        intro: "Live readings every second, showing which part of your PC is holding it back." },
+        intro: "Live readings that show what's holding your PC back." },
     ],
   },
   {
@@ -251,7 +251,13 @@ export default function App() {
         <div className="flex min-w-0 flex-1 flex-col">
           {/* title bar strip: draggable (except under a peeked sidebar), with the
               update tab pinned right while an update is ready */}
-          <div className="title-drag flex h-10 shrink-0 items-center justify-end px-8">
+          {/* right padding clears Windows' minimize/maximize/close buttons, which
+              Electron draws over this strip: everything right of the title bar
+              area (env(), reported by Electron) plus a gap; ~138px if unknown */}
+          <div
+            className="title-drag flex h-10 shrink-0 items-center justify-end pl-8"
+            style={{ paddingRight: "calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, calc(100vw - 138px)) + 12px)" }}
+          >
             {updateReady && (
               <button
                 onClick={() => setWhatsNew(true)}
@@ -270,7 +276,7 @@ export default function App() {
               <Download className="size-4 shrink-0 text-primary" />
               <div className="min-w-0 flex-1">
                 <p className="font-medium">
-                  Anchor {update.version} is available — you're on {version}
+                  Anchor {update.version} is available. You're on {version}.
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {update.status === "downloaded"

@@ -40,6 +40,7 @@ export const Q = {
   diagRepairs: q("diag:repairs", Infinity, "diagRepairs"),
   lastRestorePoint: q("restore:last", 10 * MIN, "lastRestorePoint"),
   feeds: q("news:feeds", Infinity, "feeds"),
+  logos: q("news:logos", 7 * 24 * 60 * MIN, "sourceLogos"),
   // Channels YouTube didn't answer this time keep their last videos (see mergeVideos).
   videos: () => cached("news:videos", 10 * MIN, async () => {
     const [fresh, feeds] = await Promise.all([window.anchor.videos(), Q.feeds()]);

@@ -132,8 +132,11 @@ export function Sidebar({
         onBlur={(e) => { if (!open && !e.currentTarget.contains(e.relatedTarget as Node)) setPeek(false); }}
         className={cn(
           "absolute inset-y-0 left-0 flex flex-col overflow-hidden",
-          "border-r border-[hsl(var(--glass-edge))] bg-[hsl(var(--glass))] backdrop-blur-xl backdrop-saturate-150",
-          peeking ? "z-50" : "z-30"
+          "border-r border-[hsl(var(--glass-edge))] bg-[hsl(var(--glass))]",
+          // Frosted only while it peeks over the page. Docked, it sits on the app
+          // background alone, and a live backdrop blur is redone by the GPU on every
+          // frame (scrolling included): about half the GPU's draw time.
+          peeking ? "z-50 backdrop-blur-xl backdrop-saturate-150" : "z-30"
         )}
         style={{ contain: "layout paint" }}
         initial={false}

@@ -67,13 +67,13 @@ export default function AccountPage() {
       // Main has already forgotten the session: drop to the signed-out view, where the sign-in controls are.
       await persist({ provider: "Local", name: "", email: "" });
       setMailMsg("");
-      setAuthMsg("Your sign-in expired — sign in again to save mail preferences.");
+      setAuthMsg("Your sign-in expired. Sign in again to save mail preferences.");
       return;
     }
     setMailMsg(
       r.ok
         ? "Preferences saved."
-        : "Saved on this PC, but couldn't reach the mail service — it'll sync next time you sign in."
+        : "Saved on this PC. The mail service was unreachable, so it'll sync next time you sign in."
     );
   }
 
@@ -147,7 +147,7 @@ export default function AccountPage() {
                 <UserRound className="size-4 text-primary" /> Signed in
               </CardTitle>
               <CardDescription>
-                Your details are stored only on this PC and used for greetings and the mail preferences below.
+                Stored only on this PC. Used for greetings and the mail preferences below.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -171,8 +171,8 @@ export default function AccountPage() {
               </CardTitle>
               <CardDescription>
                 {p.displayName
-                  ? "Change this any time — it's only used to greet you."
-                  : `We're using "${p.name}" from your ${PROVIDER_LABELS[p.provider] ?? p.provider} account. Pick something else if you'd rather.`}
+                  ? "Change this any time. It's only used to greet you."
+                  : `Using "${p.name}" from your ${PROVIDER_LABELS[p.provider] ?? p.provider} account. Pick another if you like.`}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -213,8 +213,7 @@ export default function AccountPage() {
             <CardHeader>
               <CardTitle>Sign in</CardTitle>
               <CardDescription>
-                Sign-in opens your default browser (powered by Supabase). Anchor never sees your
-                password; it only receives your name and email, which stay on this PC.
+                Opens your default browser (powered by Supabase). Anchor never sees your password, only your name and email, which stay on this PC.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -240,8 +239,7 @@ export default function AccountPage() {
                 <Mail className="size-4 text-primary" /> Or use your email
               </CardTitle>
               <CardDescription>
-                No account with those services? We'll email you a one-time code — no password to
-                create or remember.
+                No account with those? Get a one-time code by email. No password needed.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -295,7 +293,7 @@ export default function AccountPage() {
             <Palette className="size-4 text-primary" /> Appearance
           </CardTitle>
           <CardDescription>
-            Dark is the default. Pick whichever is easiest on your eyes. Each theme comes with its own background picture, or use one of yours.
+            Pick the theme easiest on your eyes. Each has its own background picture, or use your own.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -344,8 +342,8 @@ export default function AccountPage() {
           </CardTitle>
           <CardDescription>
             {signedIn
-              ? `Sent to ${p.email}. Change these any time — unticking everything stops all mail, and signing out removes you from the lists entirely.`
-              : "Sign in above to subscribe. Anchor needs a confirmed email address before it can send you anything."}
+              ? `Sent to ${p.email}. Untick everything to stop all mail; signing out removes you from every list.`
+              : "Sign in above to subscribe. Anchor needs a confirmed email address first."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -407,7 +405,7 @@ function ReduceMotionToggle() {
   return (
     <Toggle
       label="Reduce animations"
-      hint="Turns off Anchor's springs, slides and pulses. Anchor ignores Windows' animation setting, so use this instead."
+      hint="Turns off Anchor's springs, slides and pulses. Use this instead of Windows' animation setting, which Anchor ignores."
       checked={on}
       onChange={setReduceMotion}
     />
@@ -442,8 +440,7 @@ function RestorePoints({ initialPolicy }: { initialPolicy: string }) {
           <ShieldCheck className="size-4 text-emerald-500" /> Restore points
         </CardTitle>
         <CardDescription>
-          Created before changes that are hard to undo, such as removing apps or editing the registry. Windows deletes
-          the oldest to make room, so Anchor doesn't make one for every change.
+          Created before hard-to-undo changes like removing apps or editing the registry. Windows deletes the oldest to make room, so Anchor doesn't make one every time.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

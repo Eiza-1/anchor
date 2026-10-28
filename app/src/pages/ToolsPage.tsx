@@ -31,7 +31,7 @@ export default function ToolsPage() {
         <CardHeader>
           <CardTitle>Built-in Windows tools</CardTitle>
           <CardDescription>
-            Direct access to Microsoft's own reliable maintenance tools — often the best option.
+            Microsoft's own maintenance tools, often the best option.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
@@ -47,8 +47,7 @@ export default function ToolsPage() {
         <CardHeader>
           <CardTitle>Autounattend.xml generator</CardTitle>
           <CardDescription>
-            Generates an unattended-setup file to replicate an Anchor-tuned Windows install across multiple PCs. Put the
-            generated file on the root of your install USB. Review the XML before use — it is plain text by design.
+            Creates an unattended-setup file to repeat an Anchor-tuned Windows install on other PCs. Put it on the root of your install USB and review the XML first; it's plain text.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

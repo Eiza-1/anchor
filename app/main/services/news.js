@@ -188,4 +188,87 @@ async function backfillImages(links, max = 40) {
   return out;
 }
 
-module.exports = { FEEDS, VIDEO_CHANNELS, fetchArticles, fetchVideos, backfillImages, strip, videoFromEntry };
+/* ------------------------------ source logos ------------------------------ */
+// Each source's own picture for its badge: a site's touch icon, a channel's
+// YouTube avatar. Read from the sources' public pages, no API keys; the page
+// remembers them for a week (Q.logos).
+
+/** Where a site lists its icons: its homepage (Ars Technica's feed lives on a feeds. subdomain). */
+const HOMEPAGES = { "Ars Technica": "https://arstechnica.com/" };
+const homepage = (name) => HOMEPAGES[name] ?? `${new URL(FEEDS[name]).origin}/`;
+
+/** Reads a page until `done(html)` is true or `max` bytes, whichever comes first. */
+async function readUntil(url, headers, done, max) {
+  const res = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
+  if (!res.ok || !res.body) return { html: "", url: res.url || url };
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let html = "";
+  while (html.length < max && !done(html)) {
+    const { done: end, value } = await reader.read();
+    if (end) break;
+    html += decoder.decode(value, { stream: true });
+  }
+  reader.cancel().catch(() => {});
+  return { html, url: res.url || url };
+}
+
+const attr = (tag, name) => tag.match(new RegExp(`\\s${name}\\s*=\\s*["']([^"']*)["']`, "i"))?.[1];
+
+/** The best icon a page's <head> lists: its apple-touch-icon, else its largest
+ *  rel="icon", else /favicon.ico. Always https. */
+function siteIcon(html, pageUrl) {
+  const fallback = `${new URL(pageUrl).origin}/favicon.ico`;
+  const icons = [];
+  for (const tag of html.match(/<link\b[^>]*>/gi) ?? []) {
+    const rel = (attr(tag, "rel") ?? "").toLowerCase().split(/\s+/);
+    const href = attr(tag, "href");
+    if (!href || !rel.some((r) => r === "icon" || r === "apple-touch-icon")) continue;
+    let url;
+    try { url = new URL(href.replace(/&amp;/g, "&"), pageUrl).href; } catch { continue; }
+    if (!url.startsWith("https://")) continue;
+    // a touch icon is 180 px unless it says otherwise; a plain icon with no size is the small one
+    const size = parseInt(attr(tag, "sizes") ?? "", 10) || (rel.includes("apple-touch-icon") ? 180 : 16);
+    icons.push({ url, size, touch: rel.includes("apple-touch-icon") });
+  }
+  icons.sort((a, b) => Number(b.touch) - Number(a.touch) || b.size - a.size);
+  return icons[0]?.url ?? fallback;
+}
+
+const OG_IMAGE = /<meta[^>]+property=["']og:image["'][^>]*content=["']([^"']+)["']/i;
+
+/** A channel page's avatar (its og:image), as an 88 px copy; null when the page has none. */
+function channelAvatar(html) {
+  const url = html.match(OG_IMAGE)?.[1];
+  if (!url?.startsWith("https://")) return null;
+  return url.replace(/&amp;/g, "&").replace(/=s\d+-/, "=s88-");
+}
+
+// YouTube's channel pages are ~3 MB and the avatar sits ~800 KB in, so reading
+// stops as soon as it's found. The cookie skips the EU consent page.
+const YT_HEADERS = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", Cookie: "SOCS=CAI" };
+
+/** { articles: { name: iconUrl }, videos: { name: avatarUrl } }; a source that can't be read is left out. */
+async function fetchLogos() {
+  const out = { articles: {}, videos: {} };
+  await Promise.all([
+    ...Object.keys(FEEDS).map(async (name) => {
+      try {
+        const page = await readUntil(homepage(name), UA, (h) => /<\/head>/i.test(h), 512 * 1024);
+        out.articles[name] = siteIcon(page.html, page.url);
+      } catch { /* unreachable: the badge keeps its letter */ }
+    }),
+    ...Object.entries(VIDEO_CHANNELS).map(async ([name, id]) => {
+      try {
+        const page = await readUntil(`https://www.youtube.com/channel/${id}`, YT_HEADERS, (h) => OG_IMAGE.test(h), 2 * 1024 * 1024);
+        const avatar = channelAvatar(page.html);
+        if (avatar) out.videos[name] = avatar;
+      } catch { /* unreachable: the badge keeps its letter */ }
+    }),
+  ]);
+  return out;
+}
+
+module.exports = {
+  FEEDS, VIDEO_CHANNELS, fetchArticles, fetchVideos, backfillImages, fetchLogos, strip, videoFromEntry, siteIcon, channelAvatar,
+};

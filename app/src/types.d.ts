@@ -87,6 +87,8 @@ export interface AnchorApi {
   articles(sources?: string[]): Promise<NewsItem[]>;
   videos(): Promise<NewsItem[]>;
   backfillImages(links: string[]): Promise<Record<string, string>>;
+  /** Each source's own picture: site icons for articles, channel avatars for videos. */
+  sourceLogos(): Promise<{ articles: Record<string, string>; videos: Record<string, string> }>;
   gameReleases(): Promise<GamesResult<GameRelease>>;
   freeGames(): Promise<GamesResult<FreeGame>>;
 

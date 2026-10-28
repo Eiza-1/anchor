@@ -72,7 +72,7 @@ export default function HomePage() {
             className="glass-blur"
             onClick={() => void runHealthCheck()}
             loading={checking}
-            title="Windows Update, drive health, disk space and hardware faults — read-only"
+            title="Checks Windows Update, drive health, disk space and hardware faults. Read-only."
           >
             {!checking && <HeartPulse />} Health Check
           </Button>

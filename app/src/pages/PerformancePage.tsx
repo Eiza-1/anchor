@@ -113,8 +113,7 @@ export default function PerformancePage() {
             <Scale className="size-4 text-primary" /> Are your CPU and GPU a good match?
           </CardTitle>
           <CardDescription>
-            Judged from what your hardware actually does under load, not from model names. Needs about a minute of real
-            work — a game, a render, a compile.
+            Judged from real load, not model names. Needs about a minute of a game, render or compile.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -158,7 +157,7 @@ export default function PerformancePage() {
         <CardHeader>
           <CardTitle>Top memory users</CardTitle>
           <CardDescription>
-            Private memory — what each app uses on its own, excluding shared system libraries.
+            Private memory: what each app uses on its own, excluding shared system libraries.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">

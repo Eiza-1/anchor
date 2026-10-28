@@ -30,22 +30,31 @@ const H = 140;
 const OPEN_SPRING = { type: "spring", stiffness: 300, damping: 26, mass: 1 } as const;
 
 /* ---------------------------- hero background ----------------------------- */
-// The background only switches once the picture is decoded, so it never fades
+// The background only switches once the pointer rests on a card (sweeping
+// across the row would otherwise start a full-window cross-fade, and a fresh
+// blur, per card it passes) and once the picture is decoded, so it never fades
 // in to an empty frame. Leaving is deferred a moment, so sliding across the
 // gap between two cards cross-fades A→B instead of dipping to the theme picture.
+const HERO_DWELL_MS = 160;
 let hovered: string | null = null;
 let leaveTimer: ReturnType<typeof setTimeout> | undefined;
+let enterTimer: ReturnType<typeof setTimeout> | undefined;
 
 function heroEnter(url: string | null) {
   clearTimeout(leaveTimer);
+  clearTimeout(enterTimer);
+  if (!url) { heroLeave(); return; } // an art-less card clears the background like leaving does, deferred
   hovered = url;
-  if (!url) { setHeroArt(null); return; }
-  const img = new Image();
-  img.src = url;
-  img.decode().catch(() => {}).finally(() => { if (hovered === url) setHeroArt(url); });
+  enterTimer = setTimeout(() => {
+    if (hovered !== url) return;
+    const img = new Image();
+    img.src = url;
+    img.decode().catch(() => {}).finally(() => { if (hovered === url) setHeroArt(url); });
+  }, HERO_DWELL_MS);
 }
 function heroLeave() {
   hovered = null;
+  clearTimeout(enterTimer);
   clearTimeout(leaveTimer);
   leaveTimer = setTimeout(() => { if (hovered === null) setHeroArt(null); }, 120);
 }
@@ -79,6 +88,7 @@ export function ReleaseRail() {
     return () => {
       live = false;
       clearTimeout(leaveTimer);
+      clearTimeout(enterTimer);
       hovered = null;
       setHeroArt(null);
     };
@@ -109,7 +119,15 @@ export function ReleaseRail() {
     );
   } else {
     // keyed by filter too, so a new filter's cards rise in fresh
-    body = shown.map((g, i) => <ReleaseCard key={`${filter}:${g.id}`} game={g} today={today} index={i} />);
+    body = [
+      ...shown.map((g, i) => <ReleaseCard key={`${filter}:${g.id}`} game={g} today={today} index={i} />),
+      // Room for the last card to open into: a card grows by W_OPEN - W_CLOSED
+      // to the right, and at the row's end it would open under the edge. (The
+      // row's 12px gap comes before this, so it's that much narrower.) Moving
+      // the row or overlapping neighbours instead both misbehaved under a
+      // moving pointer; empty room needs nothing to move but the card.
+      <div key="room" aria-hidden className="shrink-0" style={{ width: W_OPEN - W_CLOSED - 12 }} />,
+    ];
   }
 
   return (
@@ -136,6 +154,7 @@ export function ReleaseRail() {
 }
 
 /* --------------------------------- card ----------------------------------- */
+
 function ReleaseCard({ game: g, today, index }: { game: GameRelease; today: string; index: number }) {
   const [open, setOpen] = useState(false);
   const entered = useRef(false);
@@ -147,29 +166,41 @@ function ReleaseCard({ game: g, today, index }: { game: GameRelease; today: stri
   const lit = !!img; // text sits on the cover: white, over a dark fade
   const delay = Math.min(index, 14) * 0.03;
   const reduce = useReduceMotion();
+  const show = () => { setOpen(true); heroEnter(hero); };
+  const hide = () => { setOpen(false); heroLeave(); };
 
   return (
+    // The slot takes the hover and springs open; it never moves vertically.
+    // The card inside lifts as it opens, and if the card itself took the hover,
+    // a pointer near its bottom edge would fall off it, end the hover, the card
+    // would drop back under the pointer, and the hover would start again.
+    <motion.div
+      onHoverStart={show}
+      onHoverEnd={hide}
+      initial={{ flexBasis: `${W_CLOSED}px` }}
+      animate={{ flexBasis: `${open ? W_OPEN : W_CLOSED}px` }}
+      transition={reduce ? INSTANT : OPEN_SPRING}
+      className="relative shrink-0 grow-0"
+      style={{ height: H }}
+    >
     <motion.button
       type="button"
       title={g.name}
       onClick={() => window.anchor.openExternal(g.url)}
-      onHoverStart={() => { setOpen(true); heroEnter(hero); }}
-      onHoverEnd={() => { setOpen(false); heroLeave(); }}
-      onFocus={() => { setOpen(true); heroEnter(hero); }}
-      onBlur={() => { setOpen(false); heroLeave(); }}
-      initial={{ opacity: 0, y: 14, flexBasis: `${W_CLOSED}px` }}
-      animate={{ opacity: 1, y: open ? -6 : 0, flexBasis: `${open ? W_OPEN : W_CLOSED}px` }}
+      onFocus={show}
+      onBlur={hide}
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: open ? -6 : 0 }}
       transition={{
-        flexBasis: reduce ? INSTANT : OPEN_SPRING,
         y: entered.current ? SPRING : { ...SPRING_SOFT, delay },
         opacity: { duration: 0.35, ease: "easeOut", delay: entered.current ? 0 : delay },
       }}
       onAnimationComplete={() => { entered.current = true; }}
-      style={{ height: H, background: "hsl(var(--glass-home))", willChange: "transform" }}
+      style={{ background: "hsl(var(--glass-home))", willChange: "transform" }}
       className={cn(
         // the cover hides what's behind the card, so only art-less cards pay for a live blur
         img ? "glass" : "glass-blur",
-        "cut-corner group relative flex shrink-0 grow-0 flex-col overflow-hidden rounded-[3px] px-2.5 pb-2.5 text-left outline-none",
+        "cut-corner group relative flex size-full flex-col overflow-hidden rounded-[3px] px-2.5 pb-2.5 text-left outline-none",
         "transition-colors duration-300 focus-visible:ring-1 focus-visible:ring-primary",
         isToday ? "pt-4" : "pt-3",
         lit ? "text-white" : "text-foreground",
@@ -256,6 +287,7 @@ function ReleaseCard({ game: g, today, index }: { game: GameRelease; today: stri
         {g.platforms.map((p) => <PlatformIcon key={p} platform={p} />)}
       </span>
     </motion.button>
+    </motion.div>
   );
 }
 

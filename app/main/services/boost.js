@@ -132,7 +132,7 @@ async function ensureRestorePoint(description, minIntervalDays = 7) {
       return {
         ok: true,
         skipped: true,
-        message: `Using the existing restore point from ${ago} — no need for another.`,
+        message: `Using your restore point from ${ago}.`,
       };
     }
   }
@@ -146,7 +146,7 @@ Enable-ComputerRestore -Drive $env:SystemDrive
 Checkpoint-Computer -Description ${psQuote(description)} -RestorePointType MODIFY_SETTINGS
 `);
   return code === 0
-    ? { ok: true, message: "Restore point created. You can roll back any change from Windows System Restore." }
+    ? { ok: true, message: "Restore point created. Roll back any change from System Restore." }
     : { ok: false, message: `Could not create restore point: ${err}` };
 }
 

@@ -62,7 +62,7 @@ export function BoostSummary({ boost, className }: { boost: BoostState; classNam
                     <p className="text-muted-foreground">
                       {trim.ran
                         ? `Trimmed ${trim.count} idle background app${trim.count === 1 ? "" : "s"} · free memory ${trim.availPctBefore}% → ${trim.availPctAfter}%`
-                        : `${trim.availPctBefore}% free, so nothing was trimmed. Trimming only helps when memory is short; otherwise apps just reload it later.`}
+                        : `${trim.availPctBefore}% free, so nothing was trimmed. Trimming only helps when memory is short.`}
                     </p>
                   </Section>
                 )}

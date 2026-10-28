@@ -30,7 +30,7 @@ const TWEAKS = [
   {
     id: "gamemode",
     name: "Windows Game Mode",
-    desc: "Gives the game you're playing priority for CPU time and stops Windows Update installing drivers or showing restart prompts during play. Helps most on 4-core and older CPUs. On by default; this makes sure it is. Registry: HKCU\\Software\\Microsoft\\GameBar\\AutoGameModeEnabled = 1, AllowAutoGameMode = 1",
+    desc: "Prioritizes your game's CPU time and blocks driver installs and restart prompts while you play. Helps most on 4-core and older CPUs. Registry: HKCU\\Software\\Microsoft\\GameBar\\AutoGameModeEnabled = 1, AllowAutoGameMode = 1",
     category: "Gaming", effect: "fps", recommended: true,
     values: [
       v("HKCU:", "Software\\Microsoft\\GameBar", "AutoGameModeEnabled", 1, 1),
@@ -40,7 +40,7 @@ const TWEAKS = [
   {
     id: "gamecapture",
     name: "Turn off Xbox Game Bar capture",
-    desc: "Stops Game Bar's capture service hooking into every game, and background recording if it was ever switched on. Screenshots with Win+PrtScn still work. Registry: HKCU\\System\\GameConfigStore\\GameDVR_Enabled = 0, HKCU\\...\\GameDVR\\AppCaptureEnabled = 0, HistoricalCaptureEnabled = 0",
+    desc: "Stops Game Bar capture hooking into every game and turns off background recording. Win+PrtScn screenshots still work. Registry: HKCU\\System\\GameConfigStore\\GameDVR_Enabled = 0, HKCU\\...\\GameDVR\\AppCaptureEnabled = 0, HistoricalCaptureEnabled = 0",
     category: "Gaming", effect: "fps", recommended: true,
     values: [
       v("HKCU:", GAMECONFIG, "GameDVR_Enabled", 0, 1),
@@ -51,7 +51,7 @@ const TWEAKS = [
   {
     id: "bgapps",
     name: "Stop Store apps running in the background",
-    desc: "Background Store apps quietly use CPU, RAM and network while you play. Apps still work when you open them. Registry: HKCU\\...\\BackgroundAccessApplications\\GlobalUserDisabled = 1, HKCU\\...\\Search\\BackgroundAppGlobalToggle = 0",
+    desc: "Stops Store apps using CPU, RAM and network in the background. They still work when opened. Registry: HKCU\\...\\BackgroundAccessApplications\\GlobalUserDisabled = 1, HKCU\\...\\Search\\BackgroundAppGlobalToggle = 0",
     category: "Gaming", effect: "fps", recommended: true,
     values: [
       v("HKCU:", "Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications", "GlobalUserDisabled", 1, 0),
@@ -61,28 +61,28 @@ const TWEAKS = [
   {
     id: "hags",
     name: "Hardware-accelerated GPU scheduling",
-    desc: "Lets the GPU manage its own work queue, trimming latency and CPU overhead. Only offered when your graphics driver supports it. Needs a restart. Registry: HKLM\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers\\HwSchMode = 2",
+    desc: "Lets the GPU schedule its own work, cutting latency and CPU overhead. Needs driver support and a restart. Registry: HKLM\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers\\HwSchMode = 2",
     category: "Graphics", effect: "latency", needsRestart: true, requires: "hags",
     values: [v("HKLM:", "SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers", "HwSchMode", 2)],
   },
   {
     id: "swapchain",
     name: "Optimizations for windowed games",
-    desc: "Upgrades older DirectX games to the modern flip model, so borderless-windowed play gets fullscreen-level latency and frame rate. Same switch as Settings > Display > Graphics. Registry: HKCU\\...\\DirectX\\UserGpuPreferences\\DirectXUserGlobalSettings → SwapEffectUpgradeEnable=1",
+    desc: "Upgrades older DirectX games to the flip model for fullscreen latency and frame rate in borderless windows. Same as Settings > Display > Graphics. Registry: HKCU\\...\\DirectX\\UserGpuPreferences\\DirectXUserGlobalSettings → SwapEffectUpgradeEnable=1",
     category: "Graphics", effect: "latency", recommended: true,
     flag: { hive: "HKCU:", key: DX, name: "DirectXUserGlobalSettings", flag: "SwapEffectUpgradeEnable", on: "1" },
   },
   {
     id: "vrr",
     name: "Variable refresh rate for all games",
-    desc: "Lets G-Sync / FreeSync smooth out games that don't support it themselves, removing tearing and stutter when FPS drops below your refresh rate. Needs a VRR-capable display; does nothing otherwise. Registry: DirectXUserGlobalSettings → VRROptimizeEnable=1",
+    desc: "Applies G-Sync or FreeSync to games without built-in support, removing tearing and stutter when FPS drops. Needs a VRR display. Registry: DirectXUserGlobalSettings → VRROptimizeEnable=1",
     category: "Graphics", effect: "smoothness",
     flag: { hive: "HKCU:", key: DX, name: "DirectXUserGlobalSettings", flag: "VRROptimizeEnable", on: "1" },
   },
   {
     id: "fse",
     name: "Disable fullscreen optimizations",
-    desc: "Makes 'fullscreen' games use true exclusive fullscreen instead of Windows' borderless version. Can lower latency in older DirectX 9–11 games; newer games usually see no difference, and Alt-Tab gets slower. Try it if a specific game feels laggy. Registry: HKCU\\System\\GameConfigStore — GameDVR_FSEBehaviorMode = 2, GameDVR_FSEBehavior = 2, GameDVR_HonorUserFSEBehaviorMode = 1, GameDVR_DXGIHonorFSEWindowsCompatible = 1",
+    desc: "Forces true exclusive fullscreen instead of borderless. Can cut latency in DirectX 9 to 11 games; newer games rarely gain and Alt+Tab gets slower. Registry: HKCU\\System\\GameConfigStore: GameDVR_FSEBehaviorMode = 2, GameDVR_FSEBehavior = 2, GameDVR_HonorUserFSEBehaviorMode = 1, GameDVR_DXGIHonorFSEWindowsCompatible = 1",
     category: "Graphics", effect: "latency",
     values: [
       v("HKCU:", GAMECONFIG, "GameDVR_FSEBehaviorMode", 2, 0),
@@ -94,27 +94,27 @@ const TWEAKS = [
   {
     id: "visualfx",
     name: "Reduce animations and visual effects",
-    desc: "Turns off window, menu and taskbar animations, applied immediately through the same Windows calls as System Properties > Performance Options. Font smoothing stays on. The desktop feels snappier; games are unaffected.",
+    desc: "Turns off window, menu and taskbar animations instantly, like System Properties > Performance Options. Keeps font smoothing. Games are unaffected.",
     category: "Desktop", effect: "desktop", special: "visualfx",
   },
   {
     id: "transparency",
     name: "Disable transparency effects",
-    desc: "Turns off the blur behind the taskbar, Start and Windows menus. Saves a little GPU time on integrated graphics while you're on the desktop. Registry: HKCU\\...\\Themes\\Personalize\\EnableTransparency = 0",
+    desc: "Turns off the blur behind the taskbar, Start and menus. Saves GPU time on integrated graphics. Registry: HKCU\\...\\Themes\\Personalize\\EnableTransparency = 0",
     category: "Desktop", effect: "desktop", refresh: "theme",
     values: [v("HKCU:", "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", "EnableTransparency", 0, 1, "DWord", 1)],
   },
   {
     id: "menudelay",
     name: "Instant menus",
-    desc: "Removes the built-in pause before submenus open. Registry: HKCU\\Control Panel\\Desktop\\MenuShowDelay = 0 (Windows default 400 ms)",
+    desc: "Removes the pause before submenus open. Registry: HKCU\\Control Panel\\Desktop\\MenuShowDelay = 0 (default 400 ms)",
     category: "Desktop", effect: "desktop", refresh: "menu",
     values: [v("HKCU:", "Control Panel\\Desktop", "MenuShowDelay", "0", "400", "String", "400")],
   },
   {
     id: "startupdelay",
     name: "Remove the startup app delay",
-    desc: "Windows holds startup apps back for about 10 seconds after you sign in. Takes effect at your next sign-in. Registry: HKCU\\...\\Explorer\\Serialize\\StartupDelayInMSec = 0, WaitForIdleState = 0",
+    desc: "Removes the 10 second hold on startup apps after sign-in. Applies at next sign-in. Registry: HKCU\\...\\Explorer\\Serialize\\StartupDelayInMSec = 0, WaitForIdleState = 0",
     category: "Desktop", effect: "desktop",
     values: [
       v("HKCU:", "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize", "StartupDelayInMSec", 0),

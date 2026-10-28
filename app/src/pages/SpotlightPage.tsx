@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { MonitorPlay, Newspaper, Play, RefreshCw } from "lucide-react";
 import { Button, Card, PageTitle, Skeleton } from "@/components/ui";
@@ -7,7 +7,7 @@ import { invalidate, peek } from "@/lib/store";
 import { articles as loadArticles, Q } from "@/lib/queries";
 import { SPRING } from "@/lib/motion";
 import { groupByDay, timeAgo } from "@/lib/spotlight";
-import { prepareThumbs, useThumb } from "@/lib/thumbs";
+import { preloadImages, prepareThumbs, useThumb } from "@/lib/thumbs";
 import { cn } from "@/lib/utils";
 import type { NewsItem } from "@/types";
 
@@ -16,6 +16,9 @@ const ALL = "All sources";
 /** Article picture widths (CSS px) they're shrunk to: the lead card, and a grid card with a little headroom. */
 const LEAD_W = 640;
 const CARD_W = 360;
+/** Videos below the lead: the "Up next" column, then the grid. */
+const UP_NEXT = 4;
+const VIDEO_GRID = 40;
 const HOVER = "cursor-pointer transition-[transform,background-color] duration-spring ease-spring hover:-translate-y-0.5 hover:bg-accent/70";
 const open = (item: NewsItem) => () => window.anchor.openExternal(item.link);
 
@@ -31,6 +34,7 @@ export default function SpotlightPage() {
   const [loading, setLoading] = useState(false);
   // YouTube's feed server sometimes fails for every channel; the cache then keeps the last good list.
   const [videosFailed, setVideosFailed] = useState(false);
+  const [logos, setLogos] = useState(peek<SourceLogos>("news:logos") ?? null);
 
   const load = useCallback(async (force = false) => {
     setLoading(true);
@@ -50,10 +54,16 @@ export default function SpotlightPage() {
 
   useEffect(() => {
     Q.feeds().then(setSources, () => {});
+    Q.logos().then(setLogos, () => {});
     load();
   }, [load]);
 
   useEffect(() => setFilter(ALL), [mode]);
+
+  // fetch the video thumbnails ahead, so Videos opens with them showing instead of grey boxes
+  useEffect(() => {
+    preloadImages(shownVideos(videos ?? []).map((v) => v.imageUrl));
+  }, [videos]);
 
   const list = mode === "videos" ? videos : articles;
   const filtered = list?.filter((i) => filter === ALL || i.source === filter) ?? null;
@@ -65,11 +75,12 @@ export default function SpotlightPage() {
   const chips = [...new Set([...named, ...counts.keys()])].filter((s) => counts.get(s));
 
   return (
+    <Logos.Provider value={{ urls: logos?.[mode] ?? {}, round: mode === "videos" }}>
     <div className="page-column space-y-6 py-6">
       <div>
         <PageTitle>Tech Spotlight</PageTitle>
         <p className="mt-1 text-sm text-foreground/80 dark:[text-shadow:0_1px_8px_rgb(0_0_0/0.5)]">
-          Latest tech news and videos via public feeds — no accounts, no tracking. Click anything to open it in your browser.
+          Latest tech news and videos from public feeds. No accounts, no tracking. Click anything to open it in your browser.
         </p>
       </div>
 
@@ -94,11 +105,11 @@ export default function SpotlightPage() {
 
       {mode === "videos" && videosFailed && (videos?.length ? (
         <p role="status" className="text-sm text-muted-foreground">
-          YouTube's video feeds aren't responding right now, so these are the videos from last time.
+          YouTube's video feeds aren't responding, so these are from last time.
         </p>
       ) : (
         <Card role="status" className="p-10 text-center text-sm text-muted-foreground">
-          YouTube's video feeds aren't responding right now. That's on YouTube's side; Anchor tries again next time you open this page or press Refresh.
+          YouTube's video feeds aren't responding. Anchor retries when you reopen this page or press Refresh.
         </Card>
       ))}
 
@@ -116,6 +127,7 @@ export default function SpotlightPage() {
 
       <ModeSwitch value={mode} onChange={setMode} />
     </div>
+    </Logos.Provider>
   );
 }
 
@@ -175,7 +187,7 @@ function Articles({ items }: { items: NewsItem[] }) {
   return (
     <div className="space-y-7">
       <Card onClick={open(lead)} className={cn("group grid overflow-hidden md:grid-cols-[1.35fr_1fr]", HOVER)}>
-        <Thumb src={lead.imageUrl} shrink className="aspect-video md:aspect-auto md:min-h-[280px]" width={LEAD_W} height={360} />
+        <Thumb src={lead.imageUrl} className="aspect-video md:aspect-auto md:min-h-[280px]" width={LEAD_W} height={360} />
         <div className="flex flex-col justify-center gap-2.5 p-6 md:p-7">
           <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-primary">
             Top story{lead.published ? ` · ${timeAgo(lead.published)}` : ""}
@@ -191,8 +203,8 @@ function Articles({ items }: { items: NewsItem[] }) {
           <DayHeading label={g.label} />
           <CardGrid>
             {g.items.map((a) => (
-              <Card key={a.link} onClick={open(a)} className={cn("offscreen-card group flex flex-col overflow-hidden", HOVER)}>
-                <Thumb src={a.imageUrl} shrink className="aspect-video" width={CARD_W} height={203} />
+              <Card key={a.link} onClick={open(a)} className={cn("group flex flex-col overflow-hidden", HOVER)}>
+                <Thumb src={a.imageUrl} className="aspect-video" width={CARD_W} height={203} />
                 <div className="flex flex-1 flex-col gap-1.5 p-3.5 pb-4">
                   <p className="line-clamp-3 text-sm font-semibold leading-snug">{a.title}</p>
                   {a.summary && <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">{a.summary}</p>}
@@ -209,12 +221,14 @@ function Articles({ items }: { items: NewsItem[] }) {
 
 /* ------------------------------- Videos ------------------------------- */
 
+/** The long videos Videos shows: the lead, "Up next" and the grid, in that order. */
+const shownVideos = (items: NewsItem[]) => items.filter((v) => !v.isShort).slice(0, 1 + UP_NEXT + VIDEO_GRID);
+
 function Videos({ items }: { items: NewsItem[] }) {
-  const longs = items.filter((v) => !v.isShort);
   const shorts = items.filter((v) => v.isShort).slice(0, 24);
-  const [lead, ...rest] = longs;
-  const upNext = rest.slice(0, 4);
-  const more = rest.slice(4, 44);
+  const [lead, ...rest] = shownVideos(items);
+  const upNext = rest.slice(0, UP_NEXT);
+  const more = rest.slice(UP_NEXT);
 
   return (
     <div className="space-y-7">
@@ -258,7 +272,7 @@ function Videos({ items }: { items: NewsItem[] }) {
 
 function VideoCard({ video, large }: { video: NewsItem; large?: boolean }) {
   return (
-    <Card onClick={open(video)} className={cn("group overflow-hidden", !large && "offscreen-card", HOVER)}>
+    <Card onClick={open(video)} className={cn("group overflow-hidden", HOVER)}>
       <VideoThumb video={video} />
       <div className={cn("space-y-1.5", large ? "p-4" : "p-3.5 pb-4")}>
         <p className={cn("line-clamp-2 font-semibold leading-snug", large ? "text-lg" : "text-sm")}>{video.title}</p>
@@ -270,8 +284,8 @@ function VideoCard({ video, large }: { video: NewsItem; large?: boolean }) {
 
 function VideoThumb({ video, className }: { video: NewsItem; className?: string }) {
   return (
-    <div className={cn("relative overflow-hidden", className)}>
-      <Thumb src={video.imageUrl} className="aspect-video" width={320} height={180} />
+    <div className={cn("relative aspect-video overflow-hidden bg-foreground/[0.06]", className)}>
+      <YouTubeImage urls={ytThumbs(video, "mqdefault")} width={320} height={180} />
       <PlayButton />
     </div>
   );
@@ -279,22 +293,10 @@ function VideoThumb({ video, className }: { video: NewsItem; className?: string 
 
 /** A Short as a tall card. YouTube's portrait thumbnail is missing for some Shorts; those fall back to the regular one. */
 function ShortCard({ video }: { video: NewsItem }) {
-  const id = new URL(video.link).searchParams.get("v");
   return (
     <Card onClick={open(video)} className={cn("group relative w-[150px] shrink-0 overflow-hidden", HOVER)}>
       <div className="relative aspect-[9/16] overflow-hidden bg-foreground/[0.06]">
-        <img
-          src={id ? `https://i.ytimg.com/vi/${id}/oardefault.jpg` : video.imageUrl ?? ""}
-          onError={(e) => {
-            const img = e.currentTarget;
-            if (video.imageUrl && img.src !== video.imageUrl) img.src = video.imageUrl;
-          }}
-          className="size-full object-cover transition-transform duration-spring ease-spring group-hover:scale-[1.04]"
-          loading="lazy"
-          decoding="async"
-          width={150}
-          height={267}
-        />
+        <YouTubeImage urls={ytThumbs(video, "oardefault")} width={150} height={267} />
         <PlayButton />
       </div>
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-2.5 pb-3 pt-8 text-white">
@@ -326,8 +328,29 @@ function SourceChip({ label, count, on, onClick }: { label: string; count: numbe
   );
 }
 
-/** A coloured initial per source, stable across launches. */
+type SourceLogos = Awaited<ReturnType<typeof window.anchor.sourceLogos>>;
+/** The showing list's source pictures, and whether they're round (channel avatars) or square (site icons). */
+const Logos = createContext<{ urls: Record<string, string>; round: boolean }>({ urls: {}, round: false });
+
+/** The source's own picture (site icon, channel avatar); a coloured initial,
+ *  stable across launches, until it's known or if it won't load. */
 function SourceMark({ source }: { source: string }) {
+  const { urls, round } = useContext(Logos);
+  const [broken, setBroken] = useState<string | null>(null);
+  const url = urls[source];
+  if (url && broken !== url) {
+    return (
+      <img
+        src={url}
+        alt=""
+        onError={() => setBroken(url)}
+        className={cn("size-[18px] shrink-0 bg-white object-cover", round ? "rounded-full" : "rounded-[5px]")}
+        decoding="async"
+        width={18}
+        height={18}
+      />
+    );
+  }
   const hue = [...source].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
   return (
     <span
@@ -362,10 +385,9 @@ const CardGrid = ({ children }: { children: React.ReactNode }) => (
   <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4">{children}</div>
 );
 
-/** `shrink`: show the picture scaled down to `width` (lib/thumbs) instead of the feed's full-size original. */
-function Thumb({ src, className, width, height, shrink }: { src: string | null; className?: string; width: number; height: number; shrink?: boolean }) {
-  const small = useThumb(shrink ? src : null, width);
-  const shown = shrink ? small : src;
+/** An article picture, scaled down to `width` (lib/thumbs) instead of the feed's full-size original. */
+function Thumb({ src, className, width, height }: { src: string | null; className?: string; width: number; height: number }) {
+  const shown = useThumb(src, width);
   return (
     <div className={cn("overflow-hidden bg-foreground/[0.06]", className)}>
       {shown && (
@@ -379,6 +401,46 @@ function Thumb({ src, className, width, height, shrink }: { src: string | null; 
         />
       )}
     </div>
+  );
+}
+
+/** A video's thumbnails, best first: the size this card wants, then hqdefault, which every processed video has. */
+function ytThumbs(video: NewsItem, first: "mqdefault" | "oardefault"): string[] {
+  const id = new URL(video.link).searchParams.get("v");
+  if (!id) return video.imageUrl ? [video.imageUrl] : [];
+  return [`https://i.ytimg.com/vi/${id}/${first}.jpg`, `https://i.ytimg.com/vi/${id}/hqdefault.jpg`];
+}
+
+/** YouTube answers a missing thumbnail with a 404 and a valid 120x90 grey
+ *  "no picture" image, so the browser shows it and never fires onError. That
+ *  image counts as missing here: the next URL is tried, and with none left the
+ *  card keeps its plain tile. Hidden until it's known to be a real thumbnail. */
+function YouTubeImage({ urls, width, height }: { urls: string[]; width: number; height: number }) {
+  const [at, setAt] = useState(0);
+  const [ok, setOk] = useState(false);
+  const src = urls[at];
+  if (!src) return null;
+  const next = () => { setOk(false); setAt((i) => i + 1); };
+  return (
+    <img
+      key={src}
+      src={src}
+      alt=""
+      onLoad={(e) => {
+        const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+        if (w === 120 && h === 90) next();
+        else setOk(true);
+      }}
+      onError={next}
+      className={cn(
+        "size-full object-cover transition-[opacity,transform] duration-spring ease-spring group-hover:scale-[1.04]",
+        ok ? "opacity-100" : "opacity-0",
+      )}
+      loading="lazy"
+      decoding="async"
+      width={width}
+      height={height}
+    />
   );
 }
 

@@ -114,19 +114,19 @@ $out = foreach ($g in $groups) {
 const REPAIRS = {
   explorer: {
     name: "Restart Windows Explorer",
-    detail: "Reloads the desktop, taskbar and File Explorer. Clears the memory and handle leaks that build up in the shell over days of use — the single most effective fix for a sluggish desktop.",
+    detail: "Reloads the desktop, taskbar and File Explorer, clearing leaks that build up over days. The best fix for a sluggish desktop.",
     minutes: "instant",
     run: () => runPS("Stop-Process -Name explorer -Force; Start-Sleep -Seconds 1; if (-not (Get-Process explorer -EA SilentlyContinue)) { Start-Process explorer }"),
   },
   dns: {
     name: "Flush DNS cache",
-    detail: "Clears stale name lookups. Fixes sites that won't load after a network or router change.",
+    detail: "Clears stale name lookups. Fixes sites that won't load after a network change.",
     minutes: "instant",
     run: () => runPS("Clear-DnsClientCache"),
   },
   iconcache: {
     name: "Rebuild icon and thumbnail cache",
-    detail: "Deletes the corrupted caches behind blank or wrong icons, then restarts Explorer to rebuild them.",
+    detail: "Deletes corrupted icon caches and restarts Explorer to rebuild them. Fixes blank or wrong icons.",
     minutes: "instant",
     run: () => runPS(`
 Stop-Process -Name explorer -Force
@@ -138,7 +138,7 @@ if (-not (Get-Process explorer -EA SilentlyContinue)) { Start-Process explorer }
   },
   updatecache: {
     name: "Clear Windows Update cache",
-    detail: "Stops the update services, empties the SoftwareDistribution download folder, and restarts them. Fixes updates that fail repeatedly or sit at 0%.",
+    detail: "Empties the SoftwareDistribution folder and restarts the update services. Fixes updates that keep failing or stick at 0%.",
     minutes: "about a minute",
     run: () => runPS(`
 Stop-Service wuauserv, bits -Force
@@ -147,7 +147,7 @@ Start-Service wuauserv, bits`),
   },
   wer: {
     name: "Clear crash report queue",
-    detail: "Empties queued Windows Error Reporting data. These accumulate silently after crashes and can reach several GB.",
+    detail: "Empties queued Windows Error Reporting data, which can reach several GB.",
     minutes: "instant",
     run: () => runPS(`
 Remove-Item "$env:ProgramData\\Microsoft\\Windows\\WER\\ReportQueue\\*" -Recurse -Force -EA SilentlyContinue
@@ -156,19 +156,19 @@ Remove-Item "$env:LOCALAPPDATA\\Microsoft\\Windows\\WER\\*" -Recurse -Force -EA 
   },
   sfc: {
     name: "Repair system files (SFC)",
-    detail: "Checks every protected Windows file against its known-good copy and repairs damaged ones. Worth running when errors keep recurring.",
-    minutes: "5–15 minutes",
+    detail: "Checks protected Windows files against known-good copies and repairs damaged ones. Run it when errors keep coming back.",
+    minutes: "5 to 15 minutes",
     run: () => runPS("sfc /scannow", { timeout: 1_800_000 }),
   },
   dism: {
     name: "Repair the component store (DISM)",
-    detail: "Repairs the master copy of Windows that SFC restores from. Run this first if SFC reports it couldn't fix something.",
-    minutes: "10–30 minutes",
+    detail: "Repairs the master copy SFC restores from. Run it if SFC couldn't fix something.",
+    minutes: "10 to 30 minutes",
     run: () => runPS("DISM /Online /Cleanup-Image /RestoreHealth", { timeout: 3_600_000 }),
   },
   winsock: {
     name: "Reset network stack",
-    detail: "Resets Winsock and the TCP/IP stack to defaults. Fixes networking broken by a bad VPN or proxy install. Needs a restart afterwards.",
+    detail: "Resets Winsock and TCP/IP to defaults. Fixes networking broken by a VPN or proxy install. Needs a restart.",
     minutes: "instant, then restart",
     run: () => runPS("netsh winsock reset; netsh int ip reset"),
   },

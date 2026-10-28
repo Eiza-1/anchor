@@ -121,7 +121,7 @@ export default function DrivesPage() {
         <CardHeader>
           <CardTitle>Disk space</CardTitle>
           <CardDescription>
-            SSDs need free space to shuffle data around — below about 10% they slow down measurably and wear faster.
+            SSDs need free space to work. Below about 10% they slow down and wear faster.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-6 sm:grid-cols-2">
@@ -133,8 +133,8 @@ export default function DrivesPage() {
                 {st.level !== "ok" && (
                   <p className={cn("text-xs", st.level === "critical" ? "text-red-400" : "text-amber-400")}>
                     {st.level === "critical"
-                      ? `Critically low. Windows needs room for updates and the page file — free up at least ${formatBytes(st.total * 0.1 - st.free)} to get back to 10%.`
-                      : `Getting low. Aim for ${formatBytes(st.total * 0.1)} free (10%) to keep performance and drive life healthy.`}
+                      ? `Critically low. Free at least ${formatBytes(st.total * 0.1 - st.free)} to reach 10%, so Windows has room for updates and the page file.`
+                      : `Getting low. Keep ${formatBytes(st.total * 0.1)} free (10%) for speed and drive life.`}
                   </p>
                 )}
               </div>
@@ -150,8 +150,7 @@ export default function DrivesPage() {
             <Timer className="size-4 text-primary" /> Speed test
           </CardTitle>
           <CardDescription>
-            The same measurements CrystalDiskMark takes — sequential and random 4K, read and write — using unbuffered
-            I/O so you're timing the drive rather than Windows' cache.
+            Measures sequential and random 4K read and write like CrystalDiskMark, using unbuffered I/O to time the drive, not Windows' cache.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -171,7 +170,7 @@ export default function DrivesPage() {
 
           {benching && (
             <p className="text-xs text-muted-foreground">
-              Writing and reading test data… this takes up to a minute and briefly loads the drive.
+              Writing and reading test data. Takes up to a minute and briefly loads the drive.
             </p>
           )}
 
@@ -188,13 +187,11 @@ export default function DrivesPage() {
               <Alert variant={verdict(bench).tone}>{verdict(bench).text}</Alert>
               {bench.unbuffered === false && (
                 <p className="text-xs text-muted-foreground">
-                  This drive wouldn't allow unbuffered access, so read figures include Windows' cache and are higher
-                  than the drive's real speed.
+                  This drive refused unbuffered access, so read figures include Windows' cache and overstate its speed.
                 </p>
               )}
               <p className="text-xs text-muted-foreground">
-                Rough guide: NVMe SSDs read 1,500–7,000 MB/s, SATA SSDs 400–550, hard drives 80–160. Random 4K matters
-                far more for everyday responsiveness than the big sequential numbers.
+                Rough guide: NVMe SSDs read 1,500 to 7,000 MB/s, SATA SSDs 400 to 550, hard drives 80 to 160. Random 4K matters most for everyday speed.
               </p>
             </>
           )}
@@ -208,8 +205,7 @@ export default function DrivesPage() {
             <MemoryStick className="size-4 text-primary" /> Memory (RAM) test
           </CardTitle>
           <CardDescription>
-            Faulty RAM causes random crashes, corrupted files and blue screens that look like software problems.
-            Windows' own memory test runs before Windows loads, which is the only way to test memory properly.
+            Faulty RAM causes random crashes, corrupted files and blue screens that look like software bugs. Windows' memory test runs before Windows loads, the only way to test RAM properly.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -217,7 +213,7 @@ export default function DrivesPage() {
             <Alert variant={memTest.passed ? "success" : "destructive"}>
               Last test {memTest.time?.slice(0, 16)}: {memTest.passed
                 ? "no memory errors found."
-                : `problems were reported — ${memTest.message}`}
+                : `problems were reported: ${memTest.message}`}
             </Alert>
           ) : (
             <p className="text-sm text-muted-foreground">No previous memory test found on this PC.</p>
@@ -226,8 +222,7 @@ export default function DrivesPage() {
             Open Windows Memory Diagnostic
           </Button>
           <p className="text-xs text-muted-foreground">
-            Choosing "Restart now" runs the test immediately; it takes several minutes and your PC is unusable during
-            it. Results appear here afterwards.
+            Choose "Restart now" to test immediately. It takes several minutes, and your PC is unusable until it finishes. Results appear here afterwards.
           </p>
         </CardContent>
       </Card>
@@ -260,10 +255,10 @@ function verdict(b: { seqReadMB?: number; rndReadMB?: number }): { tone: "succes
   const seq = b.seqReadMB ?? 0;
   const rnd = b.rndReadMB ?? 0;
   if (seq > 1200)
-    return { tone: "success", text: `NVMe-class speed. Random 4K read of ${rnd} MB/s means apps and files open essentially instantly.` };
+    return { tone: "success", text: `NVMe speed. Random 4K read of ${rnd} MB/s opens apps and files almost instantly.` };
   if (seq > 300)
-    return { tone: "success", text: `SATA SSD speed — healthy. Random 4K read of ${rnd} MB/s is fine for everyday use.` };
+    return { tone: "success", text: `Healthy SATA SSD speed. Random 4K read of ${rnd} MB/s is fine for everyday use.` };
   if (seq > 120)
-    return { tone: "warning", text: "These are hard-drive speeds. If this is meant to be an SSD, check the cable or port; if it's a mechanical drive, moving Windows to an SSD is the single biggest upgrade available." };
-  return { tone: "destructive", text: "Unusually slow — slower than a healthy hard drive. Check drive health above, close anything heavy, and re-test; a failing drive or a full disk both look like this." };
+    return { tone: "warning", text: "Hard drive speeds. If this should be an SSD, check the cable or port. If it's a hard drive, moving Windows to an SSD is the biggest upgrade you can make." };
+  return { tone: "destructive", text: "Unusually slow, below a healthy hard drive. Check drive health above, close heavy apps and test again. A failing or full drive looks like this." };
 }

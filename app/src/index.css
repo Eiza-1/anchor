@@ -298,17 +298,9 @@
     scroll-behavior: auto !important;
   }
 
-  /* Long lists (news, videos, apps): skip layout/paint for offscreen rows.
-     This is what stops scrolling stuttering once a list gets big. */
-  /* (Not named "list-item": that's a Tailwind display utility and overrode flex.) */
-  .offscreen-row {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 110px;
-  }
-  .offscreen-card {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 280px;
-  }
+  /* No content-visibility: auto on list cards. Skipped cards are drawn only
+     once the page catches up, so a quick scroll showed them as empty boxes, and
+     Tech Spotlight's ~100 cards scroll fine fully drawn. */
 }
 
 /* Glass surfaces. No backdrop-filter on .glass: cards sit over an already

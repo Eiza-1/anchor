@@ -99,7 +99,7 @@ export default function BoostPage() {
       <div>
         <PageTitle>Cleanup</PageTitle>
         <p className="mt-1 text-sm text-foreground/80 dark:[text-shadow:0_1px_8px_rgb(0_0_0/0.5)]">
-          Everything is measured first, so you decide with real numbers. Personal files are never touched.
+          Measures everything first so you decide with real numbers. Never touches personal files.
         </p>
       </div>
 
@@ -110,8 +110,7 @@ export default function BoostPage() {
             <Eraser className="size-4 text-primary" /> Free up disk space
           </CardTitle>
           <CardDescription>
-            Documents, downloads, pictures and saved passwords are never touched. Locations ticked by default are what
-            one-click Boost on Home clears.
+            Never touches documents, downloads, pictures or saved passwords. Ticked locations are what Boost on Home clears.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -181,9 +180,7 @@ export default function BoostPage() {
             <Zap className="size-4 text-primary" /> Trim background memory
           </CardTitle>
           <CardDescription>
-            Usually not needed — Windows manages memory well on its own, and trimmed apps reload what they need, so
-            they can be briefly slower afterwards. Useful right before launching something memory-hungry. Apps with an
-            open window and system processes are always skipped; nothing is closed.
+            Rarely needed: Windows manages memory well, and trimmed apps may be briefly slower as they reload. Use it right before launching something memory-hungry. Skips apps with an open window and system processes, and closes nothing.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -210,7 +207,7 @@ export default function BoostPage() {
         open={confirm}
         onClose={() => setConfirm(false)}
         title={`Clear ${formatBytes(totalSelected)}?`}
-        description="These files will be permanently deleted. Windows and your apps rebuild anything they still need."
+        description="Permanently deletes these files. Windows and your apps rebuild anything they need."
         footer={
           <>
             <Button variant="outline" onClick={() => setConfirm(false)}>Cancel</Button>
@@ -220,7 +217,7 @@ export default function BoostPage() {
       >
         <ul className="space-y-1 text-muted-foreground">
           {selected.map((t) => (
-            <li key={t.id}>• {t.name} — {formatBytes(t.bytes)}</li>
+            <li key={t.id}>• {t.name}: {formatBytes(t.bytes)}</li>
           ))}
         </ul>
         {hasOneWay && (
@@ -228,8 +225,7 @@ export default function BoostPage() {
             <span className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" />
               <span>
-                Your selection includes the previous Windows installation. Removing it frees a lot of space but means
-                you can no longer roll back to the earlier Windows version.
+                Includes the previous Windows installation. Removing it frees lots of space but ends the option to roll back.
               </span>
             </span>
           </Alert>

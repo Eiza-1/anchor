@@ -11,6 +11,13 @@ import { SPRING_SOFT } from "@/lib/motion";
 import { useBackground, useHeroArt } from "@/lib/background";
 
 const fill = "absolute inset-0 h-full w-full object-cover";
+/** Every fade here runs on framer's own frame loop, not as a browser (WAAPI)
+ *  animation: an onUpdate listener opts out. When a WAAPI fade finishes, framer
+ *  cancels it at once but writes the final opacity a frame later, so for one
+ *  frame the layer fell back to where it started (0 for the release art), a
+ *  dark flash behind the hovered card. Each layer keeps will-change, so the
+ *  fade is still just a compositor blend. */
+const noWaapi = { onUpdate: () => {} };
 
 export function AppBackground({ mode }: { mode: "home" | "page" }) {
   const { url } = useBackground();
@@ -27,6 +34,7 @@ export function AppBackground({ mode }: { mode: "home" | "page" }) {
           key={url}
           className="absolute inset-0"
           style={{ willChange: "opacity" }}
+          {...noWaapi}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0, transition: { duration: 0.4, delay: 0.25 } }}
@@ -38,6 +46,7 @@ export function AppBackground({ mode }: { mode: "home" | "page" }) {
             draggable={false}
             className={fill}
             style={{ willChange: "opacity" }}
+            {...noWaapi}
             initial={false}
             animate={{ opacity: home ? 1 : 0 }}
             transition={SPRING_SOFT}
@@ -45,6 +54,7 @@ export function AppBackground({ mode }: { mode: "home" | "page" }) {
           <motion.div
             className="absolute inset-0"
             style={{ scale: 1.08, willChange: "opacity" }}
+            {...noWaapi}
             initial={false}
             animate={{ opacity: home ? 0 : 1 }}
             transition={SPRING_SOFT}
@@ -62,6 +72,7 @@ export function AppBackground({ mode }: { mode: "home" | "page" }) {
             key={hero}
             className="absolute inset-0"
             style={{ willChange: "opacity" }}
+            {...noWaapi}
             initial={{ opacity: 0 }}
             animate={{ opacity: 0.55 }}
             exit={{ opacity: 0, transition: { duration: 0.45, ease: "easeOut" } }}
@@ -76,6 +87,7 @@ export function AppBackground({ mode }: { mode: "home" | "page" }) {
       <motion.div
         className="absolute inset-0"
         style={{ background: "var(--scrim-home)", willChange: "opacity" }}
+        {...noWaapi}
         initial={false}
         animate={{ opacity: home ? 1 : 0 }}
         transition={SPRING_SOFT}
@@ -83,6 +95,7 @@ export function AppBackground({ mode }: { mode: "home" | "page" }) {
       <motion.div
         className="absolute inset-0"
         style={{ background: "var(--scrim-page)", willChange: "opacity" }}
+        {...noWaapi}
         initial={false}
         animate={{ opacity: home ? 0 : 1 }}
         transition={SPRING_SOFT}

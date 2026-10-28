@@ -119,7 +119,7 @@ export function WhatsNew({ open, onClose, version }: { open: boolean; onClose: (
             [...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)
           ) : releases.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No release notes available — check your connection, or view them on GitHub.
+              No release notes available. Check your connection or view them on GitHub.
             </p>
           ) : (
             releases.map((r) => (

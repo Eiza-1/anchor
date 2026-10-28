@@ -131,14 +131,13 @@ export default function DiagnosticsPage() {
             <Droplets className="size-4 text-primary" /> Memory leak watch
           </CardTitle>
           <CardDescription>
-            A big app isn't a leak — a leak is memory that climbs and never comes back. Anchor samples every minute and
-            looks at the trend, so leave it running a while. {minutesObserved} minutes observed so far.
+            A leak is memory that climbs and never comes back, not just a big app. Anchor samples every minute, so leave it running. {minutesObserved} minutes observed so far.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
           {history.length < 3 ? (
             <p className="text-sm text-muted-foreground">
-              Collecting baseline samples… come back in a few minutes.
+              Collecting baseline samples. Check back in a few minutes.
             </p>
           ) : suspects.length === 0 ? (
             <Alert variant="success">
@@ -178,8 +177,7 @@ export default function DiagnosticsPage() {
             <Cpu className="size-4 text-primary" /> CPU time hogs
           </CardTitle>
           <CardDescription>
-            Total CPU each process has consumed since it started. Something using a steady slice while "idle" shows up
-            here even when live usage looks fine.
+            Total CPU each process has used since it started. Catches apps quietly using CPU while "idle".
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -193,7 +191,7 @@ export default function DiagnosticsPage() {
                 <div className="min-w-0">
                   <p className="text-sm font-medium">{p.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {p.totalHours} h of CPU time over {p.ageHours.toFixed(1)} h running — averaging {p.corePercent}% of a core
+                    {p.totalHours} h of CPU time in {p.ageHours.toFixed(1)} h running, averaging {p.corePercent}% of a core
                   </p>
                 </div>
                 <Button size="sm" variant="outline" onClick={() => window.anchor.diagTrim(p.pid)}>Trim memory</Button>
@@ -243,7 +241,7 @@ export default function DiagnosticsPage() {
             <Wrench className="size-4 text-primary" /> Repairs
           </CardTitle>
           <CardDescription>
-            Each one is a documented Windows repair. Anchor explains what it does before running it.
+            Documented Windows repairs. Each explains what it does before it runs.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -268,8 +266,7 @@ export default function DiagnosticsPage() {
         <p className="flex items-start gap-2 text-xs text-muted-foreground">
           <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-400" />
           <span>
-            Takes {confirm?.minutes}. Explorer-based repairs will briefly close your taskbar and windows list — open
-            apps are not affected.
+            Takes {confirm?.minutes}. Explorer repairs briefly close the taskbar; open apps stay open.
           </span>
         </p>
       </Dialog>

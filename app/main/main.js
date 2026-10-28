@@ -195,7 +195,7 @@ function createWindow({ show }) {
 
 function createTray() {
   try { tray = new Tray(appIcon()); } catch { return; }
-  tray.setToolTip("Anchor — watching startup activity");
+  tray.setToolTip("Anchor: watching startup activity");
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: "Open Anchor", click: () => openWindow() },
@@ -250,7 +250,7 @@ app.whenReady().then(async () => {
       if (risky.length && Notification.isSupported()) {
         showNote({
           title: `Anchor found ${risky.length} suspicious startup item${risky.length === 1 ? "" : "s"}`,
-          body: risky.slice(0, 2).map((f) => f.name).join(", ") + " — click to review.",
+          body: risky.slice(0, 2).map((f) => f.name).join(", ") + ". Click to review.",
         });
       }
     }
@@ -323,6 +323,7 @@ handle("news:feeds", () => ({ articles: Object.keys(news.FEEDS), videos: Object.
 handle("news:articles", (sources) => news.fetchArticles(sources));
 handle("news:videos", () => news.fetchVideos());
 handle("news:backfill", (links) => news.backfillImages(links ?? []));
+handle("news:logos", () => news.fetchLogos());
 // Unconfigured builds (example config) get "no-key" from games.js.
 handle("games:releases", () =>
   games.upcomingReleases({
