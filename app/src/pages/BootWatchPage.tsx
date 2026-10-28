@@ -67,8 +67,7 @@ export default function BootWatchPage() {
             <Eye className="size-4 text-primary" /> Watch every startup
           </CardTitle>
           <CardDescription>
-            Anchor starts with Windows in the background, records what runs, and notifies you if something suspicious
-            appears. It sits in the system tray and uses almost nothing while idle.
+            Starts with Windows, records what runs and alerts you to anything suspicious. Sits in the tray using almost nothing.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -93,8 +92,7 @@ export default function BootWatchPage() {
               <Terminal className="size-4 text-amber-400" /> Caught running
             </CardTitle>
             <CardDescription>
-              Scripts and console commands that started while Anchor was watching — including the ones that flash and
-              vanish.
+              Scripts and console commands that ran while Anchor was watching, including ones that flash and vanish.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -132,7 +130,7 @@ export default function BootWatchPage() {
             {suspicious.length > 0
               ? <ShieldAlert className="size-4 text-amber-400" />
               : <ShieldCheck className="size-4 text-emerald-400" />}
-            What runs at startup — and why
+            What runs at startup, and why
           </CardTitle>
           <CardDescription>
             Every place Windows can auto-run something: scheduled tasks, Run keys, Startup folder, services, WMI
@@ -181,7 +179,7 @@ export default function BootWatchPage() {
                     {f.location ? ` · ${f.location}` : ""}
                   </p>
                   <p className="flex items-center gap-1.5">
-                    <Clock className="size-3" /> Runs: {f.trigger || "—"}
+                    <Clock className="size-3" /> Runs: {f.trigger || "Unknown"}
                     {f.runAs ? ` · as ${f.runAs}` : ""}
                   </p>
                 </div>
@@ -221,16 +219,14 @@ export default function BootWatchPage() {
       </Card>
 
       <p className="text-xs text-muted-foreground">
-        A flag isn't proof of malware — installers and game launchers legitimately use these mechanisms. Anchor explains
-        what it saw so you can judge. If something was installed alongside a cracked game or a "loader", treat it with
-        suspicion.
+        A flag isn't proof of malware. Installers and game launchers use these too. Anchor shows what it saw so you can judge. Treat anything installed with a cracked game or "loader" with suspicion.
       </p>
 
       <Dialog
         open={confirm !== null}
         onClose={() => setConfirm(null)}
         title={`Stop "${confirm?.name}" running at startup?`}
-        description="Anchor disables rather than deletes: scheduled tasks and services are switched off, Run entries removed, and Startup files moved to a quarantine folder so you can put them back."
+        description="Disables rather than deletes: switches off tasks and services, removes Run entries and quarantines Startup files so you can restore them."
         footer={
           <>
             <Button variant="outline" onClick={() => setConfirm(null)}>Cancel</Button>

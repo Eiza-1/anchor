@@ -1,9 +1,7 @@
 // "Free games": current Steam / Epic / GOG giveaways from GamerPower, as tall
 // covers that tilt toward the pointer on a spring.
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  motion, useMotionTemplate, useSpring, useTransform,
-} from "framer-motion";
+import { motion, useSpring, useTransform } from "framer-motion";
 import { Gift } from "lucide-react";
 import { Q } from "@/lib/queries";
 import { peek } from "@/lib/store";
@@ -24,6 +22,8 @@ const STORE_NAME: Record<FreeGame["store"], string> = { steam: "Steam", epic: "E
 const W = 160;
 const H = 220;
 const MAX_TILT = 8;
+/** The pointer sheen's radius (px). */
+const SHEEN_R = 220;
 /** Tilt follows the pointer closely but settles with a little wobble. */
 const TILT_SPRING = { stiffness: 260, damping: 20, mass: 0.6 };
 
@@ -55,7 +55,7 @@ export function FreeRail() {
       <RailNotice
         height={H}
         title={filter === "all" ? "No free games right now" : `No free ${STORE_NAME[filter]} games right now`}
-        detail="Giveaways come and go — check back in a day or two."
+        detail="Giveaways come and go. Check back in a day or two."
         icon={<GiftIcon />}
       />
     );
@@ -78,10 +78,12 @@ function FreeCard({ game: g, index }: { game: FreeGame; index: number }) {
   const rx = useSpring(0, TILT_SPRING);
   const ry = useSpring(0, TILT_SPRING);
   const scale = useSpring(1, TILT_SPRING);
-  // a soft sheen that sits where the pointer is
+  // a soft sheen that sits where the pointer is: one fixed gradient slid by a
+  // transform, so following the pointer never repaints the card
   const px = useSpring(50, TILT_SPRING);
   const py = useSpring(30, TILT_SPRING);
-  const sheen = useMotionTemplate`radial-gradient(220px circle at ${px}% ${py}%, rgb(255 255 255 / 0.2), transparent 60%)`;
+  const sheenX = useTransform(px, (v) => (v / 100) * W - SHEEN_R);
+  const sheenY = useTransform(py, (v) => (v / 100) * H - SHEEN_R);
   const sheenOpacity = useTransform(scale, [1, 1.05], [0, 1]);
   const until = g.endDate ? dayMonth(g.endDate) : null;
 
@@ -121,7 +123,17 @@ function FreeCard({ game: g, index }: { game: FreeGame; index: number }) {
         className="absolute inset-0 size-full object-cover transition-transform duration-700 ease-spring group-hover:scale-[1.08]"
       />
       <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent via-40% to-black/80" />
-      <motion.div className="pointer-events-none absolute inset-0" style={{ background: sheen, opacity: sheenOpacity }} />
+      <motion.div
+        className="pointer-events-none absolute left-0 top-0 rounded-full"
+        style={{
+          width: SHEEN_R * 2,
+          height: SHEEN_R * 2,
+          x: sheenX,
+          y: sheenY,
+          opacity: sheenOpacity,
+          background: "radial-gradient(closest-side, rgb(255 255 255 / 0.2), transparent 60%)",
+        }}
+      />
       <div className="pointer-events-none absolute inset-0 rounded-md ring-1 ring-inset ring-white/15" />
 
       <span className="absolute right-0 top-0 bg-black/75 px-2 py-1 text-[9.5px] font-bold uppercase tracking-wider text-white/90">

@@ -10,7 +10,7 @@ const TARGETS = [
   {
     id: "temp",
     name: "Temporary files",
-    detail: "Leftovers from installers and apps in your temp folders. Windows never cleans these automatically.",
+    detail: "Installer and app leftovers in your temp folders. Windows never clears these.",
     paths: [`$env:TEMP\\*`, `$env:SystemRoot\\Temp\\*`],
     safe: true,
     default: true,
@@ -18,7 +18,7 @@ const TARGETS = [
   {
     id: "updatecache",
     name: "Windows Update downloads",
-    detail: "Installers for updates already applied. Windows keeps them indefinitely; deleting them also fixes stuck updates.",
+    detail: "Installers for updates already applied. Deleting them also fixes stuck updates.",
     paths: [`$env:SystemRoot\\SoftwareDistribution\\Download\\*`],
     stopServices: ["wuauserv", "bits"],
     safe: true,
@@ -27,7 +27,7 @@ const TARGETS = [
   {
     id: "deliveryopt",
     name: "Delivery Optimization cache",
-    detail: "Update files Windows keeps to share with other PCs on your network. Frequently several GB.",
+    detail: "Update files Windows shares with other PCs on your network. Often several GB.",
     paths: [`$env:SystemRoot\\SoftwareDistribution\\DeliveryOptimization\\*`, `$env:SystemRoot\\ServiceProfiles\\NetworkService\\AppData\\Local\\Microsoft\\Windows\\DeliveryOptimization\\*`],
     safe: true,
     default: true,
@@ -35,7 +35,7 @@ const TARGETS = [
   {
     id: "crashdumps",
     name: "Crash dumps",
-    detail: "Memory snapshots written when Windows or an app crashed. A single full dump can be as large as your RAM.",
+    detail: "Memory snapshots from Windows and app crashes. One full dump can be as large as your RAM.",
     paths: [`$env:SystemRoot\\MEMORY.DMP`, `$env:SystemRoot\\Minidump\\*`, `$env:LOCALAPPDATA\\CrashDumps\\*`],
     safe: true,
     default: true,
@@ -43,7 +43,7 @@ const TARGETS = [
   {
     id: "wer",
     name: "Error report queue",
-    detail: "Crash reports queued for Microsoft. They pile up silently after every app crash.",
+    detail: "Crash reports waiting for Microsoft. They pile up after every app crash.",
     paths: [`$env:ProgramData\\Microsoft\\Windows\\WER\\ReportQueue\\*`, `$env:ProgramData\\Microsoft\\Windows\\WER\\ReportArchive\\*`, `$env:LOCALAPPDATA\\Microsoft\\Windows\\WER\\*`],
     safe: true,
     default: true,
@@ -51,7 +51,7 @@ const TARGETS = [
   {
     id: "thumbcache",
     name: "Thumbnail & icon cache",
-    detail: "Rebuilt automatically as you browse folders. Clearing also fixes blank or wrong icons.",
+    detail: "Rebuilds as you browse. Clearing fixes blank or wrong icons.",
     paths: [`$env:LOCALAPPDATA\\Microsoft\\Windows\\Explorer\\thumbcache_*.db`, `$env:LOCALAPPDATA\\Microsoft\\Windows\\Explorer\\iconcache_*.db`],
     safe: true,
     default: false,
@@ -59,7 +59,7 @@ const TARGETS = [
   {
     id: "inetcache",
     name: "Internet cache (system)",
-    detail: "Cached web content used by Windows components and older apps. Not your browser history or logins.",
+    detail: "Web content cached by Windows and older apps. Leaves browser history and logins alone.",
     paths: [`$env:LOCALAPPDATA\\Microsoft\\Windows\\INetCache\\*`],
     safe: true,
     default: true,
@@ -67,7 +67,7 @@ const TARGETS = [
   {
     id: "logs",
     name: "Windows setup & servicing logs",
-    detail: "Diagnostic logs from updates and installs. Useful only when troubleshooting a failed upgrade.",
+    detail: "Logs from updates and installs. Only needed to troubleshoot a failed upgrade.",
     paths: [`$env:SystemRoot\\Logs\\CBS\\*.log`, `$env:SystemRoot\\Logs\\DISM\\*.log`, `$env:SystemRoot\\Panther\\*.log`, `$env:SystemRoot\\inf\\setupapi*.log`],
     safe: true,
     default: false,
@@ -75,7 +75,7 @@ const TARGETS = [
   {
     id: "fontcache",
     name: "Font cache",
-    detail: "Rebuilt on next login. Worth clearing if text renders oddly.",
+    detail: "Rebuilds at next sign-in. Clear it if text renders oddly.",
     paths: [`$env:SystemRoot\\ServiceProfiles\\LocalService\\AppData\\Local\\FontCache\\*`],
     stopServices: ["FontCache"],
     safe: true,
@@ -84,7 +84,7 @@ const TARGETS = [
   {
     id: "browsers",
     name: "Browser caches",
-    detail: "Cached images and scripts for Chrome, Edge, Brave and Firefox. Your history, bookmarks and logins are untouched — sites just reload once. Close your browser first.",
+    detail: "Cached images and scripts from Chrome, Edge, Brave and Firefox. Keeps history, bookmarks and logins. Close your browser first.",
     paths: [
       `$env:LOCALAPPDATA\\Google\\Chrome\\User Data\\Default\\Cache\\*`,
       `$env:LOCALAPPDATA\\Microsoft\\Edge\\User Data\\Default\\Cache\\*`,
@@ -97,7 +97,7 @@ const TARGETS = [
   {
     id: "shadercache",
     name: "GPU shader caches",
-    detail: "DirectX, NVIDIA, AMD and Intel shader caches. Rebuilt on next launch; clearing fixes stutter after a driver update.",
+    detail: "DirectX, NVIDIA, AMD and Intel shader caches. Rebuilt on next launch. Fixes stutter after a driver update.",
     paths: [
       `$env:LOCALAPPDATA\\D3DSCache\\*`,
       `$env:LOCALAPPDATA\\NVIDIA\\DXCache\\*`,
@@ -111,7 +111,7 @@ const TARGETS = [
   {
     id: "recycle",
     name: "Recycle Bin",
-    detail: "Permanently deletes everything currently in the bin.",
+    detail: "Permanently deletes everything in the bin.",
     special: "recycle",
     safe: true,
     default: false,
@@ -119,7 +119,7 @@ const TARGETS = [
   {
     id: "windowsold",
     name: "Previous Windows installation",
-    detail: "The Windows.old folder kept after a major upgrade, often 15–30 GB. Removing it means you can no longer roll back to the previous version.",
+    detail: "The Windows.old folder from your last major upgrade, often 15 to 30 GB. Removing it ends the option to roll back.",
     paths: [`$env:SystemDrive\\Windows.old`],
     oneWay: true,
     safe: true,

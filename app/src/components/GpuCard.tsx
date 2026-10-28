@@ -19,7 +19,7 @@ function vramParts(bytes: number): [string, string] {
 export function GpuCard({ gpu: g }: { gpu: Gpu }) {
   const stale = g.ageDays !== null && g.ageDays > 365;
   const aging = g.ageDays !== null && g.ageDays > 180 && !stale;
-  const [num, unit] = g.dedicated ? vramParts(g.dedicated) : ["—", ""];
+  const [num, unit] = g.dedicated ? vramParts(g.dedicated) : ["N/A", ""];
   return (
     <div className="glass cut-corner rounded-lg p-3">
       <div className="flex items-center gap-4">
@@ -42,12 +42,12 @@ export function GpuCard({ gpu: g }: { gpu: Gpu }) {
           {g.driverDate && <Row k="Date" v={g.driverDate} />}
           <div className="flex flex-wrap gap-1.5 pt-1">
             {g.errorCode ? (
-              <Badge variant="destructive">Not working — Device Manager code {g.errorCode}</Badge>
+              <Badge variant="destructive">Not working (Device Manager code {g.errorCode})</Badge>
             ) : null}
             {g.ageDays !== null && (
               <Badge variant={stale ? "warning" : aging ? "secondary" : "success"}>
                 {stale
-                  ? `Driver is ${Math.round(g.ageDays / 30)} months old — check your GPU vendor for an update`
+                  ? `Driver is ${Math.round(g.ageDays / 30)} months old. Update it from your GPU vendor.`
                   : aging
                   ? `Driver is ${Math.round(g.ageDays / 30)} months old`
                   : "Driver is recent"}

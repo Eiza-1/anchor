@@ -1,8 +1,8 @@
 // News pictures shrunk to the size they're shown at. Feeds hand over full-size
 // photos (often 4000+ px wide, 1–2 MB) for ~330 px cards; Chromium decoding
 // those while you scroll is what made Tech Spotlight's scroll stall. Each one
-// is fetched through main (anchor-img://, see main.js), decoded and scaled off
-// the main thread by createImageBitmap, and kept as a small blob: URL.
+// is fetched through main (anchor-img://, see main.js), then decoded, scaled
+// and re-encoded in a worker (thumbs.worker.ts), and kept as a small blob: URL.
 import { useEffect, useState } from "react";
 
 const MAX_AT_ONCE = 3;
@@ -19,7 +19,12 @@ export function thumb(url: string, width: number): Promise<string | null> {
   if (!job) {
     job = queue(() => shrink(url, px));
     cache.set(key, job);
-    if (cache.size > KEEP) cache.delete(cache.keys().next().value!);
+    if (cache.size > KEEP) {
+      const [oldest, dropped] = cache.entries().next().value!;
+      cache.delete(oldest);
+      // a card still showing it keeps its decoded picture; the blob itself can go
+      void dropped.then((u) => { if (u) URL.revokeObjectURL(u); });
+    }
   }
   return job;
 }
@@ -27,6 +32,20 @@ export function thumb(url: string, width: number): Promise<string | null> {
 /** Starts shrinking pictures before they're needed, in list order. */
 export function prepareThumbs(urls: (string | null)[], width: number) {
   for (const u of urls) if (u) void thumb(u, width);
+}
+
+const preloaded = new Set<string>();
+/** Fetches already-small pictures (YouTube's ~480 px thumbnails) ahead of time,
+ *  so an <img> of them shows at once. They skip the shrink queue: nothing to
+ *  gain from re-encoding them, and they'd hold up the article pictures. */
+export function preloadImages(urls: (string | null)[]) {
+  for (const u of urls) {
+    if (!u || preloaded.has(u)) continue;
+    preloaded.add(u);
+    const img = new Image();
+    img.decoding = "async";
+    img.src = u;
+  }
 }
 
 /** The shrunk picture once it's ready; the original URL if shrinking failed. */
@@ -58,12 +77,36 @@ function queue<T>(job: () => Promise<T>): Promise<T | null> {
   });
 }
 
-async function shrink(url: string, px: number): Promise<string | null> {
-  const res = await fetch(`anchor-img://fetch?u=${encodeURIComponent(url)}`);
-  if (!res.ok) return null;
-  const bitmap = await createImageBitmap(await res.blob(), { resizeWidth: px, resizeQuality: "medium" });
-  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-  canvas.getContext("2d")?.drawImage(bitmap, 0, 0);
-  bitmap.close();
-  return URL.createObjectURL(await canvas.convertToBlob({ type: "image/webp", quality: 0.85 }));
+let worker: Worker | null = null;
+let workerFailed = false;
+let nextId = 0;
+const replies = new Map<number, (blob: Blob | null) => void>();
+
+/** A worker that won't load or has crashed answers nothing: settle every
+ *  pending job as failed (so cards fall back to the original picture and the
+ *  queue frees up) and stop using it for the rest of the session. */
+function workerDown() {
+  workerFailed = true;
+  worker?.terminate();
+  worker = null;
+  replies.forEach((reply) => reply(null));
+  replies.clear();
+}
+
+function shrink(url: string, px: number): Promise<string | null> {
+  if (workerFailed) return Promise.resolve(null);
+  if (!worker) {
+    worker = new Worker(new URL("./thumbs.worker.ts", import.meta.url), { type: "module" });
+    worker.onmessage = (e: MessageEvent<{ id: number; blob: Blob | null }>) => {
+      replies.get(e.data.id)?.(e.data.blob);
+      replies.delete(e.data.id);
+    };
+    worker.onerror = workerDown;
+    worker.onmessageerror = workerDown;
+  }
+  const id = nextId++;
+  return new Promise((resolve) => {
+    replies.set(id, (blob) => resolve(blob ? URL.createObjectURL(blob) : null));
+    worker!.postMessage({ id, url, px });
+  });
 }

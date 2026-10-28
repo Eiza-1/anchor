@@ -57,7 +57,7 @@ try {
   $hc=$searcher.GetTotalHistoryCount()
   if($hc -gt 0){
     $h=$searcher.QueryHistory(0,[math]::Min($hc,25))
-    for($i=0;$i -lt $h.Count;$i++){ if($h.Item($i).ResultCode -eq 2){ $last=$h.Item($i).Title+' — '+$h.Item($i).Date.ToLocalTime().ToShortDateString(); break } }
+    for($i=0;$i -lt $h.Count;$i++){ if($h.Item($i).ResultCode -eq 2){ $last=$h.Item($i).Title+', '+$h.Item($i).Date.ToLocalTime().ToShortDateString(); break } }
   }
   [PSCustomObject]@{pending=$result.Updates.Count; titles=$titles; last=$last} | ConvertTo-Json -Compress
 } catch { [PSCustomObject]@{error=$_.Exception.Message} | ConvertTo-Json -Compress } # the real reason, shown on the page
@@ -106,20 +106,20 @@ const DEVICE_ERRORS = {
   1:  ["Not configured correctly", "Reinstall the driver for this device."],
   3:  ["Driver may be corrupted", "Reinstall the driver, or check for low memory/resources."],
   9:  ["Windows can't identify this hardware", "Contact the hardware vendor for a proper driver."],
-  10: ["Device cannot start", "Update the driver; if it persists the hardware may be failing."],
+  10: ["Device cannot start", "Update the driver. If it persists, the hardware may be failing."],
   12: ["Not enough free resources", "Disable another device, or free up IRQ/memory resources in BIOS."],
   14: ["Needs a restart", "Restart your PC to finish setting up this device."],
   16: ["Windows can't identify all resources it uses", "Assign resources manually in Device Manager."],
   18: ["Drivers need reinstalling", "Reinstall the driver for this device."],
   19: ["Registry information is corrupt", "Uninstall the device, then reinstall the driver."],
   21: ["Windows is removing the device", "Restart your PC."],
-  22: ["Disabled", "This device was switched off — enable it in Device Manager if you need it."],
+  22: ["Disabled", "Turned off. Enable it in Device Manager if you need it."],
   24: ["Not present, not working, or missing a driver", "Reseat the hardware and reinstall its driver."],
   28: ["Drivers are not installed", "Install the driver from the hardware vendor."],
   29: ["Disabled by firmware", "Enable the device in your BIOS/UEFI settings."],
-  31: ["Not working properly — driver failed to load", "Reinstall the driver from the vendor's site."],
+  31: ["Driver failed to load", "Reinstall the driver from the vendor's site."],
   32: ["Start type is disabled in the registry", "Reinstall the driver."],
-  33: ["Windows can't determine which resources it needs", "Hardware may be faulty — contact the vendor."],
+  33: ["Windows can't determine which resources it needs", "Hardware may be faulty. Contact the vendor."],
   35: ["Firmware lacks information for this device", "Update your BIOS/UEFI."],
   37: ["Driver returned a failure", "Reinstall the driver."],
   38: ["A previous instance is still loaded", "Restart your PC."],
@@ -127,7 +127,7 @@ const DEVICE_ERRORS = {
   40: ["Registry service key is invalid", "Reinstall the driver."],
   41: ["Driver loaded but Windows can't find the device", "Reseat or reconnect the hardware."],
   42: ["A duplicate device is already running", "Restart your PC."],
-  43: ["Windows stopped this device because it reported problems", "Usually a driver fault or failing hardware: reinstall the vendor driver, and if it returns the device may need service or replacement."],
+  43: ["Windows stopped this device because it reported problems", "Usually a driver fault or failing hardware. Reinstall the vendor driver; if it returns, the device may need repair."],
   44: ["Stopped by an application or service", "Restart your PC."],
   47: ["Prepared for safe removal", "Unplug and reconnect the device, or restart."],
   48: ["Driver blocked because of known problems", "Get an updated driver from the vendor."],
@@ -309,16 +309,16 @@ const TWEAKS = [
     desc: "Stops Windows using your diagnostic data for tips and ad suggestions.",
     hive: "HKCU:", key: "Software\\Microsoft\\Windows\\CurrentVersion\\Privacy", value: "TailoredExperiencesWithDiagnosticDataEnabled", on: 0, off: 1 },
   { id: "activity", name: "Disable activity history upload",
-    desc: "Stops your activity timeline being sent to Microsoft.",
+    desc: "Stops your activity history uploading to Microsoft.",
     hive: "HKLM:", key: "SOFTWARE\\Policies\\Microsoft\\Windows\\System", value: "UploadUserActivities", on: 0, off: 1 },
   { id: "searchweb", name: "Disable Start menu web suggestions",
-    desc: "Removes Bing web results from Start menu search. Frees resources and reduces data sent.",
+    desc: "Removes Bing results from Start menu search and cuts data sent.",
     hive: "HKCU:", key: "Software\\Policies\\Microsoft\\Windows\\Explorer", value: "DisableSearchBoxSuggestions", on: 1, off: 0 },
   { id: "apptrack", name: "Disable app launch tracking",
-    desc: "Stops Windows tracking which apps you launch (used for Start menu suggestions).",
+    desc: "Stops Windows tracking app launches for Start menu suggestions.",
     hive: "HKCU:", key: "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", value: "Start_TrackProgs", on: 0, off: 1 },
   { id: "feedback", name: "Disable feedback requests",
-    desc: "Stops Windows periodically asking for feedback.",
+    desc: "Stops Windows asking for feedback.",
     hive: "HKCU:", key: "Software\\Microsoft\\Siuf\\Rules", value: "NumberOfSIUFInPeriod", on: 0, off: 1 },
 ];
 

@@ -8,6 +8,8 @@ const news = require("../main/services/news.js") as {
   fetchVideos(): Promise<{ link: string; source: string }[]>;
   fetchArticles(sources?: string[]): Promise<Record<string, unknown>[]>;
   VIDEO_CHANNELS: Record<string, string>;
+  siteIcon(html: string, pageUrl: string): string;
+  channelAvatar(html: string): string | null;
 };
 
 describe("strip", () => {
@@ -159,5 +161,40 @@ describe("feed parsing", () => {
       imageUrl: "https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg",
       isShort: true,
     }]);
+  });
+});
+
+describe("siteIcon", () => {
+  it("prefers the apple-touch-icon, resolved against the page", () => {
+    const html = `<link rel="shortcut icon" href="/favicon.ico"/>
+      <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png"/>`;
+    expect(news.siteIcon(html, "https://www.theverge.com/")).toBe("https://www.theverge.com/static/apple-touch-icon.png");
+  });
+
+  it("otherwise takes the largest icon, whatever the attribute order", () => {
+    const html = `<link href="https://x.com/i.png?w=32" rel="icon" sizes="32x32" />
+      <link rel="icon" href="https://x.com/i.png?w=192" sizes="192x192" />`;
+    expect(news.siteIcon(html, "https://x.com/")).toBe("https://x.com/i.png?w=192");
+  });
+
+  it("falls back to /favicon.ico, and never hands back a non-https icon", () => {
+    expect(news.siteIcon("<head></head>", "https://a.com/news/")).toBe("https://a.com/favicon.ico");
+    expect(news.siteIcon(`<link rel="icon" href="http://a.com/i.png">`, "https://a.com/")).toBe("https://a.com/favicon.ico");
+  });
+
+  it("decodes &amp; in the icon URL", () => {
+    expect(news.siteIcon(`<link rel="apple-touch-icon" href="https://a.com/i.png?w=180&amp;h=180">`, "https://a.com/"))
+      .toBe("https://a.com/i.png?w=180&h=180");
+  });
+});
+
+describe("channelAvatar", () => {
+  it("reads og:image and asks for a small copy", () => {
+    const html = `<meta property="og:image" content="https://yt3.googleusercontent.com/abc=s900-c-k-c0x00ffffff-no-rj">`;
+    expect(news.channelAvatar(html)).toBe("https://yt3.googleusercontent.com/abc=s88-c-k-c0x00ffffff-no-rj");
+  });
+
+  it("gives null when the page has no avatar (a consent page, say)", () => {
+    expect(news.channelAvatar("<html><title>Before you continue</title></html>")).toBeNull();
   });
 });

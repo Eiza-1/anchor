@@ -91,7 +91,7 @@ async function signIn(provider = "google") {
     });
     const timer = setTimeout(() => {
       server.close();
-      reject(new Error("Sign-in timed out — the browser window was never completed."));
+      reject(new Error("Sign-in timed out. The browser sign-in wasn't finished."));
     }, 3 * 60 * 1000);
   });
 

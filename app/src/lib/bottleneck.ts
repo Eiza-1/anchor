@@ -51,7 +51,7 @@ export function liveVerdict(samples: Sample[]): Verdict {
     return {
       culprit: "memory",
       headline: "Memory is the limit",
-      detail: `RAM is ${Math.round(memPct)}% full, so Windows is paging to disk — that stalls everything regardless of CPU or GPU speed.`,
+      detail: `RAM is ${Math.round(memPct)}% full, so Windows is paging to disk. That stalls everything, whatever your CPU or GPU.`,
       confidence: 0.9,
     };
 
@@ -67,7 +67,7 @@ export function liveVerdict(samples: Sample[]): Verdict {
     return {
       culprit: "idle",
       headline: "Nothing is under load",
-      detail: "Start a game or heavy app and leave this page open — Anchor keeps measuring while you do.",
+      detail: "Start a game or heavy app and leave this page open. Anchor keeps measuring.",
       confidence: 0.3,
     };
 
@@ -77,7 +77,7 @@ export function liveVerdict(samples: Sample[]): Verdict {
     return {
       culprit: "gpu",
       headline: "GPU-bound",
-      detail: `The graphics card is at ${Math.round(gpu)}% while the CPU sits at ${Math.round(cpu)}%. For games this is the healthy state — you're getting everything the GPU can give.`,
+      detail: `GPU at ${Math.round(gpu)}%, CPU at ${Math.round(cpu)}%. The healthy state for games: you're getting everything the GPU can give.`,
       confidence: Math.min(1, 0.6 + gap / 100),
     };
 
@@ -85,7 +85,7 @@ export function liveVerdict(samples: Sample[]): Verdict {
     return {
       culprit: "cpu",
       headline: "CPU-bound",
-      detail: `The processor is at ${Math.round(cpu)}% while the GPU only reaches ${Math.round(gpu)}%. The graphics card is waiting for work — frames are limited by the CPU.`,
+      detail: `CPU at ${Math.round(cpu)}%, GPU only at ${Math.round(gpu)}%. The GPU is waiting on the CPU, which limits your frames.`,
       confidence: Math.min(1, 0.6 + Math.abs(gap) / 100),
     };
 
@@ -93,14 +93,14 @@ export function liveVerdict(samples: Sample[]): Verdict {
     return {
       culprit: "balanced",
       headline: "Both fully loaded",
-      detail: "CPU and GPU are saturating together — that's an evenly matched system working as hard as it can.",
+      detail: "CPU and GPU are both maxed out: an evenly matched system at full effort.",
       confidence: 0.75,
     };
 
   return {
     culprit: "balanced",
     headline: "No single bottleneck",
-    detail: `CPU ${Math.round(cpu)}%, GPU ${Math.round(gpu)}% — neither is pinned, so something else (frame cap, game settings, or the app itself) is setting the pace.`,
+    detail: `CPU ${Math.round(cpu)}%, GPU ${Math.round(gpu)}%. Neither is maxed, so something else sets the pace: a frame cap, game settings or the app itself.`,
     confidence: 0.5,
   };
 }
@@ -128,7 +128,7 @@ export function assessPairing(samples: Sample[], cpuName?: string, gpuName?: str
     return {
       status: "unknown",
       headline: "Not enough data yet",
-      detail: `Anchor needs about a minute of real load to judge this. ${load.length} of 20 samples collected — start a game or heavy app and leave this page open.`,
+      detail: `Needs about a minute of real load. ${load.length} of 20 samples so far. Start a game or heavy app and leave this page open.`,
       advice: "",
       samples: load.length,
       cpuAvg,
@@ -142,8 +142,8 @@ export function assessPairing(samples: Sample[], cpuName?: string, gpuName?: str
     return {
       status: "gpu-limited",
       headline: "Your GPU is the weaker half",
-      detail: `Under load the GPU averages ${Math.round(gpuAvg)}% while the CPU only needs ${Math.round(cpuAvg)}%. The processor has capacity to spare${pair ? ` — ${pair}` : ""}.`,
-      advice: "A faster graphics card would translate almost directly into more frames. Lowering resolution or graphics settings also helps immediately.",
+      detail: `Under load the GPU averages ${Math.round(gpuAvg)}% while the CPU needs only ${Math.round(cpuAvg)}%, so the CPU has capacity to spare${pair ? ` (${pair})` : ""}.`,
+      advice: "A faster graphics card means more frames almost directly. Lower resolution or graphics settings for an instant gain.",
       samples: load.length,
       cpuAvg,
       gpuAvg,
@@ -153,8 +153,8 @@ export function assessPairing(samples: Sample[], cpuName?: string, gpuName?: str
     return {
       status: "cpu-limited",
       headline: "Your CPU is holding the GPU back",
-      detail: `Under load the CPU averages ${Math.round(cpuAvg)}% while the GPU only reaches ${Math.round(gpuAvg)}%. The graphics card is idling between frames${pair ? ` — ${pair}` : ""}.`,
-      advice: "Raising resolution or graphics quality costs little here — the GPU has headroom. A CPU upgrade would give the biggest gain; closing background apps helps in the meantime.",
+      detail: `Under load the CPU averages ${Math.round(cpuAvg)}% while the GPU reaches only ${Math.round(gpuAvg)}%, so the GPU idles between frames${pair ? ` (${pair})` : ""}.`,
+      advice: "Raise resolution or graphics quality for free, since the GPU has headroom. A CPU upgrade gives the biggest gain; closing background apps helps meanwhile.",
       samples: load.length,
       cpuAvg,
       gpuAvg,
@@ -163,8 +163,8 @@ export function assessPairing(samples: Sample[], cpuName?: string, gpuName?: str
   return {
     status: "balanced",
     headline: "Well matched",
-    detail: `Under load CPU averages ${Math.round(cpuAvg)}% and GPU ${Math.round(gpuAvg)}% — neither consistently waits on the other${pair ? ` — ${pair}` : ""}.`,
-    advice: "Nothing to fix. Upgrading either part alone would give limited benefit; they're working together.",
+    detail: `Under load the CPU averages ${Math.round(cpuAvg)}% and the GPU ${Math.round(gpuAvg)}%. Neither keeps waiting on the other${pair ? ` (${pair})` : ""}.`,
+    advice: "Nothing to fix. Upgrading just one part would gain little.",
     samples: load.length,
     cpuAvg,
     gpuAvg,

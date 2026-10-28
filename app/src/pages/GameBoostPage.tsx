@@ -26,7 +26,7 @@ const EFFECT: Record<Tweak["effect"], { label: string; variant: "default" | "sec
 const CATEGORY_NOTE: Record<string, string> = {
   Gaming: "Free up CPU time and memory for the game you're playing.",
   Graphics: "How Windows hands frames to your display.",
-  Desktop: "These make Windows itself feel faster. They don't change in-game frame rates.",
+  Desktop: "Make Windows itself feel faster. In-game frame rates don't change.",
 };
 
 export default function GameBoostPage() {
@@ -182,7 +182,7 @@ export default function GameBoostPage() {
   }
   async function unlockUltimate() {
     const r = await window.anchor.addUltimatePlan();
-    setPlanMsg(r.ok ? "Ultimate Performance added — choose it from the list." : `Couldn't add it: ${r.error}`);
+    setPlanMsg(r.ok ? "Ultimate Performance added. Choose it from the list." : `Couldn't add it: ${r.error}`);
     setPower(await window.anchor.powerPlan());
   }
   async function removeDuplicates() {
@@ -205,8 +205,7 @@ export default function GameBoostPage() {
             <Sparkles className="size-4 text-primary" /> One click
           </CardTitle>
           <CardDescription>
-            Applies the tweaks marked Recommended. Each one saves the settings it replaces first, so Revert all puts back
-            exactly what you had, including your power plan.
+            Applies the Recommended tweaks. Each saves the setting it replaces, so Revert all restores exactly what you had, power plan included.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -237,7 +236,7 @@ export default function GameBoostPage() {
             <Cpu className="size-4 text-primary" /> Your graphics hardware
           </CardTitle>
           <CardDescription>
-            Read-only. Outdated drivers are the most common cause of games getting slower over time.
+            Read-only. Outdated drivers are the top reason games slow down over time.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -259,8 +258,7 @@ export default function GameBoostPage() {
             {cacheMsg && <span className="text-xs text-muted-foreground">{cacheMsg}</span>}
           </div>
           <p className="text-xs text-muted-foreground">
-            Stale caches after a driver update are a common cause of stutter. Deleting them is safe — the first launch
-            of each game is slightly slower while they rebuild.
+            Stale caches after a driver update often cause stutter. Deleting them is safe; each game's first launch is slightly slower while they rebuild.
           </p>
         </CardContent>
       </Card>
@@ -271,8 +269,7 @@ export default function GameBoostPage() {
             <MonitorPlay className="size-4 text-primary" /> Power plan
           </CardTitle>
           <CardDescription>
-            Balanced throttles the CPU to save power. High performance keeps clocks up — best while gaming, at the cost
-            of battery life on a laptop.
+            Balanced throttles the CPU to save power. High performance keeps clocks up for gaming, at the cost of laptop battery life.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -303,9 +300,7 @@ export default function GameBoostPage() {
             <div className="min-w-0 flex-1 space-y-1">
               <p className="text-sm font-medium">Maximum PCIe link speed</p>
               <p className="text-xs text-muted-foreground">
-                Stops Windows putting the graphics card's PCIe link into a power-saving state, which can cause small
-                hitches when a game suddenly needs it. Only changes the plugged-in setting, so battery life is
-                unaffected. Applies to the active power plan. Uses powercfg SUB_PCIEXPRESS (ASPM = Off).
+                Keeps the graphics card's PCIe link out of power saving, which can cause small hitches in games. Changes only the active power plan's plugged-in setting, so battery life is unaffected. Uses powercfg SUB_PCIEXPRESS (ASPM = Off).
               </p>
             </div>
             <Switch
@@ -355,8 +350,7 @@ export default function GameBoostPage() {
             <Gamepad2 className="size-4 text-primary" /> Per-game GPU preference
           </CardTitle>
           <CardDescription>
-            On laptops with two GPUs, Windows sometimes runs a game on the power-saving chip. Add the game's .exe to
-            force the high-performance GPU.
+            On laptops with two GPUs, Windows may run a game on the power-saving chip. Add the game's .exe to force the high-performance GPU.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">

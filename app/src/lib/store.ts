@@ -294,8 +294,8 @@ export function runRestorePoint(description: string, where: NavTarget = { sectio
 
 /* --------------------------------- Themes --------------------------------- */
 export const THEMES = [
-  { id: "dark", name: "Dark", hint: "Default — charcoal with sky blue", swatch: ["#09090b", "#27272a", "#38bdf8"] },
-  { id: "light", name: "Light", hint: "Soft grey — kinder than pure white", swatch: ["#eeeef2", "#f7f7fa", "#2b2b33"] },
+  { id: "dark", name: "Dark", hint: "Default. Charcoal with sky blue", swatch: ["#09090b", "#27272a", "#38bdf8"] },
+  { id: "light", name: "Light", hint: "Soft grey, easier than pure white", swatch: ["#eeeef2", "#f7f7fa", "#2b2b33"] },
   { id: "midnight", name: "Midnight", hint: "Deep navy, softer than black", swatch: ["#0b1220", "#1e293b", "#60a5fa"] },
   { id: "ember", name: "Ember", hint: "Warm greys, low blue light", swatch: ["#12100e", "#2a2422", "#f97316"] },
   { id: "tide", name: "Tide", hint: "Cool blue-green, easy on the eyes", swatch: ["#0d1a1f", "#22383f", "#2dd4bf"] },
@@ -400,7 +400,7 @@ async function healthJob(): Promise<HealthLine[]> {
         add({
           id: "updates", order: 1, status: "warn", icon: "update",
           title: `${u.pending} update${u.pending === 1 ? "" : "s"} pending`,
-          detail: "Installing cumulative and security updates keeps your system stable and secure.",
+          detail: "Install cumulative and security updates to stay stable and secure.",
         });
     })(),
 
@@ -412,13 +412,13 @@ async function healthJob(): Promise<HealthLine[]> {
           id: `drive-${i}`, order: 2 + i * 0.01,
           status: bad ? "bad" : warn ? "warn" : "ok",
           icon: d.media === "SSD" ? "ssd" : "hdd",
-          title: `${d.name} — ${d.media}, ${formatBytes(d.size)}`,
+          title: `${d.name} (${d.media}, ${formatBytes(d.size)})`,
           detail: bad
             ? d.predictFailure
               ? "S.M.A.R.T. predicts failure. Back up now and replace this drive."
               : "Failure indicators detected. Back up now and replace this drive."
             : warn
-            ? "Early signs of trouble — back up important files soon."
+            ? "Early signs of trouble. Back up important files soon."
             : "No failure signs detected.",
         });
       }
@@ -432,7 +432,7 @@ async function healthJob(): Promise<HealthLine[]> {
           status: pct < 10 ? "warn" : "info",
           icon: "disk",
           title: `${v.DeviceID} ${formatBytes(v.FreeSpace)} free`,
-          detail: `of ${formatBytes(v.Size)} (${Math.round(pct)}% free)${pct < 10 ? " — running low" : ""}`,
+          detail: `of ${formatBytes(v.Size)} (${Math.round(pct)}% free)${pct < 10 ? ", running low" : ""}`,
         });
       }
     })(),
@@ -450,7 +450,7 @@ async function healthJob(): Promise<HealthLine[]> {
         faults.forEach((d, i) =>
           add({
             id: `device-${i}`, order: 2.5 + i * 0.01, status: "bad", icon: "device",
-            title: `${d.name} — Code ${d.code}`,
+            title: `${d.name}: Code ${d.code}`,
             detail: `${d.meaning}. ${d.advice}`,
           })
         );
@@ -478,10 +478,10 @@ async function healthJob(): Promise<HealthLine[]> {
       });
 
       const tips: string[] = [];
-      if (p.cpu > 85) tips.push("Check the Performance page for the heaviest app — closing or updating it usually helps most.");
+      if (p.cpu > 85) tips.push("Find the heaviest app on the Performance page. Closing or updating it helps most.");
       if (memPct > 85) tips.push("Run Boost to trim background apps, or disable startup apps you don't need.");
-      if (p.memTotal < 8 * 1024 ** 3) tips.push("This PC has under 8 GB of RAM — a RAM upgrade is the most effective fix for sluggishness.");
-      if (p.disk > 80) tips.push("If this is an HDD, upgrading to an SSD is transformative. Also check Storage Sense and search indexing.");
+      if (p.memTotal < 8 * 1024 ** 3) tips.push("This PC has under 8 GB of RAM. Adding RAM is the best fix for sluggishness.");
+      if (p.disk > 80) tips.push("On a hard drive, moving to an SSD is the biggest fix. Also check Storage Sense and search indexing.");
       tips.forEach((t, i) =>
         add({ id: `tip-${i}`, order: 5 + i * 0.01, status: "tip", icon: "tip", title: t })
       );
@@ -552,7 +552,7 @@ export async function runMemoryTrim() {
           running: false,
           finishedAt: Date.now(),
           skipped: r.skipped ?? [],
-          message: `Trimmed ${r.trimmed} background processes — ${formatBytes(r.freedBytes)} RAM freed, measured system-wide.`,
+          message: `Trimmed ${r.trimmed} background processes, freeing ${formatBytes(r.freedBytes)} of RAM system-wide.`,
         });
         return r;
       } catch (e) {

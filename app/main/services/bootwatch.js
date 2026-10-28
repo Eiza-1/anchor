@@ -31,7 +31,7 @@ const USER_WRITABLE = [
 // Command-line traits associated with hiding or fetching code.
 const RED_FLAGS = [
   { re: /-enc(odedcommand)?\s/i, why: "runs a Base64-encoded command, which hides what it actually does" },
-  { re: /frombase64string/i, why: "decodes Base64 at runtime — a common way to conceal a payload" },
+  { re: /frombase64string/i, why: "decodes Base64 at runtime, a common way to hide a payload" },
   { re: /-w(indowstyle)?\s+hidden/i, why: "deliberately hides its own window" },
   { re: /-nop(rofile)?\b/i, why: "skips the PowerShell profile, typical of scripted payloads" },
   { re: /(iex|invoke-expression)/i, why: "executes text as code at runtime" },
@@ -79,7 +79,7 @@ function assess({ name, command, path, source, runAs, author }) {
   }
   if (source === "WMI subscription") {
     score += 30;
-    reasons.push("uses a WMI event subscription — a persistence method almost never used by legitimate software");
+    reasons.push("uses a WMI event subscription, a persistence trick legitimate software rarely uses");
   }
   if (source === "IFEO debugger") {
     score += 40;
@@ -363,7 +363,7 @@ function stopWatching() {
 async function disableEntry(id) {
   if (!protectedIds) await scanPersistence();
   if (protectedIds.has(id)) {
-    return { ok: false, error: "This is part of Windows, signed by Microsoft. Disabling it could leave your PC unprotected or unstable." };
+    return { ok: false, error: "Part of Windows, signed by Microsoft. Disabling it could leave your PC unprotected or unstable." };
   }
   const [kind, ...rest] = String(id).split("|");
   const target = rest.join("|");
