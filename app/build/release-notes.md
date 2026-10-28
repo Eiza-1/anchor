@@ -1,12 +1,13 @@
-## Anchor 1.2.0
+## Anchor 1.2.1
 
-A security release: Anchor moves to a much newer Electron, keeps your sign-in locked away, and no longer carries any private keys inside the app.
+A smoothness and polish update: Home feels fluid again, video thumbnails load properly, and installing is simpler.
 
-- **Your sign-in is encrypted on your PC.** Your session is now stored with Windows' own encryption and stays inside Anchor's background process, never in the window. It refreshes itself, so you stay signed in. If it expires, Anchor tells you to sign in again instead of quietly failing. You won't be signed out by this update.
-- **No private keys inside Anchor.** The game release calendar used to carry its own key in the app. It now goes through Anchor's server, so there's nothing to pull out of the install.
-- **Built on Electron 45.** Anchor moves from Electron 31 to 45, picking up more than a year of Chromium security fixes, and every window now runs in Chromium's sandbox.
-- **Safer system commands.** Every PowerShell command Anchor runs now quotes its input the same, tested way. "Open Windows tool" only opens tools from a fixed list.
-- **Safer news images.** Article images are only fetched from public web addresses, with a size limit and a time limit.
-- **Windows Update answers faster and more accurately.** Anchor reads Windows' own list of updates, checks it ahead of time, and checks again when you press Check. If Windows reports an error, you now see the real one.
-- **Boot Watch removes exactly the entry you picked,** and nothing with a similar name.
-- **Clicking Anchor on the taskbar while it's open** brings the window back without a second administrator prompt.
+- **Smoother Home.** Release cards spring open without overlapping, the last card opens fully, and the row no longer scrolls on its own near the edge.
+- **No more background flicker.** The art behind a card no longer flashes dark when you hover.
+- **Faster pages.** Pictures are shrunk in the background, so Tech Spotlight and Home stay responsive while they load.
+- **Sharper text.** Fixes blurry text and brief glitches while scrolling.
+- **Real video thumbnails.** YouTube videos and Shorts show their thumbnail instead of a grey placeholder.
+- **Official logos.** News sources show their site icon, and channels show their own profile picture.
+- **Simpler install.** The installer sets Anchor up for you without asking about all users, and carries the Anchor look.
+- **Update button fixed.** It no longer sits under the minimize, maximize and close buttons.
+- **Clearer wording.** Text across the app is shorter and easier to scan.
